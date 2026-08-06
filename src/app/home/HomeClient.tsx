@@ -2,8 +2,11 @@
 
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
-import { type MainValueType, VALUE_TYPE_LABEL } from '@/lib/onboarding/classifyValueType'
 import LogoutButton from '@/components/LogoutButton'
+import BottomNav from '@/components/BottomNav'
+import Card from '@/components/ui/Card'
+import RatingBadge, { RATING_LABELS } from '@/components/RatingBadge'
+import ValueTypeBadge from '@/components/ValueTypeBadge'
 
 export type UserRow = { name: string; email: string }
 
@@ -57,21 +60,9 @@ interface Props {
 
 type Tab = 'mypage' | 'group'
 
-const RATING_LABELS: Record<number, string> = {
-  4: '常連になりたい',
-  3: '機会があればまた行きたい',
-  2: '一度行けば十分',
-  1: '二度と行かない',
-}
-
 const ROLE_LABELS: Record<string, string> = {
   owner: 'オーナー',
   member: 'メンバー',
-}
-
-function valueTypeLabel(type: string | null | undefined): string {
-  if (!type) return '未設定'
-  return VALUE_TYPE_LABEL[type as MainValueType] ?? type
 }
 
 export default function HomeClient({
@@ -106,9 +97,9 @@ export default function HomeClient({
   }
 
   return (
-    <main className="min-h-screen bg-zinc-50 px-6 py-10">
+    <main className="min-h-screen bg-canvas px-6 py-10 pb-20">
       <div className="mx-auto max-w-md">
-        <h1 className="mb-6 text-2xl font-semibold text-zinc-950">ホーム</h1>
+        <h1 className="mb-6 text-2xl font-bold text-ink">ホーム</h1>
 
         {/* Tab bar */}
         <div className="mb-6 flex gap-2">
@@ -119,8 +110,8 @@ export default function HomeClient({
               onClick={() => setActiveTab(tab)}
               className={
                 activeTab === tab
-                  ? 'rounded-full bg-zinc-950 px-5 py-2 text-sm font-medium text-white'
-                  : 'rounded-full border border-zinc-300 px-5 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50'
+                  ? 'min-h-[44px] rounded-full bg-terra px-5 py-2 text-sm font-medium text-white transition-all duration-150'
+                  : 'min-h-[44px] rounded-full border border-edge px-5 py-2 text-sm font-medium text-ink transition-all duration-150 hover:bg-surface motion-safe:active:scale-[0.98]'
               }
             >
               {tab === 'mypage' ? 'マイページ' : 'グループ'}
@@ -132,86 +123,109 @@ export default function HomeClient({
         {activeTab === 'mypage' && (
           <div className="space-y-4">
             {/* B-1: Value profile */}
-            <section className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
-              <h2 className="mb-4 text-base font-semibold text-zinc-950">価値観プロファイル</h2>
+            <Card as="section" className="p-6">
+              <h2 className="mb-5 text-base font-semibold text-ink">価値観プロファイル</h2>
               {profile ? (
-                <dl className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <dt className="text-zinc-500">タイプ</dt>
-                    <dd className="font-medium text-zinc-950">
-                      {valueTypeLabel(profile.main_value_type)}
-                    </dd>
+                <div className="space-y-5">
+                  {/* Value type badge */}
+                  <div>
+                    <p className="mb-2 text-xs font-medium text-ink-sub">タイプ</p>
+                    <ValueTypeBadge type={profile.main_value_type} />
                   </div>
-                  <div className="flex justify-between">
-                    <dt className="text-zinc-500">診断精度</dt>
-                    <dd className="text-zinc-950">{confidencePct}%</dd>
+
+                  {/* Confidence bar */}
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <p className="text-xs font-medium text-ink-sub">診断精度</p>
+                      <p className="text-xs tabular-nums text-ink-sub">{confidencePct}%</p>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-canvas">
+                      <div
+                        className="h-2 rounded-full bg-terra"
+                        style={{ width: `${confidencePct}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <dt className="text-zinc-500">プロフィール完成度</dt>
-                    <dd className="text-zinc-950">{profile.profile_completion}%</dd>
+
+                  {/* Profile completion bar */}
+                  <div>
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <p className="text-xs font-medium text-ink-sub">プロフィール完成度</p>
+                      <p className="text-xs tabular-nums text-ink-sub">{profile.profile_completion}%</p>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-canvas">
+                      <div
+                        className="h-2 rounded-full bg-honey"
+                        style={{ width: `${profile.profile_completion}%` }}
+                      />
+                    </div>
                   </div>
-                </dl>
+                </div>
               ) : (
-                <p className="text-sm text-zinc-500">価値観診断が未完了です</p>
+                <p className="text-sm text-ink-sub">価値観診断が未完了です</p>
               )}
-            </section>
+            </Card>
 
             {/* B-2: My reviews */}
-            <section className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
-              <h2 className="mb-4 text-base font-semibold text-zinc-950">投稿したレビュー</h2>
+            <Card as="section" className="p-6">
+              <h2 className="mb-4 text-base font-semibold text-ink">投稿したレビュー</h2>
               {myReviews.length === 0 ? (
-                <p className="text-sm text-zinc-500">まだレビューを投稿していません</p>
+                <div className="py-2 text-center">
+                  <p className="mb-1.5 text-2xl" aria-hidden="true">📝</p>
+                  <p className="text-sm text-ink-sub">まだレビューを投稿していません</p>
+                </div>
               ) : (
-                <ul className="divide-y divide-zinc-100">
+                <ul className="divide-y divide-edge">
                   {myReviews.map((review) => (
                     <li key={review.id} className="py-3 first:pt-0 last:pb-0">
                       <Link
                         href={`/restaurants/${review.restaurant_id}`}
-                        className="block hover:opacity-70"
+                        className="block hover:opacity-70 transition-opacity duration-150"
                       >
-                        <p className="font-medium text-zinc-950">
+                        <p className="font-medium text-ink">
                           {review.restaurants?.name ?? '（店舗情報なし）'}
                         </p>
-                        <p className="mt-0.5 text-sm text-zinc-700">
-                          {review.rating}&nbsp;
-                          <span className="text-zinc-500">{RATING_LABELS[review.rating]}</span>
+                        <p className="mt-1.5 flex flex-wrap items-center gap-2 text-sm">
+                          <RatingBadge rating={review.rating} />
+                          <span className="text-ink-sub">{RATING_LABELS[review.rating]}</span>
                         </p>
                         {review.comment && (
-                          <p className="mt-1 line-clamp-2 text-sm text-zinc-600">
+                          <p className="mt-1.5 line-clamp-2 text-sm text-ink-sub">
                             {review.comment}
                           </p>
                         )}
                         {review.visit_date && (
-                          <p className="mt-1 text-xs text-zinc-400">{review.visit_date}</p>
+                          <p className="mt-1 text-xs text-ink-sub">{review.visit_date}</p>
                         )}
                       </Link>
                     </li>
                   ))}
                 </ul>
               )}
-            </section>
+            </Card>
 
             {/* B-3: My restaurants */}
-            <section className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
-              <h2 className="mb-4 text-base font-semibold text-zinc-950">登録した店舗</h2>
+            <Card as="section" className="p-6">
+              <h2 className="mb-4 text-base font-semibold text-ink">登録した店舗</h2>
               {myRestaurants.length === 0 ? (
-                <div>
-                  <p className="mb-3 text-sm text-zinc-500">まだ店舗を登録していません</p>
+                <div className="py-2 text-center">
+                  <p className="mb-1.5 text-2xl" aria-hidden="true">🍽️</p>
+                  <p className="mb-4 text-sm text-ink-sub">まだ店舗を登録していません</p>
                   <Link
                     href="/restaurants/new"
-                    className="inline-block rounded-full bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
+                    className="inline-block rounded-full bg-terra px-5 py-2 text-sm font-medium text-white transition-all duration-150 hover:bg-terra-deep motion-safe:active:scale-[0.98]"
                   >
                     店舗を登録
                   </Link>
                 </div>
               ) : (
-                <ul className="divide-y divide-zinc-100">
+                <ul className="divide-y divide-edge">
                   {myRestaurants.map((r) => (
                     <li key={r.id} className="py-3 first:pt-0 last:pb-0">
-                      <Link href={`/restaurants/${r.id}`} className="block hover:opacity-70">
-                        <p className="font-medium text-zinc-950">{r.name}</p>
+                      <Link href={`/restaurants/${r.id}`} className="block hover:opacity-70 transition-opacity duration-150">
+                        <p className="font-medium text-ink">{r.name}</p>
                         {(r.area || r.genre) && (
-                          <p className="mt-0.5 text-sm text-zinc-500">
+                          <p className="mt-0.5 text-sm text-ink-sub">
                             {[r.area, r.genre].filter(Boolean).join(' · ')}
                           </p>
                         )}
@@ -220,42 +234,42 @@ export default function HomeClient({
                   ))}
                 </ul>
               )}
-            </section>
+            </Card>
 
             {/* B-4: Group name + shortcut to group tab */}
-            <section className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
-              <h2 className="mb-2 text-base font-semibold text-zinc-950">所属グループ</h2>
+            <Card as="section" className="p-6">
+              <h2 className="mb-2 text-base font-semibold text-ink">所属グループ</h2>
               {group ? (
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-zinc-950">{group.name}</p>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm text-ink">{group.name}</p>
                   <button
                     type="button"
                     onClick={() => setActiveTab('group')}
-                    className="text-sm text-zinc-500 hover:text-zinc-700"
+                    className="shrink-0 text-sm text-terra transition-colors duration-150 hover:text-terra-deep"
                   >
                     グループを見る →
                   </button>
                 </div>
               ) : (
-                <p className="text-sm text-zinc-500">グループ情報が見つかりません</p>
+                <p className="text-sm text-ink-sub">グループ情報が見つかりません</p>
               )}
-            </section>
+            </Card>
 
             {/* B-5: Account info + logout */}
-            <section className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
-              <h2 className="mb-4 text-base font-semibold text-zinc-950">アカウント</h2>
+            <Card as="section" className="p-6">
+              <h2 className="mb-4 text-base font-semibold text-ink">アカウント</h2>
               <dl className="mb-4 space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <dt className="text-zinc-500">名前</dt>
-                  <dd className="text-zinc-950">{userData.name}</dd>
+                <div className="flex justify-between gap-4">
+                  <dt className="shrink-0 text-ink-sub">名前</dt>
+                  <dd className="text-right text-ink">{userData.name}</dd>
                 </div>
-                <div className="flex justify-between">
-                  <dt className="text-zinc-500">メール</dt>
-                  <dd className="text-zinc-950">{userData.email}</dd>
+                <div className="flex justify-between gap-4">
+                  <dt className="shrink-0 text-ink-sub">メール</dt>
+                  <dd className="truncate text-right text-ink">{userData.email}</dd>
                 </div>
               </dl>
               <LogoutButton />
-            </section>
+            </Card>
           </div>
         )}
 
@@ -265,78 +279,78 @@ export default function HomeClient({
             {group ? (
               <>
                 {/* C-1: Group name */}
-                <section className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
-                  <p className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-400">
+                <Card as="section" className="p-6">
+                  <p className="mb-1 text-xs font-medium uppercase tracking-wide text-ink-sub">
                     グループ
                   </p>
-                  <p className="text-2xl font-semibold text-zinc-950">{group.name}</p>
-                </section>
+                  <p className="text-2xl font-bold text-ink">{group.name}</p>
+                </Card>
 
                 {/* C-2: Member list */}
-                <section className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
-                  <h2 className="mb-4 text-base font-semibold text-zinc-950">メンバー</h2>
-                  <ul className="divide-y divide-zinc-100">
+                <Card as="section" className="p-6">
+                  <h2 className="mb-4 text-base font-semibold text-ink">メンバー</h2>
+                  <ul className="divide-y divide-edge">
                     {members.map((m) => (
                       <li
                         key={m.user_id}
-                        className="flex items-center justify-between py-3 first:pt-0 last:pb-0"
+                        className="py-3 first:pt-0 last:pb-0"
                       >
-                        <div>
-                          <p className="text-sm font-medium text-zinc-950">
-                            {m.users?.name ?? '（名前なし）'}
-                            {m.user_id === currentUserId && (
-                              <span className="ml-1.5 text-xs font-normal text-zinc-400">
-                                (あなた)
-                              </span>
-                            )}
-                          </p>
-                          <p className="mt-0.5 text-xs text-zinc-500">
-                            {valueTypeLabel(profileMap.get(m.user_id))}
-                            {' · '}
+                        <p className="text-sm font-medium text-ink">
+                          {m.users?.name ?? '（名前なし）'}
+                          {m.user_id === currentUserId && (
+                            <span className="ml-1.5 text-xs font-normal text-ink-sub">
+                              (あなた)
+                            </span>
+                          )}
+                        </p>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                          <ValueTypeBadge type={profileMap.get(m.user_id)} />
+                          <span className="text-xs text-ink-sub">
                             {ROLE_LABELS[m.role] ?? m.role}
-                          </p>
+                          </span>
                         </div>
                       </li>
                     ))}
                   </ul>
-                </section>
+                </Card>
 
                 {/* C-3: Invite code */}
-                <section className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
-                  <h2 className="mb-3 text-base font-semibold text-zinc-950">招待コード</h2>
+                <Card as="section" className="p-6">
+                  <h2 className="mb-3 text-base font-semibold text-ink">招待コード</h2>
                   <div className="flex items-center gap-3">
-                    <code className="flex-1 rounded-md bg-zinc-100 px-3 py-2 font-mono text-sm text-zinc-950">
+                    <code className="flex-1 rounded-xl bg-canvas px-3 py-2 font-mono text-sm text-ink">
                       {group.invite_code}
                     </code>
                     <button
                       type="button"
                       onClick={() => handleCopy(group.invite_code)}
-                      className="shrink-0 rounded-full border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50"
+                      className="min-h-[44px] shrink-0 rounded-full border border-edge px-4 py-2 text-sm font-medium text-ink transition-all duration-150 hover:bg-canvas motion-safe:active:scale-[0.98]"
                     >
-                      {copied ? 'コピーしました' : 'コピー'}
+                      {copied ? 'コピー済み ✓' : 'コピー'}
                     </button>
                   </div>
-                </section>
+                </Card>
 
                 {/* C-4: Link to restaurants */}
-                <section className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
-                  <h2 className="mb-3 text-base font-semibold text-zinc-950">店舗</h2>
+                <Card as="section" className="p-6">
+                  <h2 className="mb-3 text-base font-semibold text-ink">店舗</h2>
                   <Link
                     href="/restaurants"
-                    className="inline-block rounded-full bg-zinc-950 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
+                    className="inline-flex min-h-[44px] items-center rounded-full bg-terra px-5 text-sm font-medium text-white transition-all duration-150 hover:bg-terra-deep motion-safe:active:scale-[0.98]"
                   >
                     グループの店舗を見る
                   </Link>
-                </section>
+                </Card>
               </>
             ) : (
-              <div className="rounded-lg border border-zinc-200 bg-white p-8 text-center shadow-sm">
-                <p className="text-sm text-zinc-500">グループ情報が見つかりません</p>
-              </div>
+              <Card className="p-8 text-center">
+                <p className="text-sm text-ink-sub">グループ情報が見つかりません</p>
+              </Card>
             )}
           </div>
         )}
       </div>
+      <BottomNav />
     </main>
   )
 }

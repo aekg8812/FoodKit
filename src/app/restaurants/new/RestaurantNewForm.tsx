@@ -4,6 +4,11 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import Link from 'next/link'
+import BottomNav from '@/components/BottomNav'
+import Button from '@/components/ui/Button'
+import InputField from '@/components/ui/InputField'
+import TextareaField from '@/components/ui/TextareaField'
+import ErrorMessage from '@/components/ui/ErrorMessage'
 
 interface Props {
   groupId: string
@@ -141,123 +146,96 @@ export default function RestaurantNewForm({ groupId }: Props) {
   // ── Step 2 retry screen ───────────────────────────────────────────────────
   if (step.kind === 'access_failed') {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-6 py-16">
-        <section className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-8 shadow-sm">
-          <h1 className="mb-4 text-xl font-semibold text-zinc-950">
+      <main className="min-h-screen bg-canvas px-6 py-10 pb-20">
+        <section className="mx-auto w-full max-w-md rounded-lg border border-edge bg-surface p-8 shadow-sm">
+          <h1 className="mb-4 text-xl font-semibold text-ink">
             店舗の登録に問題が発生しました
           </h1>
-          {error && (
-            <p className="mb-6 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>
-          )}
-          <button
-            onClick={handleRetryAccess}
-            disabled={submitting}
-            className="w-full rounded-full bg-zinc-950 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
-          >
-            {submitting ? '再試行中...' : 'グループへの共有を再試行'}
-          </button>
+          {error && <ErrorMessage message={error} />}
+          <div className="mt-6">
+            <Button
+              type="button"
+              onClick={handleRetryAccess}
+              disabled={submitting}
+            >
+              {submitting ? '再試行中...' : 'グループへの共有を再試行'}
+            </Button>
+          </div>
         </section>
+        <BottomNav />
       </main>
     )
   }
 
   // ── Normal form ───────────────────────────────────────────────────────────
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-6 py-16">
-      <section className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-8 shadow-sm">
-        <h1 className="mb-6 text-2xl font-semibold text-zinc-950">店舗を登録</h1>
+    <main className="min-h-screen bg-canvas px-6 py-10 pb-20">
+      <section className="mx-auto w-full max-w-md rounded-lg border border-edge bg-surface p-8 shadow-sm">
+        <h1 className="mb-6 text-2xl font-semibold text-ink">店舗を登録</h1>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-zinc-700">
-              店名 <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="name"
-              type="text"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none"
-              placeholder="例：○○食堂"
-            />
-          </div>
+          <InputField
+            id="name"
+            label="店名"
+            type="text"
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="例：○○食堂"
+          />
 
-          <div>
-            <label htmlFor="area" className="block text-sm font-medium text-zinc-700">
-              エリア
-            </label>
-            <input
-              id="area"
-              type="text"
-              value={area}
-              onChange={(e) => setArea(e.target.value)}
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none"
-              placeholder="例：渋谷"
-            />
-          </div>
+          <InputField
+            id="area"
+            label="エリア"
+            type="text"
+            value={area}
+            onChange={(e) => setArea(e.target.value)}
+            placeholder="例：渋谷"
+          />
 
-          <div>
-            <label htmlFor="genre" className="block text-sm font-medium text-zinc-700">
-              ジャンル
-            </label>
-            <input
-              id="genre"
-              type="text"
-              value={genre}
-              onChange={(e) => setGenre(e.target.value)}
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none"
-              placeholder="例：ラーメン"
-            />
-          </div>
+          <InputField
+            id="genre"
+            label="ジャンル"
+            type="text"
+            value={genre}
+            onChange={(e) => setGenre(e.target.value)}
+            placeholder="例：ラーメン"
+          />
 
-          <div>
-            <label htmlFor="address" className="block text-sm font-medium text-zinc-700">
-              住所
-            </label>
-            <input
-              id="address"
-              type="text"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none"
-              placeholder="例：東京都渋谷区..."
-            />
-          </div>
+          <InputField
+            id="address"
+            label="住所"
+            type="text"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="例：東京都渋谷区..."
+          />
 
-          <div>
-            <label htmlFor="memo" className="block text-sm font-medium text-zinc-700">
-              メモ
-            </label>
-            <textarea
-              id="memo"
-              value={memo}
-              onChange={(e) => setMemo(e.target.value)}
-              rows={3}
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none"
-              placeholder="例：テラス席あり、クレカ不可"
-            />
-          </div>
+          <TextareaField
+            id="memo"
+            label="メモ"
+            value={memo}
+            onChange={(e) => setMemo(e.target.value)}
+            placeholder="例：テラス席あり、クレカ不可"
+          />
 
-          {error && (
-            <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>
-          )}
+          {error && <ErrorMessage message={error} />}
 
-          <button
+          <Button
             type="submit"
             disabled={submitting || !name.trim()}
-            className="w-full rounded-full bg-zinc-950 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
           >
             {submitting ? '登録中...' : '登録する'}
-          </button>
+          </Button>
         </form>
 
         <div className="mt-4">
-          <Link href="/restaurants" className="text-sm text-zinc-500 hover:text-zinc-700">
+          <Link href="/restaurants" className="text-sm text-ink-sub hover:text-ink">
             ← 一覧に戻る
           </Link>
         </div>
       </section>
+      <BottomNav />
     </main>
   )
 }

@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import {
   classifyValueType,
-  VALUE_TYPE_LABEL,
   VALUE_TYPE_DESCRIPTION,
   type MainValueType,
 } from '@/lib/onboarding/classifyValueType'
+import Button from '@/components/ui/Button'
+import ErrorMessage from '@/components/ui/ErrorMessage'
+import ValueTypeBadge from '@/components/ValueTypeBadge'
 
 export type OnboardingOption = { id: string; option_text: string }
 export type OnboardingQuestion = {
@@ -46,6 +48,15 @@ function toJapaneseError(err: unknown): string {
         : ''
   if (msg.includes('Authentication is required')) return 'ログインが必要です。再度ログインしてください'
   return 'エラーが発生しました。時間をおいて再度お試しください'
+}
+
+function StepBar({ current }: { current: 1 | 2 }) {
+  return (
+    <div className="mb-6 flex gap-2">
+      <div className="h-1.5 flex-1 rounded-full bg-terra" />
+      <div className={`h-1.5 flex-1 rounded-full ${current >= 2 ? 'bg-terra' : 'bg-edge'}`} />
+    </div>
+  )
 }
 
 export default function OnboardingForm({ q1, q2a, q2b }: Props) {
@@ -130,19 +141,19 @@ export default function OnboardingForm({ q1, q2a, q2b }: Props) {
   // ── Result screen ────────────────────────────────────────────────────────
   if (step.kind === 'result') {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-6 py-16">
-        <section className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-8 shadow-sm">
-          <p className="mb-1 text-sm font-medium text-zinc-500">診断結果</p>
-          <h1 className="mb-2 text-2xl font-semibold text-zinc-950">
-            あなたは{VALUE_TYPE_LABEL[step.valueType]}タイプです
-          </h1>
-          <p className="mb-8 text-sm text-zinc-600">{VALUE_TYPE_DESCRIPTION[step.valueType]}</p>
-          <button
-            onClick={handleStart}
-            className="w-full rounded-full bg-zinc-950 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
-          >
-            はじめる
-          </button>
+      <main className="flex min-h-screen items-center justify-center bg-canvas px-6 py-16">
+        <section className="w-full max-w-md rounded-2xl border border-edge bg-surface p-8 shadow-sm">
+          <p className="mb-2 text-center text-3xl" aria-hidden="true">✨</p>
+          <p className="mb-3 text-center text-sm font-medium text-ink-sub">診断結果</p>
+          <div className="mb-2 text-center">
+            <ValueTypeBadge type={step.valueType} />
+          </div>
+          <p className="mb-8 mt-3 text-center text-sm leading-relaxed text-ink-sub">
+            {VALUE_TYPE_DESCRIPTION[step.valueType]}
+          </p>
+          <Button type="button" onClick={handleStart}>
+            FoodKit をはじめる
+          </Button>
         </section>
       </main>
     )
@@ -154,27 +165,26 @@ export default function OnboardingForm({ q1, q2a, q2b }: Props) {
     const isSubmitting = submittingOptionId !== null
 
     return (
-      <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-6 py-16">
-        <section className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-8 shadow-sm">
-          <p className="mb-1 text-xs text-zinc-400">質問 2 / 2</p>
-          <h1 className="mb-6 text-xl font-semibold leading-snug text-zinc-950">
+      <main className="flex min-h-screen items-center justify-center bg-canvas px-6 py-16">
+        <section className="w-full max-w-md rounded-2xl border border-edge bg-surface p-8 shadow-sm">
+          <StepBar current={2} />
+          <p className="mb-1 text-xs font-medium text-ink-sub">質問 2 / 2</p>
+          <h1 className="mb-7 text-xl font-semibold leading-snug text-ink">
             {currentQ2.question_text}
           </h1>
 
-          {error && (
-            <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>
-          )}
+          {error && <ErrorMessage message={error} />}
 
-          <div className="space-y-3">
+          <div className="mt-4 space-y-3">
             {currentQ2.value_options.map((option) => (
-              <button
+              <Button
                 key={option.id}
+                type="button"
                 onClick={() => handleQ2(option)}
                 disabled={isSubmitting}
-                className="w-full rounded-full bg-zinc-950 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
               >
                 {submittingOptionId === option.id ? '送信中...' : option.option_text}
-              </button>
+              </Button>
             ))}
           </div>
 
@@ -185,7 +195,7 @@ export default function OnboardingForm({ q1, q2a, q2b }: Props) {
               setError(null)
             }}
             disabled={isSubmitting}
-            className="mt-4 w-full text-center text-sm text-zinc-500 hover:text-zinc-700 disabled:opacity-50"
+            className="mt-5 w-full text-center text-sm text-ink-sub transition-colors duration-150 hover:text-ink disabled:opacity-50"
           >
             ← Q1 をやり直す
           </button>
@@ -196,27 +206,28 @@ export default function OnboardingForm({ q1, q2a, q2b }: Props) {
 
   // ── Q1 screen ─────────────────────────────────────────────────────────────
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-6 py-16">
-      <section className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-8 shadow-sm">
-        <h1 className="mb-2 text-2xl font-semibold text-zinc-950">価値観診断</h1>
-        <p className="mb-6 text-sm text-zinc-600">
+    <main className="flex min-h-screen items-center justify-center bg-canvas px-6 py-16">
+      <section className="w-full max-w-md rounded-2xl border border-edge bg-surface p-8 shadow-sm">
+        <StepBar current={1} />
+        <h1 className="mb-2 text-2xl font-bold text-ink">価値観診断</h1>
+        <p className="mb-7 text-sm leading-relaxed text-ink-sub">
           2問の質問に答えて、あなたのお店選びのタイプを診断します。
         </p>
 
-        <p className="mb-1 text-xs text-zinc-400">質問 1 / 2</p>
-        <p className="mb-6 text-base font-medium leading-snug text-zinc-950">
+        <p className="mb-1 text-xs font-medium text-ink-sub">質問 1 / 2</p>
+        <p className="mb-6 text-base font-semibold leading-snug text-ink">
           {q1.question_text}
         </p>
 
         <div className="space-y-3">
           {q1.value_options.map((option) => (
-            <button
+            <Button
               key={option.id}
+              type="button"
               onClick={() => handleQ1(option)}
-              className="w-full rounded-full bg-zinc-950 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
             >
               {option.option_text}
-            </button>
+            </Button>
           ))}
         </div>
       </section>

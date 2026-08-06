@@ -4,6 +4,9 @@ import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import Button from '@/components/ui/Button'
+import InputField from '@/components/ui/InputField'
+import ErrorMessage from '@/components/ui/ErrorMessage'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -30,55 +33,43 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-50 px-6 py-16">
-      <section className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-8 shadow-sm">
-        <h1 className="mb-6 text-2xl font-semibold text-zinc-950">ログイン</h1>
+    <main className="flex min-h-screen flex-col items-center justify-center bg-canvas px-6 py-16">
+      <div className="mb-6 text-center">
+        <span className="text-3xl" aria-hidden="true">🍽️</span>
+        <p className="mt-1 text-sm font-medium text-ink-sub">FoodKit</p>
+      </div>
+
+      <section className="w-full max-w-md rounded-2xl border border-edge bg-surface p-8 shadow-sm">
+        <h1 className="mb-6 text-2xl font-bold text-ink">ログイン</h1>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-zinc-700">
-              メールアドレス
-            </label>
-            <input
-              id="email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none"
-            />
-          </div>
+          <InputField
+            id="email"
+            label="メールアドレス"
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <InputField
+            id="password"
+            label="パスワード"
+            type="password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
 
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-zinc-700">
-              パスワード
-            </label>
-            <input
-              id="password"
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none"
-            />
-          </div>
+          {error && <ErrorMessage message={error} />}
 
-          {error && (
-            <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-full bg-zinc-950 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
-          >
+          <Button type="submit" loading={loading}>
             {loading ? 'ログイン中...' : 'ログイン'}
-          </button>
+          </Button>
         </form>
 
-        <p className="mt-4 text-center text-sm text-zinc-600">
+        <p className="mt-5 text-center text-sm text-ink-sub">
           アカウントをお持ちでない方は{' '}
-          <Link href="/signup" className="font-medium text-zinc-950 underline">
+          <Link href="/signup" className="font-medium text-terra transition-colors duration-150 hover:text-terra-deep underline">
             新規登録
           </Link>
         </p>

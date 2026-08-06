@@ -3,6 +3,10 @@
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
+import Button from '@/components/ui/Button'
+import TextareaField from '@/components/ui/TextareaField'
+import InputField from '@/components/ui/InputField'
+import ErrorMessage from '@/components/ui/ErrorMessage'
 
 export type ExistingReview = {
   id: string
@@ -19,11 +23,26 @@ interface Props {
 
 export const RATING_OPTIONS = [4, 3, 2, 1] as const
 
-export const RATING_LABELS: Record<number, string> = {
+const RATING_LABELS: Record<number, string> = {
   4: '常連になりたい',
   3: '機会があればまた行きたい',
   2: '一度行けば十分',
   1: '二度と行かない',
+}
+
+const RATING_EMOJI: Record<number, string> = {
+  4: '🤩',
+  3: '😊',
+  2: '😐',
+  1: '😞',
+}
+
+// アクティブ時は分布バーと同系統の色で一貫性を持たせる
+const RATING_ACTIVE_CLASS: Record<number, string> = {
+  4: 'bg-emerald-500 text-white border-transparent',
+  3: 'bg-sky-400 text-white border-transparent',
+  2: 'bg-amber-400 text-white border-transparent',
+  1: 'bg-red-400 text-white border-transparent',
 }
 
 function logError(err: unknown) {
@@ -104,9 +123,9 @@ export default function ReviewForm({ restaurantId, groupId, existingReview }: Pr
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-5">
       <div>
-        <p className="mb-2 text-sm font-medium text-zinc-700">
+        <p className="mb-3 text-sm font-medium text-ink">
           評価 <span className="text-red-500">*</span>
         </p>
         <div className="space-y-2">
@@ -115,57 +134,44 @@ export default function ReviewForm({ restaurantId, groupId, existingReview }: Pr
               key={r}
               type="button"
               onClick={() => setRating(r)}
-              className={
+              className={`flex min-h-[44px] w-full items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition-all duration-150 motion-safe:active:scale-[0.98] ${
                 rating === r
-                  ? 'flex w-full items-center gap-3 rounded-lg bg-zinc-950 px-4 py-3 text-left text-sm text-white'
-                  : 'flex w-full items-center gap-3 rounded-lg border border-zinc-300 px-4 py-3 text-left text-sm text-zinc-700 hover:bg-zinc-50'
-              }
+                  ? RATING_ACTIVE_CLASS[r]
+                  : 'border-edge text-ink hover:bg-canvas'
+              }`}
             >
               <span className="w-4 shrink-0 font-bold">{r}</span>
+              <span aria-hidden="true">{RATING_EMOJI[r]}</span>
               <span>{RATING_LABELS[r]}</span>
             </button>
           ))}
         </div>
       </div>
 
-      <div>
-        <label htmlFor="comment" className="block text-sm font-medium text-zinc-700">
-          コメント
-        </label>
-        <textarea
-          id="comment"
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          rows={3}
-          className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-950 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none"
-          placeholder="感想・おすすめポイントなど（任意）"
-        />
-      </div>
+      <TextareaField
+        id="comment"
+        label="コメント"
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        placeholder="感想・おすすめポイントなど（任意）"
+      />
 
-      <div>
-        <label htmlFor="visit_date" className="block text-sm font-medium text-zinc-700">
-          最後に行った日
-        </label>
-        <input
-          id="visit_date"
-          type="date"
-          value={visitDate}
-          onChange={(e) => setVisitDate(e.target.value)}
-          className="mt-1 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-950 focus:border-zinc-500 focus:outline-none"
-        />
-      </div>
+      <InputField
+        id="visit_date"
+        label="最後に行った日"
+        type="date"
+        value={visitDate}
+        onChange={(e) => setVisitDate(e.target.value)}
+      />
 
-      {error && (
-        <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</p>
-      )}
+      {error && <ErrorMessage message={error} />}
 
-      <button
+      <Button
         type="submit"
         disabled={submitting || rating === null}
-        className="w-full rounded-full bg-zinc-950 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50"
       >
         {submitting ? '送信中...' : existingReview ? '更新する' : '投稿する'}
-      </button>
+      </Button>
     </form>
   )
 }

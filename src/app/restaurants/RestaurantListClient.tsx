@@ -3,6 +3,9 @@
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { type MainValueType, VALUE_TYPE_LABEL } from '@/lib/onboarding/classifyValueType'
+import BottomNav from '@/components/BottomNav'
+import Card from '@/components/ui/Card'
+import ValueTypeBadge from '@/components/ValueTypeBadge'
 
 export type RestaurantRow = {
   id: string
@@ -99,12 +102,12 @@ function DistributionDisplay({
   emptyMessage: string
 }) {
   if (dist.total === 0) {
-    return <p className="mt-2 text-xs text-zinc-400">{emptyMessage}</p>
+    return <p className="mt-2 text-xs text-ink-sub">{emptyMessage}</p>
   }
 
   return (
     <div className="mt-3">
-      <div className="flex h-2 w-full overflow-hidden rounded-full bg-zinc-100">
+      <div className="flex h-2 w-full overflow-hidden rounded-full bg-canvas">
         {RATINGS.map((r) =>
           dist.counts[r] > 0 ? (
             <div
@@ -117,12 +120,12 @@ function DistributionDisplay({
       </div>
       <div className="mt-1 flex gap-3 text-xs">
         {RATINGS.map((r) => (
-          <span key={r} className={dist.counts[r] === 0 ? 'text-zinc-300' : 'text-zinc-500'}>
+          <span key={r} className={dist.counts[r] === 0 ? 'text-edge' : 'text-ink-sub'}>
             {r}: {dist.percents[r]}%
           </span>
         ))}
       </div>
-      <p className="mt-0.5 text-xs text-zinc-400">
+      <p className="mt-0.5 text-xs text-ink-sub">
         {countLabel}&nbsp;{dist.total}人の評価
       </p>
     </div>
@@ -197,98 +200,92 @@ export default function RestaurantListClient({
       ? 'まだ評価がありません'
       : `${VALUE_TYPE_LABEL[filter as MainValueType]}の評価はまだありません`
 
-  const headerAndFooter = (children: React.ReactNode) => (
-    <main className="min-h-screen bg-zinc-50 px-6 py-10">
-      <div className="mx-auto max-w-md">
-        <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-zinc-950">店舗一覧</h1>
-          <Link
-            href="/restaurants/new"
-            className="rounded-full bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
-          >
-            ＋ 登録
-          </Link>
-        </div>
-        {children}
-        <div className="mt-6">
-          <Link href="/home" className="text-sm text-zinc-500 hover:text-zinc-700">
-            ← ホームに戻る
-          </Link>
-        </div>
-      </div>
-    </main>
+  const pageHeader = (
+    <div className="mb-5 flex items-center justify-between">
+      <h1 className="text-2xl font-bold text-ink">店舗一覧</h1>
+      <Link
+        href="/restaurants/new"
+        className="inline-flex min-h-[44px] items-center rounded-full bg-terra px-4 text-sm font-medium text-white transition-all duration-150 hover:bg-terra-deep motion-safe:active:scale-[0.98]"
+      >
+        ＋ 登録
+      </Link>
+    </div>
   )
 
   if (restaurants.length === 0) {
-    return headerAndFooter(
-      <div className="rounded-lg border border-zinc-200 bg-white p-8 text-center shadow-sm">
-        <p className="mb-4 text-sm text-zinc-600">まだ店舗がありません。登録してみましょう。</p>
-        <Link
-          href="/restaurants/new"
-          className="rounded-full bg-zinc-950 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-zinc-700"
-        >
-          店舗を登録
-        </Link>
-      </div>,
+    return (
+      <main className="min-h-screen bg-canvas px-6 py-10 pb-20">
+        <div className="mx-auto max-w-md">
+          {pageHeader}
+          <Card className="p-8 text-center">
+            <p className="mb-2 text-3xl" aria-hidden="true">🍽️</p>
+            <p className="mb-5 text-sm text-ink-sub">まだ店舗がありません。登録してみましょう。</p>
+            <Link
+              href="/restaurants/new"
+              className="inline-flex min-h-[44px] items-center rounded-full bg-terra px-5 text-sm font-medium text-white transition-all duration-150 hover:bg-terra-deep motion-safe:active:scale-[0.98]"
+            >
+              店舗を登録
+            </Link>
+          </Card>
+        </div>
+        <BottomNav />
+      </main>
     )
   }
 
-  return headerAndFooter(
-    <>
-      {/* 自分の価値観タイプ */}
-      <p className="mb-4 text-sm text-zinc-500">
-        {myValueType ? (
-          <>
-            あなたは{' '}
-            <span className="font-medium text-zinc-950">{VALUE_TYPE_LABEL[myValueType]}</span>{' '}
-            タイプ
-          </>
-        ) : (
-          '価値観タイプが未設定です'
-        )}
-      </p>
+  return (
+    <main className="min-h-screen bg-canvas px-6 py-10 pb-20">
+      <div className="mx-auto max-w-md">
+        {pageHeader}
 
-      {/* フィルタ */}
-      <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-        {FILTER_OPTIONS.map((opt) => (
-          <button
-            key={opt.value}
-            type="button"
-            onClick={() => setFilter(opt.value)}
-            className={
-              filter === opt.value
-                ? 'shrink-0 rounded-full bg-zinc-950 px-4 py-1.5 text-sm font-medium text-white'
-                : 'shrink-0 rounded-full border border-zinc-300 px-4 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50'
-            }
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
+        {/* 自分の価値観タイプ */}
+        <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-ink-sub">あなたのタイプ：</span>
+          <ValueTypeBadge type={myValueType} />
+        </div>
 
-      {/* 店舗リスト */}
-      <ul className="space-y-3">
-        {sortedRestaurants.map(({ restaurant: r, dist }) => (
-          <li key={r.id}>
-            <Link
-              href={`/restaurants/${r.id}`}
-              className="block rounded-lg border border-zinc-200 bg-white p-4 shadow-sm transition-colors hover:bg-zinc-50"
+        {/* フィルタ */}
+        <div className="mb-5 flex flex-wrap gap-2">
+          {FILTER_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setFilter(opt.value)}
+              className={
+                filter === opt.value
+                  ? 'min-h-[44px] rounded-full bg-terra px-4 py-1.5 text-sm font-medium text-white transition-all duration-150'
+                  : 'min-h-[44px] rounded-full border border-edge px-4 py-1.5 text-sm font-medium text-ink transition-all duration-150 hover:bg-canvas motion-safe:active:scale-[0.98]'
+              }
             >
-              <p className="font-medium text-zinc-950">{r.name}</p>
-              {(r.area || r.genre) && (
-                <p className="mt-1 text-sm text-zinc-500">
-                  {[r.area, r.genre].filter(Boolean).join(' · ')}
-                </p>
-              )}
-              <DistributionDisplay
-                dist={dist}
-                countLabel={countLabel}
-                emptyMessage={emptyMessage}
-              />
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </>,
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        {/* 店舗リスト */}
+        <ul className="space-y-3">
+          {sortedRestaurants.map(({ restaurant: r, dist }) => (
+            <li key={r.id}>
+              <Link href={`/restaurants/${r.id}`} className="block">
+                <Card interactive className="p-4">
+                  <p className="font-medium text-ink">{r.name}</p>
+                  {(r.area || r.genre) && (
+                    <p className="mt-1 text-sm text-ink-sub">
+                      {[r.area, r.genre].filter(Boolean).join(' · ')}
+                    </p>
+                  )}
+                  <DistributionDisplay
+                    dist={dist}
+                    countLabel={countLabel}
+                    emptyMessage={emptyMessage}
+                  />
+                </Card>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <BottomNav />
+    </main>
   )
 }

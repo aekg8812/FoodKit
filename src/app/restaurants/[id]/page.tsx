@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
-import ReviewForm, { type ExistingReview, RATING_LABELS } from './ReviewForm'
+import ReviewForm, { type ExistingReview } from './ReviewForm'
+import BottomNav from '@/components/BottomNav'
+import RatingBadge, { RATING_LABELS } from '@/components/RatingBadge'
 
 type Restaurant = {
   id: string
@@ -94,47 +96,49 @@ export default async function RestaurantDetailPage({
   const existingReview = existingReviewResult.data as ExistingReview | null
 
   return (
-    <main className="min-h-screen bg-zinc-50 px-6 py-10">
+    <main className="min-h-screen bg-canvas px-6 py-10 pb-20">
       <div className="mx-auto max-w-md">
-        <Link href="/restaurants" className="mb-4 block text-sm text-zinc-500 hover:text-zinc-700">
+        <Link href="/restaurants" className="mb-5 block text-sm text-ink-sub transition-colors duration-150 hover:text-ink">
           ← 一覧に戻る
         </Link>
 
-        <section className="rounded-lg border border-zinc-200 bg-white p-8 shadow-sm">
-          <h1 className="mb-4 text-2xl font-semibold text-zinc-950">{r.name}</h1>
+        {/* 店舗情報 */}
+        <section className="rounded-2xl border border-edge bg-surface p-6 shadow-sm">
+          <h1 className="mb-4 text-2xl font-bold text-ink">{r.name}</h1>
 
           {(r.area || r.genre || r.address || r.memo) && (
             <dl className="space-y-3 text-sm">
               {r.area && (
                 <div>
-                  <dt className="font-medium text-zinc-500">エリア</dt>
-                  <dd className="mt-0.5 text-zinc-950">{r.area}</dd>
+                  <dt className="font-medium text-ink-sub">エリア</dt>
+                  <dd className="mt-0.5 text-ink">{r.area}</dd>
                 </div>
               )}
               {r.genre && (
                 <div>
-                  <dt className="font-medium text-zinc-500">ジャンル</dt>
-                  <dd className="mt-0.5 text-zinc-950">{r.genre}</dd>
+                  <dt className="font-medium text-ink-sub">ジャンル</dt>
+                  <dd className="mt-0.5 text-ink">{r.genre}</dd>
                 </div>
               )}
               {r.address && (
                 <div>
-                  <dt className="font-medium text-zinc-500">住所</dt>
-                  <dd className="mt-0.5 text-zinc-950">{r.address}</dd>
+                  <dt className="font-medium text-ink-sub">住所</dt>
+                  <dd className="mt-0.5 text-ink">{r.address}</dd>
                 </div>
               )}
               {r.memo && (
                 <div>
-                  <dt className="font-medium text-zinc-500">メモ</dt>
-                  <dd className="mt-0.5 whitespace-pre-wrap text-zinc-950">{r.memo}</dd>
+                  <dt className="font-medium text-ink-sub">メモ</dt>
+                  <dd className="mt-0.5 whitespace-pre-wrap text-ink">{r.memo}</dd>
                 </div>
               )}
             </dl>
           )}
         </section>
 
-        <section className="mt-4 rounded-lg border border-zinc-200 bg-white p-8 shadow-sm">
-          <h2 className="mb-4 text-base font-semibold text-zinc-950">
+        {/* レビュー投稿フォーム */}
+        <section className="mt-4 rounded-2xl border border-edge bg-surface p-6 shadow-sm">
+          <h2 className="mb-5 text-base font-semibold text-ink">
             {existingReview ? 'あなたの評価を更新' : 'レビューを投稿'}
           </h2>
           {groupId ? (
@@ -145,42 +149,46 @@ export default async function RestaurantDetailPage({
               existingReview={existingReview}
             />
           ) : (
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm text-ink-sub">
               レビュー投稿ができません（グループへの共有情報が見つかりません）
             </p>
           )}
         </section>
 
-        <section className="mt-4 rounded-lg border border-zinc-200 bg-white p-8 shadow-sm">
-          <h2 className="mb-4 text-base font-semibold text-zinc-950">レビュー一覧</h2>
+        {/* レビュー一覧 */}
+        <section className="mt-4 rounded-2xl border border-edge bg-surface p-6 shadow-sm">
+          <h2 className="mb-5 text-base font-semibold text-ink">みんなの評価</h2>
 
           {reviews.length === 0 ? (
-            <p className="text-sm text-zinc-500">まだレビューがありません</p>
+            <div className="py-2 text-center">
+              <p className="mb-1.5 text-2xl" aria-hidden="true">✍️</p>
+              <p className="text-sm text-ink-sub">まだレビューがありません</p>
+            </div>
           ) : (
-            <ul className="divide-y divide-zinc-100">
+            <ul className="divide-y divide-edge">
               {reviews.map((review) => (
                 <li key={review.id} className="py-4 first:pt-0 last:pb-0">
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       {review.user_id === user.id && (
-                        <span className="mb-1 inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600">
+                        <span className="mb-2 inline-block rounded-full bg-cream px-2.5 py-0.5 text-xs font-medium text-amber-800">
                           あなたの評価
                         </span>
                       )}
-                      <p className="font-medium text-zinc-950">
-                        {review.rating}&nbsp;
-                        <span className="font-normal">{RATING_LABELS[review.rating]}</span>
-                      </p>
-                      <p className="mt-0.5 text-sm text-zinc-500">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <RatingBadge rating={review.rating} />
+                        <span className="text-sm text-ink">{RATING_LABELS[review.rating]}</span>
+                      </div>
+                      <p className="mt-1 text-sm text-ink-sub">
                         {review.users?.name ?? '不明'}
                       </p>
                     </div>
                     {review.visit_date && (
-                      <p className="shrink-0 text-xs text-zinc-400">{review.visit_date}</p>
+                      <p className="shrink-0 text-xs text-ink-sub">{review.visit_date}</p>
                     )}
                   </div>
                   {review.comment && (
-                    <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-700">
+                    <p className="mt-2 whitespace-pre-wrap text-sm text-ink-sub">
                       {review.comment}
                     </p>
                   )}
@@ -190,6 +198,7 @@ export default async function RestaurantDetailPage({
           )}
         </section>
       </div>
+      <BottomNav />
     </main>
   )
 }
