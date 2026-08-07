@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #faf8f5;
-  --foreground: #2a1c18;
+  --background: #FFF8F2;
+  --foreground: #2F2A27;
 }
 
 @theme inline {
@@ -10,17 +10,17 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  /* App color tokens */
-  --color-canvas:     #faf8f5;
+  /* App color tokens — Warm Orange palette */
+  --color-canvas:     #FFF8F2;
   --color-surface:    #ffffff;
-  --color-edge:       #e5ddd5;
-  --color-terra:      #96574a;
-  --color-terra-deep: #7a4439;
-  --color-ink:        #2a1c18;
-  --color-ink-sub:    #786560;
-  /* Accent — honey (golden amber) and cream (pale warm background) */
-  --color-honey:      #e8a94b;
-  --color-cream:      #fdf3e3;
+  --color-edge:       #F3E5D8;
+  --color-terra:      #F97316;
+  --color-terra-deep: #EA580C;
+  --color-ink:        #2F2A27;
+  --color-ink-sub:    #8A7A72;
+  /* Accent — honey (yellow-amber, distinct from orange terra) and cream */
+  --color-honey:      #FBBF24;
+  --color-cream:      #FFF3E6;
 }
 
 body {

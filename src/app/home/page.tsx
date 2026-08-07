@@ -1,15 +1,22 @@
 import { createClient } from '@/lib/supabase/server'
 import { getUserState } from '@/lib/auth/getUserState'
 import { redirect } from 'next/navigation'
-import HomeClient, {
-  type UserRow,
-  type ValueProfileRow,
-  type MyReviewRow,
-  type MyRestaurantRow,
-  type GroupRow,
-  type MemberRow,
-  type MemberProfileRow,
-} from './HomeClient'
+import Link from 'next/link'
+import BottomNav from '@/components/BottomNav'
+import ValueTypeBadge from '@/components/ValueTypeBadge'
+import RestaurantCard from '@/components/RestaurantCard'
+import CategoryChips from './CategoryChips'
+import {
+  buildProfileMap,
+  buildEligibleUserIds,
+  sortRestaurants,
+  type RestaurantRow,
+  type ReviewRow,
+  type ProfileRow,
+} from '@/lib/restaurants/aggregate'
+import { VALUE_TYPE_LABEL, type MainValueType } from '@/lib/onboarding/classifyValueType'
+
+const TOP_N = 5
 
 export default async function HomePage() {
   const supabase = await createClient()
@@ -23,77 +30,116 @@ export default async function HomePage() {
   if (state === 'no_group') redirect('/groups/join')
   if (state === 'no_onboarding') redirect('/onboarding')
 
-  const [
-    userResult,
-    profileResult,
-    myReviewsResult,
-    myRestaurantsResult,
-    groupResult,
-    membersResult,
-    memberProfilesResult,
-  ] = await Promise.all([
-    supabase.from('users').select('name, email').eq('id', user.id).single(),
-    supabase
-      .from('user_value_profiles')
-      .select('main_value_type, confidence, profile_completion')
-      .eq('user_id', user.id)
-      .maybeSingle(),
-    supabase
-      .from('reviews')
-      .select('id, rating, comment, visit_date, created_at, restaurant_id, restaurants(id, name)')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false }),
-    supabase
-      .from('restaurants')
-      .select('id, name, area, genre, created_at')
-      .eq('created_by', user.id)
-      .order('created_at', { ascending: false }),
-    supabase.from('groups').select('id, name, invite_code').limit(1).maybeSingle(),
-    supabase.from('group_members').select('user_id, role, users(id, name)'),
+  const [restaurantsResult, reviewsResult, profilesResult, userResult] = await Promise.all([
+    supabase.from('restaurants').select('id, name, area, genre, created_at'),
+    supabase.from('reviews').select('restaurant_id, rating, user_id'),
     supabase.from('user_value_profiles').select('user_id, main_value_type'),
+    supabase.from('users').select('name').eq('id', user.id).single(),
   ])
 
-  if (userResult.error) {
-    console.error('HomePage: failed to load user', userResult.error)
-    throw new Error(`HomePage: failed to load user: ${userResult.error.message}`)
+  if (restaurantsResult.error) {
+    throw new Error(`HomePage: failed to load restaurants: ${restaurantsResult.error.message}`)
   }
-  if (profileResult.error) {
-    console.error('HomePage: failed to load profile', profileResult.error)
-    throw new Error(`HomePage: failed to load profile: ${profileResult.error.message}`)
+  if (reviewsResult.error) {
+    throw new Error(`HomePage: failed to load reviews: ${reviewsResult.error.message}`)
   }
-  if (myReviewsResult.error) {
-    console.error('HomePage: failed to load reviews', myReviewsResult.error)
-    throw new Error(`HomePage: failed to load reviews: ${myReviewsResult.error.message}`)
-  }
-  if (myRestaurantsResult.error) {
-    console.error('HomePage: failed to load restaurants', myRestaurantsResult.error)
-    throw new Error(`HomePage: failed to load restaurants: ${myRestaurantsResult.error.message}`)
-  }
-  if (groupResult.error) {
-    console.error('HomePage: failed to load group', groupResult.error)
-    throw new Error(`HomePage: failed to load group: ${groupResult.error.message}`)
-  }
-  if (membersResult.error) {
-    console.error('HomePage: failed to load members', membersResult.error)
-    throw new Error(`HomePage: failed to load members: ${membersResult.error.message}`)
-  }
-  if (memberProfilesResult.error) {
-    console.error('HomePage: failed to load member profiles', memberProfilesResult.error)
-    throw new Error(
-      `HomePage: failed to load member profiles: ${memberProfilesResult.error.message}`,
-    )
+  if (profilesResult.error) {
+    throw new Error(`HomePage: failed to load profiles: ${profilesResult.error.message}`)
   }
 
+  const restaurants = (restaurantsResult.data ?? []) as RestaurantRow[]
+  const reviews = (reviewsResult.data ?? []) as ReviewRow[]
+  const profiles = (profilesResult.data ?? []) as ProfileRow[]
+  const userName = (userResult.data?.name as string | null | undefined) ?? null
+
+  const profileMap = buildProfileMap(profiles)
+  const myValueType = (profileMap.get(user.id) ?? null) as MainValueType | null
+  const eligibleUserIds = buildEligibleUserIds(profileMap, myValueType)
+  const topRestaurants = sortRestaurants(restaurants, reviews, eligibleUserIds).slice(0, TOP_N)
+  const countLabel = myValueType ? VALUE_TYPE_LABEL[myValueType] : '全員'
+
   return (
-    <HomeClient
-      currentUserId={user.id}
-      userData={userResult.data as UserRow}
-      profile={profileResult.data as ValueProfileRow | null}
-      myReviews={(myReviewsResult.data ?? []) as unknown as MyReviewRow[]}
-      myRestaurants={(myRestaurantsResult.data ?? []) as MyRestaurantRow[]}
-      group={groupResult.data as GroupRow | null}
-      members={(membersResult.data ?? []) as unknown as MemberRow[]}
-      memberProfiles={(memberProfilesResult.data ?? []) as MemberProfileRow[]}
-    />
+    <main className="min-h-screen bg-canvas pb-24">
+      {/* 挨拶 */}
+      <div className="px-6 pb-5 pt-10">
+        <p className="mb-1 text-2xl font-bold text-ink">
+          {userName ? `こんにちは、${userName}さん` : 'こんにちは'}
+          <span className="ml-1.5" aria-hidden="true">👋</span>
+        </p>
+        <p className="text-base text-ink-sub">今日は何が食べたい?</p>
+      </div>
+
+      {/* 検索バー */}
+      <div className="mb-6 px-6">
+        <Link href="/restaurants" className="block">
+          <div
+            role="button"
+            className="flex min-h-[44px] items-center gap-3 rounded-full border border-edge bg-surface px-5 shadow-sm transition-all duration-150 hover:shadow-md motion-safe:active:scale-[0.99]"
+          >
+            <span className="text-base" aria-hidden="true">🔍</span>
+            <span className="text-sm text-ink-sub">店舗を探す（近日公開）</span>
+          </div>
+        </Link>
+      </div>
+
+      {/* クイックカテゴリ */}
+      <section className="mb-8">
+        <div className="mb-3 px-6">
+          <h2 className="text-base font-semibold text-ink">カテゴリ</h2>
+        </div>
+        <CategoryChips />
+      </section>
+
+      {/* おすすめ */}
+      <section className="px-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-base font-semibold text-ink">おすすめ</h2>
+          <Link
+            href="/restaurants"
+            className="text-sm text-terra transition-colors duration-150 hover:text-terra-deep"
+          >
+            全て見る →
+          </Link>
+        </div>
+
+        {myValueType && (
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <span className="text-xs text-ink-sub">あなたのタイプ：</span>
+            <ValueTypeBadge type={myValueType} />
+          </div>
+        )}
+
+        {topRestaurants.length === 0 ? (
+          <div className="rounded-2xl border border-edge bg-surface p-8 text-center shadow-sm">
+            <p className="mb-2 text-3xl" aria-hidden="true">🍽️</p>
+            <p className="mb-5 text-sm text-ink-sub">まだ店舗がありません。登録してみましょう。</p>
+            <Link
+              href="/restaurants/new"
+              className="inline-flex min-h-[44px] items-center rounded-full bg-terra px-5 text-sm font-medium text-white transition-all duration-150 hover:bg-terra-deep motion-safe:active:scale-[0.98]"
+            >
+              店舗を登録
+            </Link>
+          </div>
+        ) : (
+          /* -mx-6 で親 px-6 をキャンセルし画面端まで広げる */
+          <div className="-mx-6 overflow-x-auto snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex gap-4 pl-6 pr-4 pb-3">
+              {topRestaurants.map(({ restaurant, dist }) => (
+                <div key={restaurant.id} className="w-[280px] shrink-0 snap-start">
+                  <RestaurantCard
+                    restaurant={restaurant}
+                    dist={dist}
+                    countLabel={countLabel}
+                    variant="compact"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <BottomNav />
+    </main>
   )
 }
