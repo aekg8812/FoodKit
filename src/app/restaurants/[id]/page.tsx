@@ -148,9 +148,20 @@ export default async function RestaurantDetailPage({
 
         {/* レビュー投稿フォーム */}
         <section className="mt-4 rounded-2xl border border-edge bg-surface p-6 shadow-sm">
-          <h2 className="mb-5 text-base font-semibold text-ink">
-            {existingReview ? 'あなたの評価を更新' : 'レビューを投稿'}
-          </h2>
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-ink">
+              {existingReview ? 'あなたの評価を更新' : 'レビューを投稿'}
+            </h2>
+            {/* レビュー管理導線: 削除などの管理操作は履歴ページに集約する */}
+            {existingReview && (
+              <Link
+                href="/mypage/reviews"
+                className="shrink-0 text-sm font-medium text-terra transition-colors hover:text-terra-deep"
+              >
+                レビューを管理する
+              </Link>
+            )}
+          </div>
           {groupId ? (
             <ReviewForm
               key={existingReview?.id ?? 'new'}
