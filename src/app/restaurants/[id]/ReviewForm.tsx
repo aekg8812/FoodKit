@@ -18,6 +18,7 @@ export type ExistingReview = {
 interface Props {
   restaurantId: string
   groupId: string
+  groupName: string
   existingReview: ExistingReview | null
 }
 
@@ -65,7 +66,15 @@ function toJapaneseError(err: unknown): string {
   return 'エラーが発生しました。時間をおいて再度お試しください'
 }
 
-export default function ReviewForm({ restaurantId, groupId, existingReview }: Props) {
+function getLocalToday(): string {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+export default function ReviewForm({ restaurantId, groupId, groupName, existingReview }: Props) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -74,10 +83,15 @@ export default function ReviewForm({ restaurantId, groupId, existingReview }: Pr
   const [visitDate, setVisitDate] = useState(existingReview?.visit_date ?? '')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const today = getLocalToday()
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (rating === null || rating < 1 || rating > 4) return
+    if (visitDate && visitDate > today) {
+      setError('未来の日付は選択できません')
+      return
+    }
     setSubmitting(true)
     setError(null)
 
@@ -124,6 +138,15 @@ export default function ReviewForm({ restaurantId, groupId, existingReview }: Pr
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      {/* 共有先表示: 現在のレビュー保存先をユーザーへ明示する */}
+      <div className="rounded-lg border border-edge bg-canvas px-4 py-3">
+        <p className="text-xs font-medium text-ink-sub">共有先</p>
+        <p className="mt-1 text-sm font-medium text-ink">{groupName}</p>
+        <p className="mt-1 text-xs leading-relaxed text-ink-sub">
+          このレビューはグループのメンバーに共有されます。
+        </p>
+      </div>
+
       <div>
         <p className="mb-3 text-sm font-medium text-ink">
           評価 <span className="text-red-500">*</span>
@@ -160,6 +183,7 @@ export default function ReviewForm({ restaurantId, groupId, existingReview }: Pr
         id="visit_date"
         label="最後に行った日"
         type="date"
+        max={today}
         value={visitDate}
         onChange={(e) => setVisitDate(e.target.value)}
       />
@@ -170,7 +194,11 @@ export default function ReviewForm({ restaurantId, groupId, existingReview }: Pr
         type="submit"
         disabled={submitting || rating === null}
       >
-        {submitting ? '送信中...' : existingReview ? '更新する' : '投稿する'}
+        {submitting
+          ? '送信中...'
+          : existingReview
+            ? 'グループの投稿を更新'
+            : 'グループに投稿する'}
       </Button>
     </form>
   )

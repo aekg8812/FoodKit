@@ -9,9 +9,11 @@ import Button from '@/components/ui/Button'
 import InputField from '@/components/ui/InputField'
 import TextareaField from '@/components/ui/TextareaField'
 import ErrorMessage from '@/components/ui/ErrorMessage'
+import { RESTAURANT_GENRES } from '@/lib/restaurants/genres'
 
 interface Props {
   groupId: string
+  groupName: string
 }
 
 type FormStep =
@@ -38,7 +40,7 @@ function toJapaneseError(err: unknown): string {
   return 'エラーが発生しました。時間をおいて再度お試しください'
 }
 
-export default function RestaurantNewForm({ groupId }: Props) {
+export default function RestaurantNewForm({ groupId, groupName }: Props) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -173,6 +175,15 @@ export default function RestaurantNewForm({ groupId }: Props) {
       <section className="mx-auto w-full max-w-md rounded-lg border border-edge bg-surface p-8 shadow-sm">
         <h1 className="mb-6 text-2xl font-semibold text-ink">店舗を登録</h1>
 
+        {/* 公開先表示: 登録した店舗が共有されるグループを明示する */}
+        <div className="mb-6 rounded-lg border border-edge bg-canvas px-4 py-3">
+          <p className="text-xs font-medium text-ink-sub">公開先</p>
+          <p className="mt-1 text-sm font-medium text-ink">{groupName}</p>
+          <p className="mt-1 text-xs leading-relaxed text-ink-sub">
+            登録した店舗はグループのメンバーに共有されます。
+          </p>
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <InputField
             id="name"
@@ -193,14 +204,25 @@ export default function RestaurantNewForm({ groupId }: Props) {
             placeholder="例：渋谷"
           />
 
-          <InputField
-            id="genre"
-            label="ジャンル"
-            type="text"
-            value={genre}
-            onChange={(e) => setGenre(e.target.value)}
-            placeholder="例：ラーメン"
-          />
+          {/* ジャンル選択式対応: 自由入力による表記揺れを抑える */}
+          <div>
+            <label htmlFor="genre" className="block text-sm font-medium text-ink">
+              ジャンル
+            </label>
+            <select
+              id="genre"
+              value={genre}
+              onChange={(event) => setGenre(event.target.value)}
+              className="mt-1 min-h-[48px] w-full rounded-xl border border-edge bg-surface px-3 text-base text-ink transition-colors duration-150 focus:border-terra focus:outline-none"
+            >
+              <option value="">選択してください（任意）</option>
+              {RESTAURANT_GENRES.map((genreOption) => (
+                <option key={genreOption} value={genreOption}>
+                  {genreOption}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <InputField
             id="address"
@@ -225,7 +247,7 @@ export default function RestaurantNewForm({ groupId }: Props) {
             type="submit"
             disabled={submitting || !name.trim()}
           >
-            {submitting ? '登録中...' : '登録する'}
+            {submitting ? '登録中...' : 'グループに店舗を登録'}
           </Button>
         </form>
 

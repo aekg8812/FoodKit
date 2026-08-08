@@ -24,6 +24,11 @@ type ReviewWithUser = {
   users: { name: string } | null
 }
 
+type GroupAccess = {
+  group_id: string
+  groups: { name: string } | { name: string }[] | null
+}
+
 export default async function RestaurantDetailPage({
   params,
 }: {
@@ -61,7 +66,7 @@ export default async function RestaurantDetailPage({
       .order('created_at', { ascending: false }),
     supabase
       .from('restaurant_accesses')
-      .select('group_id')
+      .select('group_id, groups(name)')
       .eq('restaurant_id', id)
       .eq('visibility', 'group')
       .limit(1)
@@ -92,7 +97,12 @@ export default async function RestaurantDetailPage({
   }
 
   const reviews = (reviewsResult.data ?? []) as unknown as ReviewWithUser[]
-  const groupId = accessResult.data?.group_id as string | undefined
+  const groupAccess = accessResult.data as unknown as GroupAccess | null
+  const groupId = groupAccess?.group_id
+  const accessGroups = groupAccess?.groups
+  const groupName = (
+    Array.isArray(accessGroups) ? accessGroups[0]?.name : accessGroups?.name
+  ) ?? '現在のグループ'
   const existingReview = existingReviewResult.data as ExistingReview | null
 
   return (
@@ -146,6 +156,7 @@ export default async function RestaurantDetailPage({
               key={existingReview?.id ?? 'new'}
               restaurantId={id}
               groupId={groupId}
+              groupName={groupName}
               existingReview={existingReview}
             />
           ) : (
