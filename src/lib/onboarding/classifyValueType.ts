@@ -14,89 +14,153 @@ export const VALUE_TYPE_DESCRIPTION: Record<MainValueType, string> = {
   atmosphere: 'お店の空間やムードを大切にしています',
 }
 
-// Branching matrix — do NOT use value_options.value_type or score totals.
-// Q1 is a branching switch only and does not contribute to classification.
-//
-//   Q1=yes → Q2a: yes→taste  / no→cost
-//   Q1=no  → Q2b: yes→hospitality / no→atmosphere
-//export function classifyValueType(q1IsYes: boolean, q2IsYes: boolean): MainValueType {
-  //if (q1IsYes) {
-    //return q2IsYes ? 'taste' : 'cost'
-  //}
-  //return q2IsYes ? 'hospitality' : 'atmosphere'
-//}
+export type PreferenceCategory = 'choose' | 'enjoy' | 'together' | 'revisit'
 
-// <追加点>
+export const PREFERENCE_CATEGORY_LABEL: Record<PreferenceCategory, string> = {
+  choose: '店を選ぶ',
+  enjoy: '食事を楽しむ',
+  together: '一緒に過ごす',
+  revisit: 'また行きたい',
+}
 
 export type PreferenceCard = {
   id: string
   label: string
+  tag: string
+  category: PreferenceCategory
   valueType: MainValueType
+  // 画像対応: public配下に置くカード専用画像のパス
+  imagePath: string
 }
 
 export const PREFERENCE_CARDS: PreferenceCard[] = [
   {
-    id: 'taste-1',
-    label: '多少高くても、とにかくおいしい店を選びたい',
+    id: 'choose-taste',
+    label: 'おいしいと評判の料理がある店を選びたい',
+    tag: '評判の味',
+    category: 'choose',
     valueType: 'taste',
+    imagePath: '/preference-cards/choose-taste.webp',
   },
   {
-    id: 'taste-2',
-    label: '素材や調理へのこだわりが気になる',
+    id: 'choose-cost',
+    label: '予算内で満足できる店を選びたい',
+    tag: '予算内',
+    category: 'choose',
+    valueType: 'cost',
+    imagePath: '/preference-cards/choose-cost.webp',
+  },
+  {
+    id: 'choose-hospitality',
+    label: '店員さんの感じがよさそうな店を選びたい',
+    tag: '第一印象',
+    category: 'choose',
+    valueType: 'hospitality',
+    imagePath: '/preference-cards/choose-hospitality.webp',
+  },
+  {
+    id: 'choose-atmosphere',
+    label: '落ち着いて過ごせそうな店を選びたい',
+    tag: '落ち着き',
+    category: 'choose',
+    valueType: 'atmosphere',
+    imagePath: '/preference-cards/choose-atmosphere.webp',
+  },
+  {
+    id: 'enjoy-taste',
+    label: '素材や調理へのこだわりを楽しみたい',
+    tag: 'こだわり',
+    category: 'enjoy',
     valueType: 'taste',
+    imagePath: '/preference-cards/enjoy-taste.webp',
   },
   {
-    id: 'taste-3',
-    label: 'また食べたいと思える料理が一番大事',
+    id: 'enjoy-cost',
+    label: '量と価格のバランスがよいとうれしい',
+    tag: 'バランス',
+    category: 'enjoy',
+    valueType: 'cost',
+    imagePath: '/preference-cards/enjoy-cost.webp',
+  },
+  {
+    id: 'enjoy-hospitality',
+    label: '料理を出すタイミングや気配りも大切にしたい',
+    tag: 'タイミング',
+    category: 'enjoy',
+    valueType: 'hospitality',
+    imagePath: '/preference-cards/enjoy-hospitality.webp',
+  },
+  {
+    id: 'enjoy-atmosphere',
+    label: '店内の雰囲気も含めて食事を楽しみたい',
+    tag: '店内体験',
+    category: 'enjoy',
+    valueType: 'atmosphere',
+    imagePath: '/preference-cards/enjoy-atmosphere.webp',
+  },
+  {
+    id: 'together-taste',
+    label: 'おいしい料理を誰かに紹介したい',
+    tag: 'おすすめ',
+    category: 'together',
     valueType: 'taste',
+    imagePath: '/preference-cards/together-taste.webp',
   },
-
   {
-    id: 'cost-1',
-    label: '値段以上の満足感がある店を選びたい',
+    id: 'together-cost',
+    label: 'みんなが払いやすい価格を重視したい',
+    tag: 'みんなの予算',
+    category: 'together',
     valueType: 'cost',
+    imagePath: '/preference-cards/together-cost.webp',
   },
   {
-    id: 'cost-2',
-    label: '普段使いできる価格かどうかを重視する',
+    id: 'together-hospitality',
+    label: '一緒にいる人にも丁寧に対応してほしい',
+    tag: 'おもてなし',
+    category: 'together',
+    valueType: 'hospitality',
+    imagePath: '/preference-cards/together-hospitality.webp',
+  },
+  {
+    id: 'together-atmosphere',
+    label: 'ゆっくり会話できる空間を選びたい',
+    tag: '会話',
+    category: 'together',
+    valueType: 'atmosphere',
+    imagePath: '/preference-cards/together-atmosphere.webp',
+  },
+  {
+    id: 'revisit-taste',
+    label: 'また食べたいと思える料理がある',
+    tag: 'リピートの味',
+    category: 'revisit',
+    valueType: 'taste',
+    imagePath: '/preference-cards/revisit-taste.webp',
+  },
+  {
+    id: 'revisit-cost',
+    label: '値段以上の満足感がある',
+    tag: '満足感',
+    category: 'revisit',
     valueType: 'cost',
+    imagePath: '/preference-cards/revisit-cost.webp',
   },
   {
-    id: 'cost-3',
-    label: '量と価格のバランスが気になる',
-    valueType: 'cost',
-  },
-
-  {
-    id: 'hospitality-1',
-    label: '店員さんの感じがよい店にまた行きたい',
+    id: 'revisit-hospitality',
+    label: '店員さんとのやり取りが心地よい',
+    tag: '心地よい接客',
+    category: 'revisit',
     valueType: 'hospitality',
+    imagePath: '/preference-cards/revisit-hospitality.webp',
   },
   {
-    id: 'hospitality-2',
-    label: '丁寧な接客だと食事の満足度が上がる',
-    valueType: 'hospitality',
-  },
-  {
-    id: 'hospitality-3',
-    label: '常連として覚えてもらえる店が好き',
-    valueType: 'hospitality',
-  },
-
-  {
-    id: 'atmosphere-1',
-    label: '落ち着いて過ごせる空間を重視する',
+    id: 'revisit-atmosphere',
+    label: '自分の居場所にしたくなる雰囲気がある',
+    tag: '自分の居場所',
+    category: 'revisit',
     valueType: 'atmosphere',
-  },
-  {
-    id: 'atmosphere-2',
-    label: '友達を連れて行きたくなる雰囲気が大事',
-    valueType: 'atmosphere',
-  },
-  {
-    id: 'atmosphere-3',
-    label: '内装や居心地も店選びの決め手になる',
-    valueType: 'atmosphere',
+    imagePath: '/preference-cards/revisit-atmosphere.webp',
   },
 ]
 

@@ -94,6 +94,13 @@ export default function MypageClient({ userData, profile, myReviews, myRestauran
                     />
                   </div>
                 </div>
+                {/* 再診断対応: 再診断専用ページへの導線 */}
+                <Link
+                  href="/mypage/preferences"
+                  className="inline-flex min-h-[44px] w-full items-center justify-center rounded-full border border-edge bg-surface px-5 text-sm font-medium text-ink transition-colors hover:bg-canvas"
+                >
+                  価値観を再診断する
+                </Link>
               </div>
             ) : (
               <p className="text-sm text-ink-sub">価値観診断が未完了です</p>

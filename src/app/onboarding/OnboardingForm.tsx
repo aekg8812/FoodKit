@@ -1,16 +1,19 @@
 'use client'
 
+import Image from 'next/image'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import {
   PREFERENCE_CARDS,
+  PREFERENCE_CATEGORY_LABEL,
   VALUE_TYPE_DESCRIPTION,
   VALUE_TYPE_LABEL,
   calculateConfidence,
   calculateValueScores,
   getTopValueTypes,
   type MainValueType,
+  type PreferenceCategory,
   type ValueScores,
 } from '@/lib/onboarding/classifyValueType'
 import Button from '@/components/ui/Button'
@@ -25,6 +28,21 @@ type Step =
       candidates: [MainValueType, MainValueType]
     }
   | { kind: 'result'; valueType: MainValueType }
+
+// 再診断対応: 同じフォームを初回診断と再診断で共用する
+interface Props {
+  mode?: 'initial' | 'retake'
+}
+
+type CategoryFilter = 'all' | PreferenceCategory
+
+const CATEGORY_FILTERS: CategoryFilter[] = [
+  'all',
+  'choose',
+  'enjoy',
+  'together',
+  'revisit',
+]
 
 function getErrorMessage(error: unknown) {
   const message =
@@ -43,14 +61,21 @@ function getErrorMessage(error: unknown) {
   return 'エラーが発生しました。時間をおいて再度お試しください'
 }
 
-export default function OnboardingForm() {
+// 再診断対応: modeを受け取り、未指定の場合は初回診断として扱う
+export default function OnboardingForm({ mode = 'initial' }: Props) {
   const router = useRouter()
   const supabase = createClient()
 
   const [step, setStep] = useState<Step>({ kind: 'cards' })
+  const [activeCategory, setActiveCategory] = useState<CategoryFilter>('all')
   const [selectedCardIds, setSelectedCardIds] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const visibleCards =
+    activeCategory === 'all'
+      ? PREFERENCE_CARDS
+      : PREFERENCE_CARDS.filter((card) => card.category === activeCategory)
 
   function toggleCard(cardId: string) {
     if (isSubmitting) return
@@ -119,13 +144,15 @@ export default function OnboardingForm() {
 
       if (profileError) throw profileError
 
-      // 完了フラグは必ず最後に更新する
-      const { error: userError } = await supabase
-        .from('users')
-        .update({ onboarding_completed: true })
-        .eq('id', user.id)
+      // 再診断対応: 初回診断のときだけ完了フラグを更新する
+      if (mode === 'initial') {
+        const { error: userError } = await supabase
+          .from('users')
+          .update({ onboarding_completed: true })
+          .eq('id', user.id)
 
-      if (userError) throw userError
+        if (userError) throw userError
+      }
 
       setStep({ kind: 'result', valueType })
     } catch (caughtError) {
@@ -138,7 +165,8 @@ export default function OnboardingForm() {
 
   function handleStart() {
     router.refresh()
-    router.push('/home')
+    // 再診断対応: 再診断後はマイページへ戻す
+    router.push(mode === 'retake' ? '/mypage' : '/home')
   }
 
   if (step.kind === 'result') {
@@ -146,7 +174,8 @@ export default function OnboardingForm() {
       <main className="flex min-h-screen items-center justify-center bg-canvas px-5 py-12">
         <section className="w-full max-w-md rounded-lg border border-edge bg-surface p-7 shadow-sm">
           <p className="mb-3 text-center text-sm font-medium text-ink-sub">
-            あなたの価値観タイプ
+            {/* 再診断対応: モードに応じて結果見出しを変更する */}
+            {mode === 'retake' ? '再診断した価値観タイプ' : 'あなたの価値観タイプ'}
           </p>
 
           <div className="text-center">
@@ -158,7 +187,8 @@ export default function OnboardingForm() {
           </p>
 
           <Button type="button" onClick={handleStart}>
-            FoodKitをはじめる
+            {/* 再診断対応: 戻り先に合わせてボタン文言を変更する */}
+            {mode === 'retake' ? 'マイページに戻る' : 'FoodKitをはじめる'}
           </Button>
         </section>
       </main>
@@ -217,18 +247,71 @@ export default function OnboardingForm() {
     <main className="min-h-screen bg-canvas px-4 py-8">
       <section className="mx-auto w-full max-w-2xl">
         <div className="mb-6">
+          {mode === 'retake' && (
+            <button
+              type="button"
+              onClick={() => router.push('/mypage')}
+              className="mb-5 inline-flex min-h-[44px] items-center text-sm font-medium text-ink-sub transition-colors hover:text-ink"
+            >
+              ← マイページに戻る
+            </button>
+          )}
           <p className="mb-2 text-sm font-medium text-terra">
             {selectedCardIds.length} / 5枚選択
           </p>
+          <div className="mb-4 grid grid-cols-5 gap-2" aria-hidden="true">
+            {Array.from({ length: 5 }, (_, index) => (
+              <span
+                key={index}
+                className={`h-1.5 rounded-full transition-colors ${
+                  index < selectedCardIds.length ? 'bg-terra' : 'bg-edge'
+                }`}
+              />
+            ))}
+          </div>
           <h1 className="text-2xl font-bold text-ink">
-            あなたに近いものを5枚選んでください
+            {/* 再診断対応: 再診断であることが分かる見出しにする */}
+            {mode === 'retake'
+              ? '価値観をもう一度選んでください'
+              : 'あなたに近いものを5枚選んでください'}
           </h1>
+          {mode === 'retake' && (
+            <p className="mt-2 text-sm leading-relaxed text-ink-sub">
+              選び直すと、現在の診断結果が新しい結果に更新されます。
+            </p>
+          )}
         </div>
 
         {error && <ErrorMessage message={error} />}
 
+        <div
+          className="mb-5 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          aria-label="好みカードのカテゴリ"
+        >
+          {CATEGORY_FILTERS.map((category) => {
+            const active = activeCategory === category
+            const label = category === 'all' ? 'すべて' : PREFERENCE_CATEGORY_LABEL[category]
+
+            return (
+              <button
+                key={category}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setActiveCategory(category)}
+                className={`min-h-[40px] shrink-0 rounded-full border px-4 text-sm font-medium transition-colors ${
+                  active
+                    ? 'border-terra bg-terra text-white'
+                    : 'border-edge bg-surface text-ink-sub hover:border-terra hover:text-ink'
+                }`}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
+
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {PREFERENCE_CARDS.map((card) => {
+          {visibleCards.map((card) => {
             const selected = selectedCardIds.includes(card.id)
             const selectionLimitReached =
               selectedCardIds.length >= 5 && !selected
@@ -240,19 +323,44 @@ export default function OnboardingForm() {
                 aria-pressed={selected}
                 disabled={selectionLimitReached || isSubmitting}
                 onClick={() => toggleCard(card.id)}
-                className={`min-h-36 rounded-lg border p-4 text-left text-sm font-medium leading-relaxed transition-colors ${
+                className={`flex min-h-[200px] flex-col overflow-hidden rounded-lg border text-left transition-colors ${
                   selected
-                    ? 'border-terra bg-terra/10 text-ink'
-                    : 'border-edge bg-surface text-ink hover:border-terra'
+                    ? 'border-terra bg-terra/10 shadow-sm'
+                    : 'border-edge bg-surface hover:border-terra'
                 } disabled:cursor-not-allowed disabled:opacity-45`}
               >
-                {card.label}
+                {/* 画像対応: 固定高の画像領域でカードサイズを安定させる */}
+                <span className="relative block h-24 w-full shrink-0 overflow-hidden bg-edge">
+                  <Image
+                    src={card.imagePath}
+                    alt=""
+                    fill
+                    sizes="(min-width: 640px) 200px, 50vw"
+                    className={`object-cover transition-transform duration-200 ${
+                      selected ? 'scale-[1.03]' : 'scale-100'
+                    }`}
+                  />
+                  <span className="absolute bottom-2 left-2 rounded bg-surface/90 px-2 py-1 text-[11px] font-medium text-ink backdrop-blur-sm">
+                    {card.tag}
+                  </span>
+                  <span
+                    className={`absolute right-2 top-2 rounded bg-terra px-2 py-1 text-[11px] font-medium text-white shadow-sm transition-opacity ${
+                      selected ? 'opacity-100' : 'opacity-0'
+                    }`}
+                    aria-hidden={!selected}
+                  >
+                    選択済み
+                  </span>
+                </span>
+                <span className="p-3 text-sm font-medium leading-relaxed text-ink">
+                  {card.label}
+                </span>
               </button>
             )
           })}
         </div>
 
-        <div className="sticky bottom-0 mt-6 bg-canvas py-4">
+        <div className="sticky bottom-0 z-10 mt-6 border-t border-edge bg-canvas/95 py-4 backdrop-blur-sm">
           <Button
             type="button"
             disabled={selectedCardIds.length !== 5 || isSubmitting}

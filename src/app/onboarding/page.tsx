@@ -12,5 +12,6 @@ export default async function OnboardingPage() {
     redirect('/home')
   }
 
-  return <OnboardingForm />
+  {/* 再診断対応: このルートは初回診断として表示する */}
+  return <OnboardingForm mode="initial" />
 }
