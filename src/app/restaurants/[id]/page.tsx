@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import Image from 'next/image'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import ReviewForm, { type ExistingReview } from './ReviewForm'
@@ -21,6 +22,8 @@ type ReviewWithUser = {
   visit_date: string | null
   created_at: string
   user_id: string
+  image_path: string | null
+  image_url: string | null
   users: { name: string } | null
 }
 
@@ -61,7 +64,7 @@ export default async function RestaurantDetailPage({
   const [reviewsResult, accessResult, existingReviewResult] = await Promise.all([
     supabase
       .from('reviews')
-      .select('id, rating, comment, visit_date, created_at, user_id, users(name)')
+      .select('id, rating, comment, visit_date, created_at, user_id, image_path, users(name)')
       .eq('restaurant_id', id)
       .order('created_at', { ascending: false }),
     supabase
@@ -73,7 +76,7 @@ export default async function RestaurantDetailPage({
       .maybeSingle(),
     supabase
       .from('reviews')
-      .select('id, rating, comment, visit_date')
+      .select('id, rating, comment, visit_date, image_path')
       .eq('restaurant_id', id)
       .eq('user_id', user.id)
       .limit(1)
@@ -96,14 +99,41 @@ export default async function RestaurantDetailPage({
     )
   }
 
-  const reviews = (reviewsResult.data ?? []) as unknown as ReviewWithUser[]
+  const reviewRows = (reviewsResult.data ?? []) as unknown as Omit<ReviewWithUser, 'image_url'>[]
   const groupAccess = accessResult.data as unknown as GroupAccess | null
   const groupId = groupAccess?.group_id
   const accessGroups = groupAccess?.groups
   const groupName = (
     Array.isArray(accessGroups) ? accessGroups[0]?.name : accessGroups?.name
   ) ?? '現在のグループ'
-  const existingReview = existingReviewResult.data as ExistingReview | null
+  const existingReviewRow = existingReviewResult.data as Omit<ExistingReview, 'image_url'> | null
+
+  // レビュー画像: 非公開Storageの画像を、この画面だけで使える署名付きURLへ変換する
+  const imagePaths = [...new Set([
+    ...reviewRows.map((review) => review.image_path),
+    existingReviewRow?.image_path ?? null,
+  ].filter((path): path is string => Boolean(path)))]
+  const signedImageEntries = await Promise.all(
+    imagePaths.map(async (path) => {
+      const { data: signedImage } = await supabase.storage
+        .from('review-images')
+        .createSignedUrl(path, 60 * 60)
+      return [path, signedImage?.signedUrl ?? null] as const
+    }),
+  )
+  const signedImageUrls = new Map(signedImageEntries)
+  const reviews: ReviewWithUser[] = reviewRows.map((review) => ({
+    ...review,
+    image_url: review.image_path ? signedImageUrls.get(review.image_path) ?? null : null,
+  }))
+  const existingReview: ExistingReview | null = existingReviewRow
+    ? {
+        ...existingReviewRow,
+        image_url: existingReviewRow.image_path
+          ? signedImageUrls.get(existingReviewRow.image_path) ?? null
+          : null,
+      }
+    : null
 
   return (
     <main className="min-h-screen bg-canvas px-6 py-10 pb-20">
@@ -213,6 +243,18 @@ export default async function RestaurantDetailPage({
                     <p className="mt-2 whitespace-pre-wrap text-sm text-ink-sub">
                       {review.comment}
                     </p>
+                  )}
+                  {review.image_url && (
+                    <div className="relative mt-3 aspect-[4/3] overflow-hidden rounded-lg bg-canvas">
+                      <Image
+                        src={review.image_url}
+                        alt={`${r.name}で記録された食事の写真`}
+                        fill
+                        sizes="(max-width: 448px) 100vw, 400px"
+                        className="object-cover"
+                        unoptimized
+                      />
+                    </div>
                   )}
                 </li>
               ))}
