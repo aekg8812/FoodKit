@@ -53,6 +53,11 @@ export default function MypageClient({ userData, profile, myReviews, myRestauran
     [profile],
   )
 
+  // レビュー履歴導線: マイページは最新3件だけ表示し、全件は専用ページで確認する
+  const visibleReviews = myReviews.slice(0, 3)
+  // 登録店舗履歴導線: マイページは最新3件だけ表示し、全件は専用ページで確認する
+  const visibleRestaurants = myRestaurants.slice(0, 3)
+
   return (
     <main className="min-h-screen bg-canvas px-6 py-10 pb-20">
       <div className="mx-auto max-w-md">
@@ -94,15 +99,22 @@ export default function MypageClient({ userData, profile, myReviews, myRestauran
                     />
                   </div>
                 </div>
+                {/* 再診断対応: 再診断専用ページへの導線 */}
+                <Link
+                  href="/mypage/preferences"
+                  className="inline-flex min-h-[44px] w-full items-center justify-center rounded-full border border-edge bg-surface px-5 text-sm font-medium text-ink transition-colors hover:bg-canvas"
+                >
+                  価値観を再診断する
+                </Link>
               </div>
             ) : (
               <p className="text-sm text-ink-sub">価値観診断が未完了です</p>
             )}
           </Card>
 
-          {/* 投稿したレビュー */}
+          {/* レビュー履歴導線: 最新3件と専用履歴ページへのリンクを表示 */}
           <Card as="section" className="p-6">
-            <h2 className="mb-4 text-base font-semibold text-ink">投稿したレビュー</h2>
+            <h2 className="mb-4 text-base font-semibold text-ink">最近のレビュー</h2>
             {myReviews.length === 0 ? (
               <div className="py-2 text-center">
                 <p className="mb-1.5 text-2xl" aria-hidden="true">📝</p>
@@ -110,7 +122,7 @@ export default function MypageClient({ userData, profile, myReviews, myRestauran
               </div>
             ) : (
               <ul className="divide-y divide-edge">
-                {myReviews.map((review) => (
+                {visibleReviews.map((review) => (
                   <li key={review.id} className="py-3 first:pt-0 last:pb-0">
                     <Link
                       href={`/restaurants/${review.restaurant_id}`}
@@ -136,11 +148,19 @@ export default function MypageClient({ userData, profile, myReviews, myRestauran
                 ))}
               </ul>
             )}
+            {myReviews.length > 0 && (
+              <Link
+                href="/mypage/reviews"
+                className="mt-4 inline-flex min-h-[44px] w-full items-center justify-center border-t border-edge pt-4 text-sm font-medium text-terra transition-colors hover:text-terra-deep"
+              >
+                過去のレビューを見る（{myReviews.length}件）
+              </Link>
+            )}
           </Card>
 
-          {/* 登録した店舗 */}
+          {/* 登録店舗履歴導線: 最新3件と専用一覧ページへのリンクを表示 */}
           <Card as="section" className="p-6">
-            <h2 className="mb-4 text-base font-semibold text-ink">登録した店舗</h2>
+            <h2 className="mb-4 text-base font-semibold text-ink">最近登録した店舗</h2>
             {myRestaurants.length === 0 ? (
               <div className="py-2 text-center">
                 <p className="mb-1.5 text-2xl" aria-hidden="true">🍽️</p>
@@ -154,7 +174,7 @@ export default function MypageClient({ userData, profile, myReviews, myRestauran
               </div>
             ) : (
               <ul className="divide-y divide-edge">
-                {myRestaurants.map((r) => (
+                {visibleRestaurants.map((r) => (
                   <li key={r.id} className="py-3 first:pt-0 last:pb-0">
                     <Link
                       href={`/restaurants/${r.id}`}
@@ -170,6 +190,14 @@ export default function MypageClient({ userData, profile, myReviews, myRestauran
                   </li>
                 ))}
               </ul>
+            )}
+            {myRestaurants.length > 0 && (
+              <Link
+                href="/mypage/restaurants"
+                className="mt-4 inline-flex min-h-[44px] w-full items-center justify-center border-t border-edge pt-4 text-sm font-medium text-terra transition-colors hover:text-terra-deep"
+              >
+                登録した店舗をすべて見る（{myRestaurants.length}件）
+              </Link>
             )}
           </Card>
 

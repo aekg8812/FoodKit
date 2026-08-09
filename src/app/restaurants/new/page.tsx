@@ -17,7 +17,7 @@ export default async function RestaurantNewPage() {
   // If the user belongs to multiple groups, the first result (by DB insertion order) is used.
   const { data: membership, error } = await supabase
     .from('group_members')
-    .select('group_id')
+    .select('group_id, groups(name)')
     .eq('user_id', user.id)
     .limit(1)
     .maybeSingle()
@@ -29,5 +29,18 @@ export default async function RestaurantNewPage() {
   // No group means the user has not joined any group yet.
   if (!membership) redirect('/groups/join')
 
-  return <RestaurantNewForm groupId={membership.group_id as string} />
+  const membershipGroups = membership.groups as unknown as
+    | { name: string }
+    | { name: string }[]
+    | null
+  const groupName = (
+    Array.isArray(membershipGroups) ? membershipGroups[0]?.name : membershipGroups?.name
+  ) ?? '現在のグループ'
+
+  return (
+    <RestaurantNewForm
+      groupId={membership.group_id as string}
+      groupName={groupName}
+    />
+  )
 }
