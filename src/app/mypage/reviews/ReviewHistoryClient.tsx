@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useMemo, useState } from 'react'
 import Card from '@/components/ui/Card'
 import ErrorMessage from '@/components/ui/ErrorMessage'
@@ -14,6 +15,8 @@ export type ReviewHistoryRow = {
   visit_date: string | null
   created_at: string
   restaurant_id: string
+  image_path: string | null
+  image_url: string | null
   restaurants: { id: string; name: string } | null
 }
 
@@ -98,6 +101,16 @@ export default function ReviewHistoryClient({ reviews }: Props) {
       setDeleteError('レビューを削除できませんでした。時間をおいて再度お試しください')
       setDeleting(false)
       return
+    }
+
+    // レビュー画像: レビュー削除後に、本人所有のStorage画像も削除する
+    if (reviewToDelete.image_path) {
+      const { error: imageDeleteError } = await supabase.storage
+        .from('review-images')
+        .remove([reviewToDelete.image_path])
+      if (imageDeleteError) {
+        console.error('[ReviewHistoryClient] failed to delete review image:', imageDeleteError)
+      }
     }
 
     setReviewRows((current) => current.filter((review) => review.id !== reviewToDelete.id))
@@ -221,6 +234,18 @@ export default function ReviewHistoryClient({ reviews }: Props) {
                     <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-ink-sub">
                       {review.comment}
                     </p>
+                  )}
+                  {review.image_url && (
+                    <div className="relative mt-3 aspect-[4/3] overflow-hidden rounded-lg bg-canvas">
+                      <Image
+                        src={review.image_url}
+                        alt={`${review.restaurants?.name ?? '店舗'}で記録した食事の写真`}
+                        fill
+                        sizes="(max-width: 448px) 100vw, 400px"
+                        className="object-cover"
+                        unoptimized
+                      />
+                    </div>
                   )}
                   <p className="mt-3 text-xs text-ink-sub">
                     {review.visit_date ? `訪問日 ${review.visit_date}` : `投稿日 ${review.created_at.slice(0, 10)}`}

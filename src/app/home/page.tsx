@@ -18,6 +18,12 @@ import { VALUE_TYPE_LABEL, type MainValueType } from '@/lib/onboarding/classifyV
 
 const TOP_N = 5
 
+type HomeReviewRow = ReviewRow & {
+  image_path: string | null
+  visit_date: string | null
+  created_at: string
+}
+
 export default async function HomePage() {
   const supabase = await createClient()
 
@@ -32,7 +38,9 @@ export default async function HomePage() {
 
   const [restaurantsResult, reviewsResult, profilesResult, userResult] = await Promise.all([
     supabase.from('restaurants').select('id, name, area, genre, created_at'),
-    supabase.from('reviews').select('restaurant_id, rating, user_id'),
+    supabase
+      .from('reviews')
+      .select('restaurant_id, rating, user_id, image_path, visit_date, created_at'),
     supabase.from('user_value_profiles').select('user_id, main_value_type'),
     supabase.from('users').select('name').eq('id', user.id).single(),
   ])
@@ -48,7 +56,7 @@ export default async function HomePage() {
   }
 
   const restaurants = (restaurantsResult.data ?? []) as RestaurantRow[]
-  const reviews = (reviewsResult.data ?? []) as ReviewRow[]
+  const reviews = (reviewsResult.data ?? []) as HomeReviewRow[]
   const profiles = (profilesResult.data ?? []) as ProfileRow[]
   const userName = (userResult.data?.name as string | null | undefined) ?? null
 
@@ -57,6 +65,36 @@ export default async function HomePage() {
   const eligibleUserIds = buildEligibleUserIds(profileMap, myValueType)
   const topRestaurants = sortRestaurants(restaurants, reviews, eligibleUserIds).slice(0, TOP_N)
   const countLabel = myValueType ? VALUE_TYPE_LABEL[myValueType] : '全員'
+
+  // おすすめ代表画像: 並び順は変えず、各店舗の最新レビュー写真だけをカードへ渡す
+  const topRestaurantIds = new Set(topRestaurants.map(({ restaurant }) => restaurant.id))
+  const latestImagePathByRestaurant = new Map<string, string>()
+  const imageReviews = reviews
+    .filter(
+      (review) =>
+        topRestaurantIds.has(review.restaurant_id) && Boolean(review.image_path),
+    )
+    .sort((a, b) => {
+      const aDate = a.visit_date ?? a.created_at
+      const bDate = b.visit_date ?? b.created_at
+      return new Date(bDate).getTime() - new Date(aDate).getTime()
+    })
+
+  for (const review of imageReviews) {
+    if (!latestImagePathByRestaurant.has(review.restaurant_id) && review.image_path) {
+      latestImagePathByRestaurant.set(review.restaurant_id, review.image_path)
+    }
+  }
+
+  const signedImageEntries = await Promise.all(
+    [...latestImagePathByRestaurant.entries()].map(async ([restaurantId, imagePath]) => {
+      const { data: signedImage } = await supabase.storage
+        .from('review-images')
+        .createSignedUrl(imagePath, 60 * 60)
+      return [restaurantId, signedImage?.signedUrl ?? null] as const
+    }),
+  )
+  const imageUrlByRestaurant = new Map(signedImageEntries)
 
   return (
     <main className="min-h-screen bg-canvas pb-24">
@@ -130,6 +168,7 @@ export default async function HomePage() {
                     restaurant={restaurant}
                     dist={dist}
                     countLabel={countLabel}
+                    imageUrl={imageUrlByRestaurant.get(restaurant.id) ?? undefined}
                     variant="compact"
                   />
                 </div>

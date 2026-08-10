@@ -20,7 +20,7 @@ export default async function ReviewHistoryPage() {
   // レビュー履歴ページ: 本人のレビューだけを新しい順ですべて取得する
   const { data, error } = await supabase
     .from('reviews')
-    .select('id, rating, comment, visit_date, created_at, restaurant_id, restaurants(id, name)')
+    .select('id, rating, comment, visit_date, created_at, restaurant_id, image_path, restaurants(id, name)')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
@@ -28,7 +28,20 @@ export default async function ReviewHistoryPage() {
     throw new Error(`ReviewHistoryPage: failed to load reviews: ${error.message}`)
   }
 
-  const reviews = (data ?? []) as unknown as ReviewHistoryRow[]
+  const reviewRows = (data ?? []) as unknown as Omit<ReviewHistoryRow, 'image_url'>[]
+
+  // レビュー画像: 本人の履歴に表示するため、非公開画像の署名付きURLを発行する
+  const reviews: ReviewHistoryRow[] = await Promise.all(
+    reviewRows.map(async (review) => {
+      if (!review.image_path) return { ...review, image_url: null }
+
+      const { data: signedImage } = await supabase.storage
+        .from('review-images')
+        .createSignedUrl(review.image_path, 60 * 60)
+
+      return { ...review, image_url: signedImage?.signedUrl ?? null }
+    }),
+  )
 
   return (
     <main className="min-h-screen bg-canvas px-6 py-10 pb-20">
