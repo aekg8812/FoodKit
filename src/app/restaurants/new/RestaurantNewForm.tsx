@@ -11,11 +11,6 @@ import TextareaField from '@/components/ui/TextareaField'
 import ErrorMessage from '@/components/ui/ErrorMessage'
 import { RESTAURANT_GENRES } from '@/lib/restaurants/genres'
 
-interface Props {
-  groupId: string
-  groupName: string
-}
-
 type FormStep =
   | { kind: 'form' }
   | { kind: 'access_failed'; restaurantId: string }
@@ -40,7 +35,7 @@ function toJapaneseError(err: unknown): string {
   return 'エラーが発生しました。時間をおいて再度お試しください'
 }
 
-export default function RestaurantNewForm({ groupId, groupName }: Props) {
+export default function RestaurantNewForm() {
   const router = useRouter()
   const supabase = createClient()
 
@@ -84,22 +79,22 @@ export default function RestaurantNewForm({ groupId, groupName }: Props) {
 
       const restaurantId = (restaurant as { id: string }).id
 
-      // Step 2: INSERT restaurant_accesses
-      // visibility='group' requires group_id IS NOT NULL AND user_id IS NULL (CHECK constraint).
+      // Step 2: INSERT restaurant_accesses（private行: 自分が記録している店として登録）
+      // 23505 unique_violation はリトライ時の二重送信を意味するため正常扱い
       const { error: accessError } = await supabase
         .from('restaurant_accesses')
         .insert({
           restaurant_id: restaurantId,
-          visibility: 'group',
-          group_id: groupId,
-          user_id: null,
+          visibility: 'private',
+          user_id: user.id,
+          group_id: null,
           created_by: user.id,
         })
 
-      if (accessError) {
+      if (accessError && accessError.code !== '23505') {
         // Step 1 succeeded, step 2 failed. Keep restaurantId for step-2-only retry.
         setStep({ kind: 'access_failed', restaurantId })
-        setError('店舗は作成されましたが、グループへの共有に失敗しました。もう一度お試しください')
+        setError('店舗は作成されましたが、アクセス情報の保存に失敗しました。もう一度お試しください')
         return
       }
 
@@ -128,13 +123,13 @@ export default function RestaurantNewForm({ groupId, groupName }: Props) {
         .from('restaurant_accesses')
         .insert({
           restaurant_id: restaurantId,
-          visibility: 'group',
-          group_id: groupId,
-          user_id: null,
+          visibility: 'private',
+          user_id: user.id,
+          group_id: null,
           created_by: user.id,
         })
 
-      if (accessError) throw accessError
+      if (accessError && accessError.code !== '23505') throw accessError
 
       router.push(`/restaurants/${restaurantId}`)
     } catch (err) {
@@ -160,7 +155,7 @@ export default function RestaurantNewForm({ groupId, groupName }: Props) {
               onClick={handleRetryAccess}
               disabled={submitting}
             >
-              {submitting ? '再試行中...' : 'グループへの共有を再試行'}
+              {submitting ? '再試行中...' : 'アクセス情報の保存を再試行'}
             </Button>
           </div>
         </section>
@@ -175,12 +170,11 @@ export default function RestaurantNewForm({ groupId, groupName }: Props) {
       <section className="mx-auto w-full max-w-md rounded-lg border border-edge bg-surface p-8 shadow-sm">
         <h1 className="mb-6 text-2xl font-semibold text-ink">店舗を登録</h1>
 
-        {/* 公開先表示: 登録した店舗が共有されるグループを明示する */}
         <div className="mb-6 rounded-lg border border-edge bg-canvas px-4 py-3">
-          <p className="text-xs font-medium text-ink-sub">公開先</p>
-          <p className="mt-1 text-sm font-medium text-ink">{groupName}</p>
+          <p className="text-xs font-medium text-ink-sub">保存先</p>
+          <p className="mt-1 text-sm font-medium text-ink">あなたの記録</p>
           <p className="mt-1 text-xs leading-relaxed text-ink-sub">
-            登録した店舗はグループのメンバーに共有されます。
+            登録した店舗は自分の記録として保存されます。
           </p>
         </div>
 
@@ -247,7 +241,7 @@ export default function RestaurantNewForm({ groupId, groupName }: Props) {
             type="submit"
             disabled={submitting || !name.trim()}
           >
-            {submitting ? '登録中...' : 'グループに店舗を登録'}
+            {submitting ? '登録中...' : '店舗を登録'}
           </Button>
         </form>
 

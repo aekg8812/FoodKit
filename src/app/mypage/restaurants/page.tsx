@@ -16,7 +16,6 @@ export default async function RegisteredRestaurantsPage() {
   if (!user) redirect('/login')
 
   const state = await getUserState(supabase)
-  if (state === 'no_group') redirect('/groups/join')
   if (state === 'no_onboarding') redirect('/onboarding')
 
   // 登録店舗履歴ページ: 本人が追加した店舗を専用一覧へ渡す
