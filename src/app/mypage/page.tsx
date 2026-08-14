@@ -18,7 +18,6 @@ export default async function MypagePage() {
   if (!user) redirect('/login')
 
   const state = await getUserState(supabase)
-  if (state === 'no_group') redirect('/groups/join')
   if (state === 'no_onboarding') redirect('/onboarding')
 
   const [userResult, profileResult, myReviewsResult, myRestaurantsResult, groupResult] =

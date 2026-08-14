@@ -20,8 +20,6 @@ export type ExistingReview = {
 
 interface Props {
   restaurantId: string
-  groupId: string
-  groupName: string
   existingReview: ExistingReview | null
 }
 
@@ -82,7 +80,7 @@ function getLocalToday(): string {
   return `${year}-${month}-${day}`
 }
 
-export default function ReviewForm({ restaurantId, groupId, groupName, existingReview }: Props) {
+export default function ReviewForm({ restaurantId, existingReview }: Props) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -197,8 +195,8 @@ export default function ReviewForm({ restaurantId, groupId, groupName, existingR
             ...payload,
             restaurant_id: restaurantId,
             user_id: user.id,
-            group_id: groupId,
-            visibility: 'group',
+            group_id: null,
+            visibility: 'private',
           })
           .select('id')
           .single()
@@ -240,12 +238,11 @@ export default function ReviewForm({ restaurantId, groupId, groupName, existingR
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      {/* 共有先表示: 現在のレビュー保存先をユーザーへ明示する */}
       <div className="rounded-lg border border-edge bg-canvas px-4 py-3">
-        <p className="text-xs font-medium text-ink-sub">共有先</p>
-        <p className="mt-1 text-sm font-medium text-ink">{groupName}</p>
+        <p className="text-xs font-medium text-ink-sub">保存先</p>
+        <p className="mt-1 text-sm font-medium text-ink">あなたの記録</p>
         <p className="mt-1 text-xs leading-relaxed text-ink-sub">
-          このレビューはグループのメンバーに共有されます。
+          このレビューはあなただけに表示されます（グループ共有は近日公開）。
         </p>
       </div>
 

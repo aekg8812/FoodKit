@@ -14,7 +14,6 @@ export default async function ReviewHistoryPage() {
   if (!user) redirect('/login')
 
   const state = await getUserState(supabase)
-  if (state === 'no_group') redirect('/groups/join')
   if (state === 'no_onboarding') redirect('/onboarding')
 
   // レビュー履歴ページ: 本人のレビューだけを新しい順ですべて取得する

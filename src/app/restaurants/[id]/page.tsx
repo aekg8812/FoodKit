@@ -27,11 +27,6 @@ type ReviewWithUser = {
   users: { name: string } | null
 }
 
-type GroupAccess = {
-  group_id: string
-  groups: { name: string } | { name: string }[] | null
-}
-
 export default async function RestaurantDetailPage({
   params,
 }: {
@@ -61,19 +56,12 @@ export default async function RestaurantDetailPage({
 
   const r = data as Restaurant
 
-  const [reviewsResult, accessResult, existingReviewResult] = await Promise.all([
+  const [reviewsResult, existingReviewResult] = await Promise.all([
     supabase
       .from('reviews')
       .select('id, rating, comment, visit_date, created_at, user_id, image_path, users(name)')
       .eq('restaurant_id', id)
       .order('created_at', { ascending: false }),
-    supabase
-      .from('restaurant_accesses')
-      .select('group_id, groups(name)')
-      .eq('restaurant_id', id)
-      .eq('visibility', 'group')
-      .limit(1)
-      .maybeSingle(),
     supabase
       .from('reviews')
       .select('id, rating, comment, visit_date, image_path')
@@ -88,11 +76,6 @@ export default async function RestaurantDetailPage({
       `RestaurantDetailPage: failed to load reviews: ${reviewsResult.error.message}`,
     )
   }
-  if (accessResult.error) {
-    throw new Error(
-      `RestaurantDetailPage: failed to load restaurant access: ${accessResult.error.message}`,
-    )
-  }
   if (existingReviewResult.error) {
     throw new Error(
       `RestaurantDetailPage: failed to load existing review: ${existingReviewResult.error.message}`,
@@ -100,12 +83,6 @@ export default async function RestaurantDetailPage({
   }
 
   const reviewRows = (reviewsResult.data ?? []) as unknown as Omit<ReviewWithUser, 'image_url'>[]
-  const groupAccess = accessResult.data as unknown as GroupAccess | null
-  const groupId = groupAccess?.group_id
-  const accessGroups = groupAccess?.groups
-  const groupName = (
-    Array.isArray(accessGroups) ? accessGroups[0]?.name : accessGroups?.name
-  ) ?? '現在のグループ'
   const existingReviewRow = existingReviewResult.data as Omit<ExistingReview, 'image_url'> | null
 
   // レビュー画像: 非公開Storageの画像を、この画面だけで使える署名付きURLへ変換する
@@ -192,19 +169,11 @@ export default async function RestaurantDetailPage({
               </Link>
             )}
           </div>
-          {groupId ? (
-            <ReviewForm
-              key={existingReview?.id ?? 'new'}
-              restaurantId={id}
-              groupId={groupId}
-              groupName={groupName}
-              existingReview={existingReview}
-            />
-          ) : (
-            <p className="text-sm text-ink-sub">
-              レビュー投稿ができません（グループへの共有情報が見つかりません）
-            </p>
-          )}
+          <ReviewForm
+            key={existingReview?.id ?? 'new'}
+            restaurantId={id}
+            existingReview={existingReview}
+          />
         </section>
 
         {/* レビュー一覧 */}

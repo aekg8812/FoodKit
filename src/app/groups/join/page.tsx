@@ -7,9 +7,9 @@ export default async function GroupsJoinPage() {
   const supabase = await createClient()
   const state = await getUserState(supabase)
 
-  // Allow only users who have no group yet.
-  // proxy.ts blocks unauthenticated users before they reach here.
-  if (state !== 'no_group') redirect('/home')
+  // グループ参加は任意。未認証は proxy.ts が弾く。
+  // no_onboarding ユーザーは診断を先に完了させる。
+  if (state === 'no_onboarding') redirect('/onboarding')
 
   return <GroupsJoinForm />
 }

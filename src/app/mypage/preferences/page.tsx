@@ -9,7 +9,6 @@ export default async function PreferencesPage() {
   const state = await getUserState(supabase)
 
   if (state === 'unauthenticated') redirect('/login')
-  if (state === 'no_group') redirect('/groups/join')
   if (state === 'no_onboarding') redirect('/onboarding')
 
   return <OnboardingForm mode="retake" />

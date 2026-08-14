@@ -16,7 +16,6 @@ export default async function GroupsPage() {
   if (!user) redirect('/login')
 
   const state = await getUserState(supabase)
-  if (state === 'no_group') redirect('/groups/join')
   if (state === 'no_onboarding') redirect('/onboarding')
 
   const [groupResult, membersResult, memberProfilesResult] = await Promise.all([
