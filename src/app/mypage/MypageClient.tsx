@@ -8,7 +8,7 @@ import Card from '@/components/ui/Card'
 import RatingBadge, { RATING_LABELS } from '@/components/RatingBadge'
 import ValueTypeBadge from '@/components/ValueTypeBadge'
 
-export type UserRow = { name: string; email: string }
+export type UserRow = { name: string; email: string; username: string }
 
 export type ValueProfileRow = {
   main_value_type: string | null
@@ -226,6 +226,10 @@ export default function MypageClient({ userData, profile, myReviews, myRestauran
               <div className="flex justify-between gap-4">
                 <dt className="shrink-0 text-ink-sub">名前</dt>
                 <dd className="text-right text-ink">{userData.name}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="shrink-0 text-ink-sub">ユーザーID</dt>
+                <dd className="truncate text-right text-ink">@{userData.username}</dd>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="shrink-0 text-ink-sub">メール</dt>
