@@ -20,7 +20,7 @@ export default async function RestaurantsPage() {
       .select('id, name, area, genre, created_at')
       .order('created_at', { ascending: false }),
     supabase.from('reviews').select('restaurant_id, rating, user_id'),
-    supabase.from('user_value_profiles').select('user_id, main_value_type'),
+    supabase.from('user_public_value_profiles').select('user_id, main_value_type'),
   ])
 
   if (restaurantsResult.error) {
