@@ -40,7 +40,7 @@ export default async function HomePage() {
     supabase
       .from('reviews')
       .select('restaurant_id, rating, user_id, image_path, visit_date, created_at'),
-    supabase.from('user_value_profiles').select('user_id, main_value_type'),
+    supabase.from('user_public_value_profiles').select('user_id, main_value_type'),
     supabase.from('users').select('name').eq('id', user.id).single(),
   ])
 

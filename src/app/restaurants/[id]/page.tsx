@@ -59,7 +59,9 @@ export default async function RestaurantDetailPage({
   const [reviewsResult, existingReviewResult] = await Promise.all([
     supabase
       .from('reviews')
-      .select('id, rating, comment, visit_date, created_at, user_id, image_path, users(name)')
+      .select(
+        'id, rating, comment, visit_date, created_at, user_id, image_path, users:user_public_profiles(name)',
+      )
       .eq('restaurant_id', id)
       .order('created_at', { ascending: false }),
     supabase

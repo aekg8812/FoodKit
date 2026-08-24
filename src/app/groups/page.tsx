@@ -20,8 +20,10 @@ export default async function GroupsPage() {
 
   const [groupResult, membersResult, memberProfilesResult] = await Promise.all([
     supabase.from('groups').select('id, name, invite_code').limit(1).maybeSingle(),
-    supabase.from('group_members').select('user_id, role, users(id, name)'),
-    supabase.from('user_value_profiles').select('user_id, main_value_type'),
+    supabase
+      .from('group_members')
+      .select('user_id, role, users:user_public_profiles(id, name)'),
+    supabase.from('user_public_value_profiles').select('user_id, main_value_type'),
   ])
 
   if (groupResult.error) {
