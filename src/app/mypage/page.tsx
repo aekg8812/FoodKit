@@ -22,7 +22,9 @@ export default async function MypagePage() {
 
   const [userResult, profileResult, myReviewsResult, myRestaurantsResult, groupResult] =
     await Promise.all([
-      supabase.from('users').select('name, email').eq('id', user.id).single(),
+      // username は自分の行のみ参照する（id = auth.uid()）。
+      // 他ユーザーの情報は security definer 関数経由でしか読まない。
+      supabase.from('users').select('name, email, username').eq('id', user.id).single(),
       supabase
         .from('user_value_profiles')
         .select('main_value_type, confidence, profile_completion')
