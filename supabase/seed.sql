@@ -50,6 +50,15 @@ values
     now(), now(), now(),
     '{"name":"河田俊太朗"}'::jsonb,
     false, 'authenticated', 'authenticated', '', ''
+  ),
+  (
+    '44444444-4444-4444-4444-444444444444',
+    '00000000-0000-0000-0000-000000000000',
+    'cost@foodkit.dev',
+    crypt('password123', gen_salt('bf')),
+    now(), now(), now(),
+    '{"name":"山田太郎"}'::jsonb,
+    false, 'authenticated', 'authenticated', '', ''
   );
 
 -- onboarding 完了（name はトリガーで raw_user_meta_data から設定済み）
@@ -58,7 +67,8 @@ update public.users
   where id in (
     '11111111-1111-1111-1111-111111111111',
     '22222222-2222-2222-2222-222222222222',
-    '33333333-3333-3333-3333-333333333333'
+    '33333333-3333-3333-3333-333333333333',
+    '44444444-4444-4444-4444-444444444444'
   );
 
 -- バリュータイプ設定
@@ -73,6 +83,10 @@ update public.user_value_profiles
   set main_value_type = 'hospitality'
   where user_id = '33333333-3333-3333-3333-333333333333';
 
+update public.user_value_profiles
+  set main_value_type = 'cost'
+  where user_id = '44444444-4444-4444-4444-444444444444';
+
 -- ----------------------------------------------------------------
 -- 2. グループ「カップル」
 -- ----------------------------------------------------------------
@@ -84,10 +98,10 @@ values (
   '11111111-1111-1111-1111-111111111111'
 );
 
--- 江藤美愛が owner、他2名が member
+-- V1は全員対等な member
 insert into public.group_members (group_id, user_id, role)
 values
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111', 'owner'),
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111', 'member'),
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222', 'member'),
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '33333333-3333-3333-3333-333333333333', 'member');
 
@@ -136,3 +150,14 @@ values
   ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb03', '11111111-1111-1111-1111-111111111111', null, 4, '内装がおしゃれで長居できる。コーヒーも美味しい', 'private'),
   ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb03', '22222222-2222-2222-2222-222222222222', null, 3, 'コーヒーは普通だが雰囲気がいい',           'private'),
   ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb03', '33333333-3333-3333-3333-333333333333', null, 3, '接客は普通、静かで落ち着ける',             'private');
+
+-- ----------------------------------------------------------------
+-- 6. follows
+--    江藤美愛 ↔ 山田太郎: 相互フォロー
+--    河野響 → 山田太郎: 片方向フォロー
+-- ----------------------------------------------------------------
+insert into public.follows (follower_id, followee_id, status)
+values
+  ('11111111-1111-1111-1111-111111111111', '44444444-4444-4444-4444-444444444444', 'accepted'),
+  ('44444444-4444-4444-4444-444444444444', '11111111-1111-1111-1111-111111111111', 'accepted'),
+  ('22222222-2222-2222-2222-222222222222', '44444444-4444-4444-4444-444444444444', 'accepted');

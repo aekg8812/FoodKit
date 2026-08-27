@@ -20,7 +20,7 @@ export default async function MypagePage() {
   const state = await getUserState(supabase)
   if (state === 'no_onboarding') redirect('/onboarding')
 
-  const [userResult, profileResult, myReviewsResult, myRestaurantsResult, groupResult] =
+  const [userResult, profileResult, myReviewsResult, myRestaurantsResult, groupsResult] =
     await Promise.all([
       // username は自分の行のみ参照する（id = auth.uid()）。
       // 他ユーザーの情報は security definer 関数経由でしか読まない。
@@ -40,7 +40,7 @@ export default async function MypagePage() {
         .select('id, name, area, genre, created_at')
         .eq('created_by', user.id)
         .order('created_at', { ascending: false }),
-      supabase.from('groups').select('id, name, invite_code').limit(1).maybeSingle(),
+      supabase.from('groups').select('id, name, invite_code').order('created_at'),
     ])
 
   if (userResult.error) {
@@ -61,9 +61,9 @@ export default async function MypagePage() {
       `MypagePage: failed to load restaurants: ${myRestaurantsResult.error.message}`,
     )
   }
-  if (groupResult.error) {
-    console.error('MypagePage: failed to load group', groupResult.error)
-    throw new Error(`MypagePage: failed to load group: ${groupResult.error.message}`)
+  if (groupsResult.error) {
+    console.error('MypagePage: failed to load groups', groupsResult.error)
+    throw new Error(`MypagePage: failed to load groups: ${groupsResult.error.message}`)
   }
 
   return (
@@ -72,7 +72,7 @@ export default async function MypagePage() {
       profile={profileResult.data as ValueProfileRow | null}
       myReviews={(myReviewsResult.data ?? []) as unknown as MyReviewRow[]}
       myRestaurants={(myRestaurantsResult.data ?? []) as MyRestaurantRow[]}
-      group={groupResult.data as GroupRow | null}
+      groups={(groupsResult.data ?? []) as GroupRow[]}
     />
   )
 }

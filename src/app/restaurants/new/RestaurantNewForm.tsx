@@ -48,6 +48,77 @@ export default function RestaurantNewForm() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  async function ensureRestaurantAccesses(restaurantId: string, userId: string) {
+    const { data: privateRows, error: privateSelectError } = await supabase
+      .from('restaurant_accesses')
+      .select('id')
+      .eq('restaurant_id', restaurantId)
+      .eq('visibility', 'private')
+      .eq('user_id', userId)
+      .limit(1)
+
+    if (privateSelectError) throw privateSelectError
+
+    if ((privateRows ?? []).length === 0) {
+      const { error: privateInsertError } = await supabase
+        .from('restaurant_accesses')
+        .insert({
+          restaurant_id: restaurantId,
+          visibility: 'private',
+          user_id: userId,
+          group_id: null,
+          created_by: userId,
+        })
+
+      if (privateInsertError) throw privateInsertError
+    }
+
+    const { data: memberships, error: membershipError } = await supabase
+      .from('group_members')
+      .select('group_id')
+      .eq('user_id', userId)
+
+    if (membershipError) throw membershipError
+
+    const groupIds = [
+      ...new Set((memberships ?? []).map((membership) => membership.group_id as string)),
+    ]
+
+    if (groupIds.length === 0) return
+
+    const { data: existingGroupRows, error: groupSelectError } = await supabase
+      .from('restaurant_accesses')
+      .select('group_id')
+      .eq('restaurant_id', restaurantId)
+      .eq('visibility', 'group')
+      .in('group_id', groupIds)
+
+    if (groupSelectError) throw groupSelectError
+
+    const existingGroupIds = new Set(
+      (existingGroupRows ?? [])
+        .map((access) => access.group_id as string | null)
+        .filter((groupId): groupId is string => groupId !== null),
+    )
+    const missingGroupIds = groupIds.filter((groupId) => !existingGroupIds.has(groupId))
+
+    if (missingGroupIds.length === 0) return
+
+    const { error: groupInsertError } = await supabase
+      .from('restaurant_accesses')
+      .insert(
+        missingGroupIds.map((groupId) => ({
+          restaurant_id: restaurantId,
+          visibility: 'group',
+          user_id: null,
+          group_id: groupId,
+          created_by: userId,
+        })),
+      )
+
+    if (groupInsertError) throw groupInsertError
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!name.trim()) return
@@ -79,22 +150,13 @@ export default function RestaurantNewForm() {
 
       const restaurantId = (restaurant as { id: string }).id
 
-      // Step 2: INSERT restaurant_accesses（private行: 自分が記録している店として登録）
-      // 23505 unique_violation はリトライ時の二重送信を意味するため正常扱い
-      const { error: accessError } = await supabase
-        .from('restaurant_accesses')
-        .insert({
-          restaurant_id: restaurantId,
-          visibility: 'private',
-          user_id: user.id,
-          group_id: null,
-          created_by: user.id,
-        })
-
-      if (accessError && accessError.code !== '23505') {
-        // Step 1 succeeded, step 2 failed. Keep restaurantId for step-2-only retry.
+      try {
+        await ensureRestaurantAccesses(restaurantId, user.id)
+      } catch (accessError) {
+        logError(accessError)
+        // The restaurant remains available for an access-only retry.
         setStep({ kind: 'access_failed', restaurantId })
-        setError('店舗は作成されましたが、アクセス情報の保存に失敗しました。もう一度お試しください')
+        setError('店舗は作成されましたが、共有設定の保存に失敗しました。もう一度お試しください')
         return
       }
 
@@ -119,22 +181,12 @@ export default function RestaurantNewForm() {
       } = await supabase.auth.getUser()
       if (!user) throw new Error('Authentication is required')
 
-      const { error: accessError } = await supabase
-        .from('restaurant_accesses')
-        .insert({
-          restaurant_id: restaurantId,
-          visibility: 'private',
-          user_id: user.id,
-          group_id: null,
-          created_by: user.id,
-        })
-
-      if (accessError && accessError.code !== '23505') throw accessError
+      await ensureRestaurantAccesses(restaurantId, user.id)
 
       router.push(`/restaurants/${restaurantId}`)
     } catch (err) {
       logError(err)
-      setError(toJapaneseError(err))
+      setError('共有設定の保存に失敗しました。時間をおいて再度お試しください')
     } finally {
       setSubmitting(false)
     }

@@ -93,7 +93,7 @@ export default function GroupsJoinForm() {
 
       const { error: memberError } = await supabase
         .from('group_members')
-        .insert({ group_id: groupId, user_id: user.id, role: 'owner' })
+        .insert({ group_id: groupId, user_id: user.id, role: 'member' })
 
       if (memberError) {
         // Step 1 succeeded but step 2 failed. Preserve groupId so the user can retry step 2 only.
@@ -124,7 +124,7 @@ export default function GroupsJoinForm() {
 
       const { error } = await supabase
         .from('group_members')
-        .insert({ group_id: groupId, user_id: user.id, role: 'owner' })
+        .insert({ group_id: groupId, user_id: user.id, role: 'member' })
 
       if (error) throw error
 
