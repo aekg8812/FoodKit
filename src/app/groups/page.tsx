@@ -18,17 +18,17 @@ export default async function GroupsPage() {
   const state = await getUserState(supabase)
   if (state === 'no_onboarding') redirect('/onboarding')
 
-  const [groupResult, membersResult, memberProfilesResult] = await Promise.all([
-    supabase.from('groups').select('id, name, invite_code').limit(1).maybeSingle(),
+  const [groupsResult, membersResult, memberProfilesResult] = await Promise.all([
+    supabase.from('groups').select('id, name, invite_code').order('created_at'),
     supabase
       .from('group_members')
-      .select('user_id, role, users:user_public_profiles(id, name)'),
+      .select('group_id, user_id, users:user_public_profiles(id, name)'),
     supabase.from('user_public_value_profiles').select('user_id, main_value_type'),
   ])
 
-  if (groupResult.error) {
-    console.error('GroupsPage: failed to load group', groupResult.error)
-    throw new Error(`GroupsPage: failed to load group: ${groupResult.error.message}`)
+  if (groupsResult.error) {
+    console.error('GroupsPage: failed to load groups', groupsResult.error)
+    throw new Error(`GroupsPage: failed to load groups: ${groupsResult.error.message}`)
   }
   if (membersResult.error) {
     console.error('GroupsPage: failed to load members', membersResult.error)
@@ -44,7 +44,7 @@ export default async function GroupsPage() {
   return (
     <GroupsClient
       currentUserId={user.id}
-      group={groupResult.data as GroupRow | null}
+      groups={(groupsResult.data ?? []) as GroupRow[]}
       members={(membersResult.data ?? []) as unknown as MemberRow[]}
       memberProfiles={(memberProfilesResult.data ?? []) as MemberProfileRow[]}
     />

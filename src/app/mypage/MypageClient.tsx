@@ -43,10 +43,10 @@ interface Props {
   profile: ValueProfileRow | null
   myReviews: MyReviewRow[]
   myRestaurants: MyRestaurantRow[]
-  group: GroupRow | null
+  groups: GroupRow[]
 }
 
-export default function MypageClient({ userData, profile, myReviews, myRestaurants, group }: Props) {
+export default function MypageClient({ userData, profile, myReviews, myRestaurants, groups }: Props) {
   // numeric(4,3) may arrive as string "0.400" — Number() handles both
   const confidencePct = useMemo(
     () => (profile ? Math.round(Number(profile.confidence) * 100) : null),
@@ -204,15 +204,19 @@ export default function MypageClient({ userData, profile, myReviews, myRestauran
           {/* 所属グループ */}
           <Card as="section" className="p-6">
             <h2 className="mb-2 text-base font-semibold text-ink">所属グループ</h2>
-            {group ? (
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-sm text-ink">{group.name}</p>
-                <Link
-                  href="/groups"
-                  className="shrink-0 text-sm text-terra transition-colors duration-150 hover:text-terra-deep"
-                >
-                  グループを見る →
-                </Link>
+            {groups.length > 0 ? (
+              <div className="space-y-2">
+                {groups.map((group) => (
+                  <div key={group.id} className="flex items-center justify-between gap-3">
+                    <p className="text-sm text-ink">{group.name}</p>
+                    <Link
+                      href="/groups"
+                      className="shrink-0 text-sm text-terra transition-colors duration-150 hover:text-terra-deep"
+                    >
+                      グループを見る →
+                    </Link>
+                  </div>
+                ))}
               </div>
             ) : (
               <p className="text-sm text-ink-sub">グループ情報が見つかりません</p>
