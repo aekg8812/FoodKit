@@ -34,6 +34,7 @@ const FILTER_OPTIONS: Array<{ value: FilterType; label: string }> = [
 ]
 
 const INITIAL_UNREVIEWED_COUNT = 6
+const INITIAL_REVIEWED_COUNT = 5
 
 export default function RestaurantListClient({
   restaurants,
@@ -46,6 +47,7 @@ export default function RestaurantListClient({
   const myValueType = (profileMap.get(currentUserId) ?? null) as MainValueType | null
 
   const [filter, setFilter] = useState<FilterType>(myValueType ?? 'all')
+  const [showAllReviewed, setShowAllReviewed] = useState(false)
   const [showUnreviewed, setShowUnreviewed] = useState(false)
   const [showAllUnreviewed, setShowAllUnreviewed] = useState(false)
 
@@ -60,16 +62,13 @@ export default function RestaurantListClient({
       ? 'まだ評価がありません'
       : `${VALUE_TYPE_LABEL[filter as MainValueType]}の評価はまだありません`
 
-  const reviewedRestaurantIds = useMemo(
-    () => new Set(reviews.map((review) => review.restaurant_id)),
-    [reviews],
-  )
-  const reviewedRestaurants = sortedRestaurants.filter(({ restaurant }) =>
-    reviewedRestaurantIds.has(restaurant.id),
-  )
-  const unreviewedRestaurants = sortedRestaurants.filter(
-    ({ restaurant }) => !reviewedRestaurantIds.has(restaurant.id),
-  )
+  // 「レビューあり／なし」も現在の価値観フィルターを基準にする。
+  // 例: 味重視だけのレビューは、コスパ重視ではレビューなしとして扱う。
+  const reviewedRestaurants = sortedRestaurants.filter(({ dist }) => dist.total > 0)
+  const unreviewedRestaurants = sortedRestaurants.filter(({ dist }) => dist.total === 0)
+  const visibleReviewedRestaurants = showAllReviewed
+    ? reviewedRestaurants
+    : reviewedRestaurants.slice(0, INITIAL_REVIEWED_COUNT)
   const visibleUnreviewedRestaurants = showAllUnreviewed
     ? unreviewedRestaurants
     : unreviewedRestaurants.slice(0, INITIAL_UNREVIEWED_COUNT)
@@ -146,7 +145,11 @@ export default function RestaurantListClient({
             <button
               key={opt.value}
               type="button"
-              onClick={() => setFilter(opt.value)}
+              onClick={() => {
+                setFilter(opt.value)
+                setShowAllReviewed(false)
+                setShowAllUnreviewed(false)
+              }}
               className={
                 filter === opt.value
                   ? 'min-h-[44px] rounded-full bg-terra px-4 py-1.5 text-sm font-medium text-white transition-all duration-150'
@@ -173,19 +176,39 @@ export default function RestaurantListClient({
               }}
               className="h-4 w-4 rounded border-edge accent-terra"
             />
-            <span>レビューがない店舗も表示（{unreviewedRestaurants.length}件）</span>
+            <span>
+              {filter === 'all'
+                ? 'レビューがない店舗も表示'
+                : `${VALUE_TYPE_LABEL[filter]}のレビューがない店舗も表示`}
+              （{unreviewedRestaurants.length}件）
+            </span>
           </label>
         )}
 
         {reviewedRestaurants.length > 0 && (
           <section>
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-base font-semibold text-ink">レビューがある店舗</h2>
+              <h2 className="text-base font-semibold text-ink">
+                {filter === 'all'
+                  ? 'レビューがある店舗'
+                  : `${VALUE_TYPE_LABEL[filter]}のレビューがある店舗`}
+              </h2>
               <span className="text-sm tabular-nums text-ink-sub">
                 {reviewedRestaurants.length}件
               </span>
             </div>
-            <ul className="space-y-3">{reviewedRestaurants.map(renderRestaurant)}</ul>
+            <ul className="space-y-3">{visibleReviewedRestaurants.map(renderRestaurant)}</ul>
+            {reviewedRestaurants.length > INITIAL_REVIEWED_COUNT && (
+              <button
+                type="button"
+                onClick={() => setShowAllReviewed((current) => !current)}
+                className="mt-4 min-h-[44px] w-full text-sm font-medium text-ink-sub transition-colors hover:text-ink"
+              >
+                {showAllReviewed
+                  ? '5件表示に戻す'
+                  : `残り${reviewedRestaurants.length - INITIAL_REVIEWED_COUNT}件を表示`}
+              </button>
+            )}
           </section>
         )}
 
@@ -193,7 +216,11 @@ export default function RestaurantListClient({
           <section className={reviewedRestaurants.length > 0 ? 'mt-8' : ''}>
             <div className="mb-3 flex items-end justify-between gap-3">
               <div>
-                <h2 className="text-base font-semibold text-ink">まだレビューがない店舗</h2>
+                <h2 className="text-base font-semibold text-ink">
+                  {filter === 'all'
+                    ? 'まだレビューがない店舗'
+                    : `${VALUE_TYPE_LABEL[filter]}のレビューがない店舗`}
+                </h2>
                 <p className="mt-1 text-xs text-ink-sub">最初のレビューを書いてみませんか？</p>
               </div>
               <span className="shrink-0 text-sm tabular-nums text-ink-sub">

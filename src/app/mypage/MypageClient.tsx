@@ -55,7 +55,7 @@ export default function MypageClient({ userData, profile, myReviews, myRestauran
 
   // レビュー履歴導線: マイページは最新3件だけ表示し、全件は専用ページで確認する
   const visibleReviews = myReviews.slice(0, 3)
-  // 登録店舗履歴導線: マイページは最新3件だけ表示し、全件は専用ページで確認する
+  // 記録店舗導線: privateアクセス作成が新しい3件だけ表示する
   const visibleRestaurants = myRestaurants.slice(0, 3)
 
   return (
@@ -158,13 +158,13 @@ export default function MypageClient({ userData, profile, myReviews, myRestauran
             )}
           </Card>
 
-          {/* 登録店舗履歴導線: 最新3件と専用一覧ページへのリンクを表示 */}
+          {/* 記録店舗導線: 最新3件と専用一覧ページへのリンクを表示 */}
           <Card as="section" className="p-6">
-            <h2 className="mb-4 text-base font-semibold text-ink">最近登録した店舗</h2>
+            <h2 className="mb-4 text-base font-semibold text-ink">最近記録した店舗</h2>
             {myRestaurants.length === 0 ? (
               <div className="py-2 text-center">
                 <p className="mb-1.5 text-2xl" aria-hidden="true">🍽️</p>
-                <p className="mb-4 text-sm text-ink-sub">まだ店舗を登録していません</p>
+                <p className="mb-4 text-sm text-ink-sub">まだ店舗を記録していません</p>
                 <Link
                   href="/restaurants/search"
                   className="inline-block rounded-full bg-terra px-5 py-2 text-sm font-medium text-white transition-all duration-150 hover:bg-terra-deep motion-safe:active:scale-[0.98]"
@@ -196,7 +196,7 @@ export default function MypageClient({ userData, profile, myReviews, myRestauran
                 href="/mypage/restaurants"
                 className="mt-4 inline-flex min-h-[44px] w-full items-center justify-center border-t border-edge pt-4 text-sm font-medium text-terra transition-colors hover:text-terra-deep"
               >
-                登録した店舗をすべて見る（{myRestaurants.length}件）
+                記録している店舗をすべて見る（{myRestaurants.length}件）
               </Link>
             )}
           </Card>

@@ -8,6 +8,12 @@ export type RestaurantSearchResult = {
   address: string | null
 }
 
+export type RestaurantSearchFilters = {
+  query?: string
+  area?: string
+  genre?: string
+}
+
 /**
  * PostgREST の LIKE パターンで特別扱いされる文字を、入力文字として検索する。
  * バックスラッシュを最初に処理しないと、後続の置換で二重エスケープになる。
@@ -18,17 +24,25 @@ export function escapeLikePattern(value: string): string {
 
 export async function searchRestaurants(
   supabase: SupabaseClient,
-  query: string,
+  filters: RestaurantSearchFilters,
 ): Promise<RestaurantSearchResult[]> {
-  const normalizedQuery = query.trim()
-  if (!normalizedQuery) return []
+  const normalizedQuery = filters.query?.trim() ?? ''
+  const area = filters.area?.trim() ?? ''
+  const genre = filters.genre?.trim() ?? ''
+  if (!normalizedQuery && !area && !genre) return []
 
-  const escapedQuery = escapeLikePattern(normalizedQuery)
-  const { data, error } = await supabase
+  let request = supabase
     .from('restaurants')
     .select('id, name, area, genre, address')
-    .ilike('name', `%${escapedQuery}%`)
     .order('name')
+
+  if (normalizedQuery) {
+    request = request.ilike('name', `%${escapeLikePattern(normalizedQuery)}%`)
+  }
+  if (area) request = request.eq('area', area)
+  if (genre) request = request.eq('genre', genre)
+
+  const { data, error } = await request
 
   if (error) throw error
 

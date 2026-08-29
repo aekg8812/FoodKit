@@ -5,6 +5,7 @@ import Link from 'next/link'
 import ReviewForm, { type ExistingReview } from './ReviewForm'
 import BottomNav from '@/components/BottomNav'
 import RatingBadge, { RATING_LABELS } from '@/components/RatingBadge'
+import RestaurantAccessGate from './RestaurantAccessGate'
 
 type Restaurant = {
   id: string
@@ -56,7 +57,7 @@ export default async function RestaurantDetailPage({
 
   const r = data as Restaurant
 
-  const [reviewsResult, existingReviewResult] = await Promise.all([
+  const [reviewsResult, existingReviewResult, privateAccessResult] = await Promise.all([
     supabase
       .from('reviews')
       .select(
@@ -68,6 +69,14 @@ export default async function RestaurantDetailPage({
       .from('reviews')
       .select('id, rating, comment, visit_date, image_path')
       .eq('restaurant_id', id)
+      .eq('user_id', user.id)
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('restaurant_accesses')
+      .select('id')
+      .eq('restaurant_id', id)
+      .eq('visibility', 'private')
       .eq('user_id', user.id)
       .limit(1)
       .maybeSingle(),
@@ -83,9 +92,15 @@ export default async function RestaurantDetailPage({
       `RestaurantDetailPage: failed to load existing review: ${existingReviewResult.error.message}`,
     )
   }
+  if (privateAccessResult.error) {
+    throw new Error(
+      `RestaurantDetailPage: failed to load private access: ${privateAccessResult.error.message}`,
+    )
+  }
 
   const reviewRows = (reviewsResult.data ?? []) as unknown as Omit<ReviewWithUser, 'image_url'>[]
   const existingReviewRow = existingReviewResult.data as Omit<ExistingReview, 'image_url'> | null
+  const hasPrivateAccess = privateAccessResult.data !== null
 
   // レビュー画像: 非公開Storageの画像を、この画面だけで使える署名付きURLへ変換する
   const imagePaths = [...new Set([
@@ -159,10 +174,14 @@ export default async function RestaurantDetailPage({
         <section className="mt-4 rounded-2xl border border-edge bg-surface p-6 shadow-sm">
           <div className="mb-5 flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold text-ink">
-              {existingReview ? 'あなたの評価を更新' : 'レビューを投稿'}
+              {hasPrivateAccess
+                ? existingReview
+                  ? 'あなたの評価を更新'
+                  : 'レビューを投稿'
+                : 'この店舗を記録する'}
             </h2>
             {/* レビュー管理導線: 削除などの管理操作は履歴ページに集約する */}
-            {existingReview && (
+            {hasPrivateAccess && existingReview && (
               <Link
                 href="/mypage/reviews"
                 className="shrink-0 text-sm font-medium text-terra transition-colors hover:text-terra-deep"
@@ -171,11 +190,15 @@ export default async function RestaurantDetailPage({
               </Link>
             )}
           </div>
-          <ReviewForm
-            key={existingReview?.id ?? 'new'}
-            restaurantId={id}
-            existingReview={existingReview}
-          />
+          {hasPrivateAccess ? (
+            <ReviewForm
+              key={existingReview?.id ?? 'new'}
+              restaurantId={id}
+              existingReview={existingReview}
+            />
+          ) : (
+            <RestaurantAccessGate restaurantId={id} userId={user.id} />
+          )}
         </section>
 
         {/* レビュー一覧 */}
