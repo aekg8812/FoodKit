@@ -2,7 +2,11 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import RestaurantNewForm from './RestaurantNewForm'
 
-export default async function RestaurantNewPage() {
+export default async function RestaurantNewPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ name?: string | string[] }>
+}) {
   const supabase = await createClient()
 
   const {
@@ -10,5 +14,8 @@ export default async function RestaurantNewPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  return <RestaurantNewForm />
+  const requestedName = (await searchParams).name
+  const initialName = typeof requestedName === 'string' ? requestedName : ''
+
+  return <RestaurantNewForm initialName={initialName} />
 }

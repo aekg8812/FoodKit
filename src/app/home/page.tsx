@@ -108,15 +108,23 @@ export default async function HomePage() {
 
       {/* 検索バー */}
       <div className="mb-6 px-6">
-        <Link href="/restaurants" className="block">
+        <Link href="/restaurants/search" className="block">
           <div
             role="button"
             className="flex min-h-[44px] items-center gap-3 rounded-full border border-edge bg-surface px-5 shadow-sm transition-all duration-150 hover:shadow-md motion-safe:active:scale-[0.99]"
           >
             <span className="text-base" aria-hidden="true">🔍</span>
-            <span className="text-sm text-ink-sub">店舗を探す（近日公開）</span>
+            <span className="text-sm text-ink-sub">店舗を探す・追加する</span>
           </div>
         </Link>
+        <div className="mt-2 text-right">
+          <Link
+            href="/restaurants"
+            className="inline-flex min-h-[44px] items-center text-sm font-medium text-terra transition-colors hover:text-terra-deep"
+          >
+            店舗一覧を見る →
+          </Link>
+        </div>
       </div>
 
       {/* クイックカテゴリ */}
@@ -151,10 +159,10 @@ export default async function HomePage() {
             <p className="mb-2 text-3xl" aria-hidden="true">🍽️</p>
             <p className="mb-5 text-sm text-ink-sub">まだ店舗がありません。登録してみましょう。</p>
             <Link
-              href="/restaurants/new"
+              href="/restaurants/search"
               className="inline-flex min-h-[44px] items-center rounded-full bg-terra px-5 text-sm font-medium text-white transition-all duration-150 hover:bg-terra-deep motion-safe:active:scale-[0.98]"
             >
-              店舗を登録
+              店舗を探す・追加する
             </Link>
           </div>
         ) : (

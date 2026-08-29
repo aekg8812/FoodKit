@@ -11,6 +11,7 @@ import {
   buildProfileMap,
   buildEligibleUserIds,
   sortRestaurants,
+  type RestaurantWithDist,
 } from '@/lib/restaurants/aggregate'
 
 export type { RestaurantRow, ReviewRow, ProfileRow } from '@/lib/restaurants/aggregate'
@@ -32,6 +33,8 @@ const FILTER_OPTIONS: Array<{ value: FilterType; label: string }> = [
   { value: 'hospitality', label: VALUE_TYPE_LABEL.hospitality },
 ]
 
+const INITIAL_UNREVIEWED_COUNT = 6
+
 export default function RestaurantListClient({
   restaurants,
   reviews,
@@ -43,6 +46,8 @@ export default function RestaurantListClient({
   const myValueType = (profileMap.get(currentUserId) ?? null) as MainValueType | null
 
   const [filter, setFilter] = useState<FilterType>(myValueType ?? 'all')
+  const [showUnreviewed, setShowUnreviewed] = useState(false)
+  const [showAllUnreviewed, setShowAllUnreviewed] = useState(false)
 
   const sortedRestaurants = useMemo(() => {
     const eligibleUserIds = buildEligibleUserIds(profileMap, filter === 'all' ? null : filter)
@@ -55,14 +60,50 @@ export default function RestaurantListClient({
       ? 'まだ評価がありません'
       : `${VALUE_TYPE_LABEL[filter as MainValueType]}の評価はまだありません`
 
+  const reviewedRestaurantIds = useMemo(
+    () => new Set(reviews.map((review) => review.restaurant_id)),
+    [reviews],
+  )
+  const reviewedRestaurants = sortedRestaurants.filter(({ restaurant }) =>
+    reviewedRestaurantIds.has(restaurant.id),
+  )
+  const unreviewedRestaurants = sortedRestaurants.filter(
+    ({ restaurant }) => !reviewedRestaurantIds.has(restaurant.id),
+  )
+  const visibleUnreviewedRestaurants = showAllUnreviewed
+    ? unreviewedRestaurants
+    : unreviewedRestaurants.slice(0, INITIAL_UNREVIEWED_COUNT)
+
+  function renderRestaurant({ restaurant: r, dist }: RestaurantWithDist) {
+    return (
+      <li key={r.id}>
+        <Link href={`/restaurants/${r.id}`} className="block">
+          <Card interactive className="p-4">
+            <p className="font-medium text-ink">{r.name}</p>
+            {(r.area || r.genre) && (
+              <p className="mt-1 text-sm text-ink-sub">
+                {[r.area, r.genre].filter(Boolean).join(' · ')}
+              </p>
+            )}
+            <DistributionDisplay
+              dist={dist}
+              countLabel={countLabel}
+              emptyMessage={emptyMessage}
+            />
+          </Card>
+        </Link>
+      </li>
+    )
+  }
+
   const pageHeader = (
     <div className="mb-5 flex items-center justify-between">
       <h1 className="text-2xl font-bold text-ink">店舗一覧</h1>
       <Link
-        href="/restaurants/new"
+        href="/restaurants/search"
         className="inline-flex min-h-[44px] items-center rounded-full bg-terra px-4 text-sm font-medium text-white transition-all duration-150 hover:bg-terra-deep motion-safe:active:scale-[0.98]"
       >
-        ＋ 登録
+        ＋ 店舗を追加
       </Link>
     </div>
   )
@@ -76,10 +117,10 @@ export default function RestaurantListClient({
             <p className="mb-2 text-3xl" aria-hidden="true">🍽️</p>
             <p className="mb-5 text-sm text-ink-sub">まだ店舗がありません。登録してみましょう。</p>
             <Link
-              href="/restaurants/new"
+              href="/restaurants/search"
               className="inline-flex min-h-[44px] items-center rounded-full bg-terra px-5 text-sm font-medium text-white transition-all duration-150 hover:bg-terra-deep motion-safe:active:scale-[0.98]"
             >
-              店舗を登録
+              店舗を探す・追加する
             </Link>
           </Card>
         </div>
@@ -117,28 +158,65 @@ export default function RestaurantListClient({
           ))}
         </div>
 
-        {/* 店舗リスト */}
-        <ul className="space-y-3">
-          {sortedRestaurants.map(({ restaurant: r, dist }) => (
-            <li key={r.id}>
-              <Link href={`/restaurants/${r.id}`} className="block">
-                <Card interactive className="p-4">
-                  <p className="font-medium text-ink">{r.name}</p>
-                  {(r.area || r.genre) && (
-                    <p className="mt-1 text-sm text-ink-sub">
-                      {[r.area, r.genre].filter(Boolean).join(' · ')}
-                    </p>
-                  )}
-                  <DistributionDisplay
-                    dist={dist}
-                    countLabel={countLabel}
-                    emptyMessage={emptyMessage}
-                  />
-                </Card>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        {unreviewedRestaurants.length > 0 && (
+          <label
+            htmlFor="show-unreviewed-restaurants"
+            className="mb-6 inline-flex min-h-[44px] cursor-pointer items-center gap-2 text-sm text-ink-sub"
+          >
+            <input
+              id="show-unreviewed-restaurants"
+              type="checkbox"
+              checked={showUnreviewed}
+              onChange={(event) => {
+                setShowUnreviewed(event.target.checked)
+                if (!event.target.checked) setShowAllUnreviewed(false)
+              }}
+              className="h-4 w-4 rounded border-edge accent-terra"
+            />
+            <span>レビューがない店舗も表示（{unreviewedRestaurants.length}件）</span>
+          </label>
+        )}
+
+        {reviewedRestaurants.length > 0 && (
+          <section>
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h2 className="text-base font-semibold text-ink">レビューがある店舗</h2>
+              <span className="text-sm tabular-nums text-ink-sub">
+                {reviewedRestaurants.length}件
+              </span>
+            </div>
+            <ul className="space-y-3">{reviewedRestaurants.map(renderRestaurant)}</ul>
+          </section>
+        )}
+
+        {unreviewedRestaurants.length > 0 && showUnreviewed && (
+          <section className={reviewedRestaurants.length > 0 ? 'mt-8' : ''}>
+            <div className="mb-3 flex items-end justify-between gap-3">
+              <div>
+                <h2 className="text-base font-semibold text-ink">まだレビューがない店舗</h2>
+                <p className="mt-1 text-xs text-ink-sub">最初のレビューを書いてみませんか？</p>
+              </div>
+              <span className="shrink-0 text-sm tabular-nums text-ink-sub">
+                {unreviewedRestaurants.length}件
+              </span>
+            </div>
+            <ul className="space-y-3">
+              {visibleUnreviewedRestaurants.map(renderRestaurant)}
+            </ul>
+
+            {unreviewedRestaurants.length > INITIAL_UNREVIEWED_COUNT && (
+              <button
+                type="button"
+                onClick={() => setShowAllUnreviewed((current) => !current)}
+                className="mt-4 min-h-[44px] w-full text-sm font-medium text-ink-sub transition-colors hover:text-ink"
+              >
+                {showAllUnreviewed
+                  ? '6件表示に戻す'
+                  : `残り${unreviewedRestaurants.length - INITIAL_UNREVIEWED_COUNT}件を表示`}
+              </button>
+            )}
+          </section>
+        )}
       </div>
       <BottomNav />
     </main>

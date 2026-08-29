@@ -49,10 +49,10 @@ export default async function RegisteredRestaurantsPage() {
             </p>
           </div>
           <Link
-            href="/restaurants/new"
+            href="/restaurants/search"
             className="inline-flex min-h-[44px] shrink-0 items-center rounded-full bg-terra px-4 text-sm font-medium text-white transition-colors hover:bg-terra-deep"
           >
-            ＋ 登録
+            ＋ 店舗を追加
           </Link>
         </div>
 

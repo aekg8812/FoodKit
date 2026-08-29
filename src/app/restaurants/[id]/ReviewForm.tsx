@@ -55,7 +55,7 @@ const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 function logError(err: unknown) {
   if (err !== null && typeof err === 'object') {
     const { message, code, details, hint } = err as Record<string, unknown>
-    console.error('[ReviewForm] error:', { message, code, details, hint })
+    console.error('[ReviewForm] error:', message, code, details, hint)
   } else {
     console.error('[ReviewForm] error:', err)
   }

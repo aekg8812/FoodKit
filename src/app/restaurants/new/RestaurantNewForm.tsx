@@ -10,15 +10,22 @@ import InputField from '@/components/ui/InputField'
 import TextareaField from '@/components/ui/TextareaField'
 import ErrorMessage from '@/components/ui/ErrorMessage'
 import { RESTAURANT_GENRES } from '@/lib/restaurants/genres'
+import { createRestaurant } from '@/lib/restaurants/create'
+import { ensureRestaurantAccesses } from '@/lib/restaurants/access'
+import {
+  findDuplicateRestaurantCandidates,
+  type RestaurantSearchResult,
+} from '@/lib/restaurants/search'
 
 type FormStep =
   | { kind: 'form' }
+  | { kind: 'duplicate_warning'; candidates: RestaurantSearchResult[] }
   | { kind: 'access_failed'; restaurantId: string }
 
 function logError(err: unknown) {
   if (err !== null && typeof err === 'object') {
     const { message, code, details, hint } = err as Record<string, unknown>
-    console.error('[RestaurantNewForm] error:', { message, code, details, hint })
+    console.error('[RestaurantNewForm] error:', message, code, details, hint)
   } else {
     console.error('[RestaurantNewForm] error:', err)
   }
@@ -35,89 +42,22 @@ function toJapaneseError(err: unknown): string {
   return 'エラーが発生しました。時間をおいて再度お試しください'
 }
 
-export default function RestaurantNewForm() {
+type Props = {
+  initialName?: string
+}
+
+export default function RestaurantNewForm({ initialName = '' }: Props) {
   const router = useRouter()
   const supabase = createClient()
 
   const [step, setStep] = useState<FormStep>({ kind: 'form' })
-  const [name, setName] = useState('')
+  const [name, setName] = useState(initialName)
   const [area, setArea] = useState('')
   const [genre, setGenre] = useState('')
   const [address, setAddress] = useState('')
   const [memo, setMemo] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  async function ensureRestaurantAccesses(restaurantId: string, userId: string) {
-    const { data: privateRows, error: privateSelectError } = await supabase
-      .from('restaurant_accesses')
-      .select('id')
-      .eq('restaurant_id', restaurantId)
-      .eq('visibility', 'private')
-      .eq('user_id', userId)
-      .limit(1)
-
-    if (privateSelectError) throw privateSelectError
-
-    if ((privateRows ?? []).length === 0) {
-      const { error: privateInsertError } = await supabase
-        .from('restaurant_accesses')
-        .insert({
-          restaurant_id: restaurantId,
-          visibility: 'private',
-          user_id: userId,
-          group_id: null,
-          created_by: userId,
-        })
-
-      if (privateInsertError) throw privateInsertError
-    }
-
-    const { data: memberships, error: membershipError } = await supabase
-      .from('group_members')
-      .select('group_id')
-      .eq('user_id', userId)
-
-    if (membershipError) throw membershipError
-
-    const groupIds = [
-      ...new Set((memberships ?? []).map((membership) => membership.group_id as string)),
-    ]
-
-    if (groupIds.length === 0) return
-
-    const { data: existingGroupRows, error: groupSelectError } = await supabase
-      .from('restaurant_accesses')
-      .select('group_id')
-      .eq('restaurant_id', restaurantId)
-      .eq('visibility', 'group')
-      .in('group_id', groupIds)
-
-    if (groupSelectError) throw groupSelectError
-
-    const existingGroupIds = new Set(
-      (existingGroupRows ?? [])
-        .map((access) => access.group_id as string | null)
-        .filter((groupId): groupId is string => groupId !== null),
-    )
-    const missingGroupIds = groupIds.filter((groupId) => !existingGroupIds.has(groupId))
-
-    if (missingGroupIds.length === 0) return
-
-    const { error: groupInsertError } = await supabase
-      .from('restaurant_accesses')
-      .insert(
-        missingGroupIds.map((groupId) => ({
-          restaurant_id: restaurantId,
-          visibility: 'group',
-          user_id: null,
-          group_id: groupId,
-          created_by: userId,
-        })),
-      )
-
-    if (groupInsertError) throw groupInsertError
-  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -126,41 +66,52 @@ export default function RestaurantNewForm() {
     setError(null)
 
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error('Authentication is required')
-
-      // Step 1: INSERT restaurants
-      const { data: restaurant, error: restaurantError } = await supabase
-        .from('restaurants')
-        .insert({
-          name: name.trim(),
-          area: area.trim() || null,
-          genre: genre.trim() || null,
-          address: address.trim() || null,
-          memo: memo.trim() || null,
-          created_by: user.id,
-          source: 'manual',
-        })
-        .select('id')
-        .single()
-
-      if (restaurantError) throw restaurantError
-
-      const restaurantId = (restaurant as { id: string }).id
-
-      try {
-        await ensureRestaurantAccesses(restaurantId, user.id)
-      } catch (accessError) {
-        logError(accessError)
-        // The restaurant remains available for an access-only retry.
-        setStep({ kind: 'access_failed', restaurantId })
-        setError('店舗は作成されましたが、共有設定の保存に失敗しました。もう一度お試しください')
+      const candidates = await findDuplicateRestaurantCandidates(supabase, name, area)
+      if (candidates.length > 0) {
+        setStep({ kind: 'duplicate_warning', candidates })
         return
       }
 
-      router.push(`/restaurants/${restaurantId}`)
+      await submitRestaurant()
+    } catch (err) {
+      logError(err)
+      setError(toJapaneseError(err))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function submitRestaurant() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) throw new Error('Authentication is required')
+
+    const restaurantId = await createRestaurant(
+      supabase,
+      { name, area, genre, address, memo },
+      user.id,
+    )
+
+    try {
+      await ensureRestaurantAccesses(supabase, restaurantId, user.id)
+    } catch (accessError) {
+      logError(accessError)
+      // The restaurant remains available for an access-only retry.
+      setStep({ kind: 'access_failed', restaurantId })
+      setError('店舗は作成されましたが、共有設定の保存に失敗しました。もう一度お試しください')
+      return
+    }
+
+    router.push(`/restaurants/${restaurantId}`)
+  }
+
+  async function handleCreateDespiteWarning() {
+    setSubmitting(true)
+    setError(null)
+
+    try {
+      await submitRestaurant()
     } catch (err) {
       logError(err)
       setError(toJapaneseError(err))
@@ -181,7 +132,7 @@ export default function RestaurantNewForm() {
       } = await supabase.auth.getUser()
       if (!user) throw new Error('Authentication is required')
 
-      await ensureRestaurantAccesses(restaurantId, user.id)
+      await ensureRestaurantAccesses(supabase, restaurantId, user.id)
 
       router.push(`/restaurants/${restaurantId}`)
     } catch (err) {
@@ -208,6 +159,59 @@ export default function RestaurantNewForm() {
               disabled={submitting}
             >
               {submitting ? '再試行中...' : 'アクセス情報の保存を再試行'}
+            </Button>
+          </div>
+        </section>
+        <BottomNav />
+      </main>
+    )
+  }
+
+  if (step.kind === 'duplicate_warning') {
+    return (
+      <main className="min-h-screen bg-canvas px-4 py-8 pb-24 sm:px-6 sm:py-10">
+        <section className="mx-auto w-full max-w-md rounded-lg border border-edge bg-surface p-6 shadow-sm sm:p-8">
+          <h1 className="text-xl font-semibold text-ink">もしかして、この店ですか？</h1>
+          <p className="mt-2 text-sm leading-relaxed text-ink-sub">
+            同じ店舗がすでに登録されていないか確認してください。
+          </p>
+
+          <ul className="mt-5 space-y-3">
+            {step.candidates.map((candidate) => (
+              <li key={candidate.id}>
+                <Link
+                  href={`/restaurants/${candidate.id}`}
+                  className="block min-h-[44px] rounded-xl border border-edge p-4 transition-colors hover:bg-canvas"
+                >
+                  <p className="font-medium text-ink">{candidate.name}</p>
+                  {(candidate.area || candidate.genre) && (
+                    <p className="mt-1 text-sm text-ink-sub">
+                      {[candidate.area, candidate.genre].filter(Boolean).join(' · ')}
+                    </p>
+                  )}
+                  <p className="mt-2 text-sm font-medium text-terra">この店舗を確認する →</p>
+                </Link>
+              </li>
+            ))}
+          </ul>
+
+          {error && <div className="mt-4"><ErrorMessage message={error} /></div>}
+
+          <div className="mt-6 space-y-3">
+            <Button
+              type="button"
+              onClick={handleCreateDespiteWarning}
+              disabled={submitting}
+            >
+              {submitting ? '登録中...' : 'いいえ、新しく登録する'}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setStep({ kind: 'form' })}
+              disabled={submitting}
+            >
+              入力内容を修正する
             </Button>
           </div>
         </section>
@@ -298,8 +302,8 @@ export default function RestaurantNewForm() {
         </form>
 
         <div className="mt-4">
-          <Link href="/restaurants" className="text-sm text-ink-sub hover:text-ink">
-            ← 一覧に戻る
+          <Link href="/restaurants/search" className="text-sm text-ink-sub hover:text-ink">
+            ← 店舗検索に戻る
           </Link>
         </div>
       </section>

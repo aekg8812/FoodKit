@@ -166,10 +166,10 @@ export default function MypageClient({ userData, profile, myReviews, myRestauran
                 <p className="mb-1.5 text-2xl" aria-hidden="true">🍽️</p>
                 <p className="mb-4 text-sm text-ink-sub">まだ店舗を登録していません</p>
                 <Link
-                  href="/restaurants/new"
+                  href="/restaurants/search"
                   className="inline-block rounded-full bg-terra px-5 py-2 text-sm font-medium text-white transition-all duration-150 hover:bg-terra-deep motion-safe:active:scale-[0.98]"
                 >
-                  店舗を登録
+                  店舗を探す・追加する
                 </Link>
               </div>
             ) : (
