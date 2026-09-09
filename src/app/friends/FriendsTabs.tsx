@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import GroupMenu from '@/components/groups/GroupMenu'
 import FriendsAddMenu from './FriendsAddMenu'
 
 const TABS = [
@@ -53,7 +54,13 @@ export default function FriendsTabs() {
         role="tabpanel"
         aria-labelledby={`${activeTab}-tab`}
         className="min-h-48"
-      />
+      >
+        {activeTab === 'groups' ? (
+          <div className="flex justify-end pt-4">
+            <GroupMenu />
+          </div>
+        ) : null}
+      </section>
     </>
   )
 }
