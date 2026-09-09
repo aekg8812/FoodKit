@@ -15,9 +15,10 @@ type TabId = (typeof TABS)[number]['id']
 
 type FriendsTabsProps = {
   friendsPanel: ReactNode
+  groupsPanel: ReactNode
 }
 
-export default function FriendsTabs({ friendsPanel }: FriendsTabsProps) {
+export default function FriendsTabs({ friendsPanel, groupsPanel }: FriendsTabsProps) {
   const searchParams = useSearchParams()
   const activeTab: TabId = searchParams.get('tab') === 'groups' ? 'groups' : 'friends'
 
@@ -63,8 +64,11 @@ export default function FriendsTabs({ friendsPanel }: FriendsTabsProps) {
         {activeTab === 'friends' ? (
           <div className="pt-4">{friendsPanel}</div>
         ) : (
-          <div className="flex justify-end pt-4">
-            <GroupMenu />
+          <div className="pt-4">
+            <div className="mb-4 flex justify-end">
+              <GroupMenu />
+            </div>
+            {groupsPanel}
           </div>
         )}
       </section>
