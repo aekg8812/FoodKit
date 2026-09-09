@@ -248,7 +248,7 @@ export default function MypageClient({
                   >
                     <p className="text-sm text-ink">{group.name}</p>
                     <Link
-                      href="/groups"
+                      href={`/groups/${group.id}`}
                       className="shrink-0 text-sm text-terra transition-colors duration-150 hover:text-terra-deep"
                     >
                       グループを見る →
