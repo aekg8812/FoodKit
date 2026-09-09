@@ -4,6 +4,7 @@ import BottomNav from '@/components/BottomNav'
 import { createClient } from '@/lib/supabase/server'
 import FriendsList, { type FriendProfile } from './FriendsList'
 import FriendsTabs from './FriendsTabs'
+import GroupsList, { type GroupListItem } from './GroupsList'
 
 type FollowRow = {
   follower_id: string
@@ -11,6 +12,8 @@ type FollowRow = {
 }
 
 const LOAD_ERROR_MESSAGE = '友人一覧を読み込めませんでした。もう一度お試しください。'
+const GROUPS_LOAD_ERROR_MESSAGE =
+  'グループ一覧を読み込めませんでした。もう一度お試しください。'
 
 export default async function FriendsPage() {
   const supabase = await createClient()
@@ -18,6 +21,21 @@ export default async function FriendsPage() {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
+
+  const { data: groupData, error: groupError } = await supabase
+    .from('groups')
+    .select('id, name')
+    .order('created_at', { ascending: true })
+
+  let groups: GroupListItem[] = []
+  let groupsErrorMessage: string | undefined
+
+  if (groupError) {
+    console.error('FriendsPage: failed to load groups', groupError)
+    groupsErrorMessage = GROUPS_LOAD_ERROR_MESSAGE
+  } else {
+    groups = (groupData ?? []) as GroupListItem[]
+  }
 
   const { data: followData, error: followError } = await supabase
     .from('follows')
@@ -95,13 +113,14 @@ export default async function FriendsPage() {
       errorMessage={errorMessage}
     />
   )
+  const groupsPanel = <GroupsList groups={groups} errorMessage={groupsErrorMessage} />
 
   return (
     <main className="min-h-screen bg-canvas px-6 py-10 pb-20">
       <div className="mx-auto w-full max-w-md">
         <h1 className="mb-6 text-2xl font-bold text-ink">友人・グループ</h1>
         <Suspense fallback={null}>
-          <FriendsTabs friendsPanel={friendsPanel} />
+          <FriendsTabs friendsPanel={friendsPanel} groupsPanel={groupsPanel} />
         </Suspense>
       </div>
       <BottomNav />
