@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 
 const NAV_ITEMS = [
   { href: '/home', label: 'ホーム', emoji: '🏠' },
-  { href: '/groups', label: 'グループ', emoji: '👥' },
+  { href: '/friends', label: '友人・グループ', emoji: '👥' },
   { href: '/mypage', label: 'マイページ', emoji: '👤' },
 ] as const
 
@@ -17,7 +17,13 @@ export default function BottomNav() {
       // /restaurants 系はホームタブ扱い（ホームから来る動線のため）
       return pathname === '/home' || pathname.startsWith('/restaurants')
     }
-    // /groups/join はフロー画面なのでグループタブ扱いにしない（exact match のみ）
+    if (href === '/friends') {
+      // グループ詳細は友人・グループタブ扱い。参加・作成フローは対象外。
+      return (
+        pathname === '/friends' ||
+        (pathname.startsWith('/groups/') && pathname !== '/groups/join')
+      )
+    }
     return pathname === href
   }
 
