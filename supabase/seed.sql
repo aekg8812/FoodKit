@@ -21,7 +21,13 @@ insert into auth.users (
   role,
   aud,
   confirmation_token,
-  recovery_token
+  recovery_token,
+  email_change,
+  email_change_token_new,
+  email_change_token_current,
+  phone_change,
+  phone_change_token,
+  reauthentication_token
 )
 values
   (
@@ -31,7 +37,7 @@ values
     crypt('password123', gen_salt('bf')),
     now(), now(), now(),
     '{"name":"江藤美愛"}'::jsonb,
-    false, 'authenticated', 'authenticated', '', ''
+    false, 'authenticated', 'authenticated', '', '', '', '', '', '', '', ''
   ),
   (
     '22222222-2222-2222-2222-222222222222',
@@ -40,7 +46,7 @@ values
     crypt('password123', gen_salt('bf')),
     now(), now(), now(),
     '{"name":"河野響"}'::jsonb,
-    false, 'authenticated', 'authenticated', '', ''
+    false, 'authenticated', 'authenticated', '', '', '', '', '', '', '', ''
   ),
   (
     '33333333-3333-3333-3333-333333333333',
@@ -49,7 +55,7 @@ values
     crypt('password123', gen_salt('bf')),
     now(), now(), now(),
     '{"name":"河田俊太朗"}'::jsonb,
-    false, 'authenticated', 'authenticated', '', ''
+    false, 'authenticated', 'authenticated', '', '', '', '', '', '', '', ''
   ),
   (
     '44444444-4444-4444-4444-444444444444',
@@ -58,7 +64,7 @@ values
     crypt('password123', gen_salt('bf')),
     now(), now(), now(),
     '{"name":"山田太郎"}'::jsonb,
-    false, 'authenticated', 'authenticated', '', ''
+    false, 'authenticated', 'authenticated', '', '', '', '', '', '', '', ''
   );
 
 -- onboarding 完了（name はトリガーで raw_user_meta_data から設定済み）

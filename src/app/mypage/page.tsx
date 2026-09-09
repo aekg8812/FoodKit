@@ -9,6 +9,11 @@ import MypageClient, {
   type GroupRow,
 } from './MypageClient'
 
+type RecordedRestaurantAccessRow = {
+  created_at: string
+  restaurants: Omit<MyRestaurantRow, 'created_at'> | null
+}
+
 export default async function MypagePage() {
   const supabase = await createClient()
 
@@ -36,9 +41,10 @@ export default async function MypagePage() {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false }),
       supabase
-        .from('restaurants')
-        .select('id, name, area, genre, created_at')
-        .eq('created_by', user.id)
+        .from('restaurant_accesses')
+        .select('created_at, restaurants(id, name, area, genre)')
+        .eq('visibility', 'private')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false }),
       supabase.from('groups').select('id, name, invite_code').order('created_at'),
     ])
@@ -66,12 +72,20 @@ export default async function MypagePage() {
     throw new Error(`MypagePage: failed to load groups: ${groupsResult.error.message}`)
   }
 
+  const myRestaurants = ((myRestaurantsResult.data ?? []) as unknown as RecordedRestaurantAccessRow[])
+    .filter(
+      (access): access is RecordedRestaurantAccessRow & {
+        restaurants: Omit<MyRestaurantRow, 'created_at'>
+      } => access.restaurants !== null,
+    )
+    .map((access) => ({ ...access.restaurants, created_at: access.created_at }))
+
   return (
     <MypageClient
       userData={userResult.data as UserRow}
       profile={profileResult.data as ValueProfileRow | null}
       myReviews={(myReviewsResult.data ?? []) as unknown as MyReviewRow[]}
-      myRestaurants={(myRestaurantsResult.data ?? []) as MyRestaurantRow[]}
+      myRestaurants={myRestaurants}
       groups={(groupsResult.data ?? []) as GroupRow[]}
     />
   )

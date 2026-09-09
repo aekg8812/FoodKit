@@ -7,6 +7,11 @@ import RegisteredRestaurantsClient, {
   type RegisteredRestaurantRow,
 } from './RegisteredRestaurantsClient'
 
+type RecordedRestaurantAccessRow = {
+  created_at: string
+  restaurants: Omit<RegisteredRestaurantRow, 'created_at'> | null
+}
+
 export default async function RegisteredRestaurantsPage() {
   const supabase = await createClient()
 
@@ -18,18 +23,25 @@ export default async function RegisteredRestaurantsPage() {
   const state = await getUserState(supabase)
   if (state === 'no_onboarding') redirect('/onboarding')
 
-  // 登録店舗履歴ページ: 本人が追加した店舗を専用一覧へ渡す
+  // 記録店舗ページ: 本人のprivateアクセスがある店舗を専用一覧へ渡す
   const { data, error } = await supabase
-    .from('restaurants')
-    .select('id, name, area, genre, created_at')
-    .eq('created_by', user.id)
+    .from('restaurant_accesses')
+    .select('created_at, restaurants(id, name, area, genre)')
+    .eq('visibility', 'private')
+    .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
   if (error) {
     throw new Error(`RegisteredRestaurantsPage: failed to load restaurants: ${error.message}`)
   }
 
-  const restaurants = (data ?? []) as RegisteredRestaurantRow[]
+  const restaurants = ((data ?? []) as unknown as RecordedRestaurantAccessRow[])
+    .filter(
+      (access): access is RecordedRestaurantAccessRow & {
+        restaurants: Omit<RegisteredRestaurantRow, 'created_at'>
+      } => access.restaurants !== null,
+    )
+    .map((access) => ({ ...access.restaurants, created_at: access.created_at }))
 
   return (
     <main className="min-h-screen bg-canvas px-6 py-10 pb-20">
@@ -43,16 +55,16 @@ export default async function RegisteredRestaurantsPage() {
 
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-ink">登録した店舗</h1>
+            <h1 className="text-2xl font-bold text-ink">記録している店舗</h1>
             <p className="mt-1 text-sm leading-relaxed text-ink-sub">
-              FoodKitに追加した店舗情報を確認できます
+              自分の記録に追加した店舗を確認できます
             </p>
           </div>
           <Link
-            href="/restaurants/new"
+            href="/restaurants/search"
             className="inline-flex min-h-[44px] shrink-0 items-center rounded-full bg-terra px-4 text-sm font-medium text-white transition-colors hover:bg-terra-deep"
           >
-            ＋ 登録
+            ＋ 店舗を追加
           </Link>
         </div>
 

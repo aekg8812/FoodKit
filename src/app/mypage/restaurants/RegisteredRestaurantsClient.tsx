@@ -22,7 +22,7 @@ export default function RegisteredRestaurantsClient({ restaurants }: Props) {
   const [query, setQuery] = useState('')
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest')
 
-  // 登録店舗一覧UI: 取得済みデータを店名・ジャンル・エリアで絞り込み、登録日順に並べる
+  // 記録店舗一覧UI: 取得済みデータを店名・ジャンル・エリアで絞り込み、記録日順に並べる
   const visibleRestaurants = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('ja')
 
@@ -46,7 +46,7 @@ export default function RegisteredRestaurantsClient({ restaurants }: Props) {
       <div className="mb-5 space-y-3">
         <div className="relative">
           <label htmlFor="registered_restaurant_search" className="sr-only">
-            登録した店舗を検索
+            記録している店舗を検索
           </label>
           <input
             id="registered_restaurant_search"
@@ -91,14 +91,14 @@ export default function RegisteredRestaurantsClient({ restaurants }: Props) {
       </div>
 
       <div className="mb-3 flex items-center justify-between gap-3 text-sm text-ink-sub">
-        <p>{query ? '絞り込み結果' : '登録した店舗'}</p>
+        <p>{query ? '絞り込み結果' : '記録している店舗'}</p>
         <p className="tabular-nums">{visibleRestaurants.length}件</p>
       </div>
 
       {visibleRestaurants.length === 0 ? (
         <Card className="p-8 text-center">
           <p className="text-sm text-ink-sub">
-            {query ? '条件に一致する店舗がありません' : 'まだ店舗を登録していません'}
+            {query ? '条件に一致する店舗がありません' : 'まだ店舗を記録していません'}
           </p>
           {query && (
             <button
@@ -128,7 +128,7 @@ export default function RegisteredRestaurantsClient({ restaurants }: Props) {
                     <span className="shrink-0 text-sm text-ink-sub" aria-hidden="true">→</span>
                   </div>
                   <p className="mt-3 text-xs text-ink-sub">
-                    登録日 {restaurant.created_at.slice(0, 10)}
+                    記録日 {restaurant.created_at.slice(0, 10)}
                   </p>
                 </Card>
               </Link>
