@@ -60,15 +60,22 @@ export default function GroupsList({ groups, errorMessage }: GroupsListProps) {
 
       <Card className="divide-y divide-edge overflow-hidden">
         {groups.map((group) => (
-          <div key={group.id} className="flex min-h-[60px] items-center gap-3 px-4 py-3">
+          <Link
+            key={group.id}
+            href={`/groups/${group.id}`}
+            className="flex min-h-[60px] items-center gap-3 px-4 py-3 transition-colors hover:bg-canvas"
+          >
             <span
               aria-hidden="true"
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cream text-lg"
             >
               👥
             </span>
-            <p className="min-w-0 truncate text-sm font-medium text-ink">{group.name}</p>
-          </div>
+            <p className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{group.name}</p>
+            <span className="shrink-0 text-sm text-ink-sub" aria-hidden="true">
+              →
+            </span>
+          </Link>
         ))}
       </Card>
     </section>

@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import type { ReactNode } from 'react'
-import GroupMenu from '@/components/groups/GroupMenu'
 import FriendsAddMenu from './FriendsAddMenu'
 
 const TABS = [
@@ -64,12 +63,7 @@ export default function FriendsTabs({ friendsPanel, groupsPanel }: FriendsTabsPr
         {activeTab === 'friends' ? (
           <div className="pt-4">{friendsPanel}</div>
         ) : (
-          <div className="pt-4">
-            <div className="mb-4 flex justify-end">
-              <GroupMenu />
-            </div>
-            {groupsPanel}
-          </div>
+          <div className="pt-4">{groupsPanel}</div>
         )}
       </section>
     </>
