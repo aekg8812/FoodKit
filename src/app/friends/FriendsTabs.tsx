@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import type { ReactNode } from 'react'
 import GroupMenu from '@/components/groups/GroupMenu'
 import FriendsAddMenu from './FriendsAddMenu'
 
@@ -12,7 +13,11 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]['id']
 
-export default function FriendsTabs() {
+type FriendsTabsProps = {
+  friendsPanel: ReactNode
+}
+
+export default function FriendsTabs({ friendsPanel }: FriendsTabsProps) {
   const searchParams = useSearchParams()
   const activeTab: TabId = searchParams.get('tab') === 'groups' ? 'groups' : 'friends'
 
@@ -55,11 +60,13 @@ export default function FriendsTabs() {
         aria-labelledby={`${activeTab}-tab`}
         className="min-h-48"
       >
-        {activeTab === 'groups' ? (
+        {activeTab === 'friends' ? (
+          <div className="pt-4">{friendsPanel}</div>
+        ) : (
           <div className="flex justify-end pt-4">
             <GroupMenu />
           </div>
-        ) : null}
+        )}
       </section>
     </>
   )
