@@ -21,7 +21,7 @@ type GroupMenuProps = {
   isCurrentMember: boolean
 }
 
-type MenuMode = 'menu' | 'leave-confirm'
+type MenuMode = 'menu' | 'leave-confirm' | 'delete-confirm'
 
 export default function GroupMenu({
   groupId,
@@ -38,6 +38,7 @@ export default function GroupMenu({
   const [copied, setCopied] = useState(false)
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
 
   async function handleCopy() {
     try {
@@ -88,10 +89,46 @@ export default function GroupMenu({
     }
   }
 
+  async function handleDelete() {
+    if (inFlightRef.current || deleteConfirmation !== groupName) return
+
+    inFlightRef.current = true
+    setLoading(true)
+    setErrorMessage(null)
+
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.rpc('delete_group', {
+        p_group_id: groupId,
+      })
+
+      if (error) {
+        console.error('GroupMenu: failed to delete group', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+        })
+        setErrorMessage('グループを削除できませんでした。もう一度お試しください。')
+        return
+      }
+
+      router.push('/friends?tab=groups')
+      router.refresh()
+    } catch (error) {
+      console.error('GroupMenu: unexpected delete error', error)
+      setErrorMessage('グループを削除できませんでした。もう一度お試しください。')
+    } finally {
+      inFlightRef.current = false
+      setLoading(false)
+    }
+  }
+
   function handleClose() {
     setOpen(false)
     setMode('menu')
     setErrorMessage(null)
+    setDeleteConfirmation('')
   }
 
   return (
@@ -101,6 +138,7 @@ export default function GroupMenu({
         onClick={() => {
           setMode('menu')
           setErrorMessage(null)
+          setDeleteConfirmation('')
           setOpen(true)
         }}
         aria-label="グループメニューを開く"
@@ -114,7 +152,13 @@ export default function GroupMenu({
       <BottomSheet
         id="group-menu"
         open={open}
-        title={mode === 'menu' ? 'グループメニュー' : 'グループから退会'}
+        title={
+          mode === 'menu'
+            ? 'グループメニュー'
+            : mode === 'leave-confirm'
+              ? 'グループから退会'
+              : 'グループを削除'
+        }
         onClose={handleClose}
       >
         {mode === 'menu' ? (
@@ -169,23 +213,45 @@ export default function GroupMenu({
             ) : null}
 
             {isCurrentMember ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setErrorMessage(null)
-                  setMode('leave-confirm')
-                }}
-                className="min-h-11 w-full rounded-xl border border-red-200 px-4 text-sm font-bold text-red-600 transition-colors hover:bg-red-50"
-              >
-                グループから退会する
-              </button>
+              <div className="space-y-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setErrorMessage(null)
+                    setMode('leave-confirm')
+                  }}
+                  className="min-h-11 w-full rounded-xl border border-red-200 px-4 text-sm font-bold text-red-600 transition-colors hover:bg-red-50"
+                >
+                  グループから退会する
+                </button>
+
+                <section className="border-t border-edge pt-6" aria-labelledby="danger-zone-heading">
+                  <h3 id="danger-zone-heading" className="mb-2 text-sm font-bold text-red-600">
+                    危険な操作
+                  </h3>
+                  <p className="mb-3 text-xs leading-5 text-ink-sub">
+                    グループを削除すると、すべてのメンバーがアクセスできなくなります。
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setErrorMessage(null)
+                      setDeleteConfirmation('')
+                      setMode('delete-confirm')
+                    }}
+                    className="min-h-11 w-full rounded-xl bg-red-600 px-4 text-sm font-bold text-white transition-opacity hover:opacity-90"
+                  >
+                    グループを削除する
+                  </button>
+                </section>
+              </div>
             ) : (
               <p className="rounded-xl bg-canvas p-4 text-sm text-ink-sub">
                 このグループには参加していません
               </p>
             )}
           </div>
-        ) : (
+        ) : mode === 'leave-confirm' ? (
           <div>
             <p className="text-sm leading-6 text-ink-sub">
               「{groupName}」から退会しますか？退会すると、このグループで共有されている店舗が見られなくなります。
@@ -214,6 +280,59 @@ export default function GroupMenu({
                 className="min-h-11 rounded-xl bg-terra px-4 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? '退会中…' : '退会する'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+              <p className="text-sm font-bold text-red-600">この操作は元に戻せません</p>
+              <p className="mt-2 text-sm leading-6 text-ink-sub">
+                グループ「{groupName}」を削除すると、メンバー全員がアクセスできなくなり、メンバー情報・共有設定・グループに紐づくデータが削除されます。
+              </p>
+            </div>
+
+            <div className="mt-5">
+              <label htmlFor="delete-group-confirmation" className="mb-2 block text-sm font-bold text-ink">
+                確認のため「{groupName}」と入力してください
+              </label>
+              <input
+                id="delete-group-confirmation"
+                type="text"
+                value={deleteConfirmation}
+                disabled={loading}
+                onChange={(event) => setDeleteConfirmation(event.target.value)}
+                autoComplete="off"
+                className="min-h-11 w-full rounded-xl border border-edge bg-surface px-4 text-sm text-ink outline-none transition-colors focus:border-terra disabled:cursor-not-allowed disabled:opacity-60"
+              />
+            </div>
+
+            {errorMessage ? (
+              <p role="alert" className="mt-3 text-sm text-red-600">
+                {errorMessage}
+              </p>
+            ) : null}
+
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => {
+                  setErrorMessage(null)
+                  setDeleteConfirmation('')
+                  setMode('menu')
+                }}
+                className="min-h-11 rounded-xl border border-edge px-4 text-sm font-bold text-ink transition-colors hover:bg-canvas disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                disabled={loading || deleteConfirmation !== groupName}
+                onClick={() => void handleDelete()}
+                className="min-h-11 rounded-xl bg-red-600 px-4 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {loading ? '削除中…' : '完全に削除する'}
               </button>
             </div>
           </div>
