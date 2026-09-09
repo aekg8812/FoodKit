@@ -1,5 +1,8 @@
 import Link from 'next/link'
 import Card from '@/components/ui/Card'
+import FriendRelationshipAction, {
+  type FriendRelationshipActionType,
+} from './FriendRelationshipAction'
 
 export type FriendProfile = {
   id: string
@@ -8,6 +11,7 @@ export type FriendProfile = {
 }
 
 type FriendsListProps = {
+  viewerId: string
   incoming: FriendProfile[]
   mutual: FriendProfile[]
   outgoing: FriendProfile[]
@@ -15,11 +19,13 @@ type FriendsListProps = {
 }
 
 type FriendSectionProps = {
+  viewerId: string
   title: string
   profiles: FriendProfile[]
+  action: FriendRelationshipActionType
 }
 
-function FriendSection({ title, profiles }: FriendSectionProps) {
+function FriendSection({ viewerId, title, profiles, action }: FriendSectionProps) {
   if (profiles.length === 0) return null
 
   return (
@@ -38,22 +44,28 @@ function FriendSection({ title, profiles }: FriendSectionProps) {
           const initial = Array.from(profile.name.trim())[0] ?? '👤'
 
           return (
-            <Link
-              key={profile.id}
-              href={`/users/${encodeURIComponent(profile.username)}`}
-              className="flex min-h-[60px] items-center gap-3 px-4 py-3 transition-colors hover:bg-canvas"
-            >
-              <span
-                aria-hidden="true"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cream text-sm font-bold text-terra"
+            <div key={profile.id} className="flex min-h-[60px] items-center gap-2 px-4 py-2">
+              <Link
+                href={`/users/${encodeURIComponent(profile.username)}`}
+                className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg transition-colors hover:bg-canvas"
               >
-                {initial}
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-medium text-ink">{profile.name}</span>
-                <span className="block truncate text-xs text-ink-sub">@{profile.username}</span>
-              </span>
-            </Link>
+                <span
+                  aria-hidden="true"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cream text-sm font-bold text-terra"
+                >
+                  {initial}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium text-ink">{profile.name}</span>
+                  <span className="block truncate text-xs text-ink-sub">@{profile.username}</span>
+                </span>
+              </Link>
+              <FriendRelationshipAction
+                viewerId={viewerId}
+                profile={{ id: profile.id, name: profile.name }}
+                action={action}
+              />
+            </div>
           )
         })}
       </Card>
@@ -62,6 +74,7 @@ function FriendSection({ title, profiles }: FriendSectionProps) {
 }
 
 export default function FriendsList({
+  viewerId,
   incoming,
   mutual,
   outgoing,
@@ -90,9 +103,19 @@ export default function FriendsList({
 
   return (
     <div className="space-y-6">
-      <FriendSection title="相手からのフォロー" profiles={incoming} />
-      <FriendSection title="友人" profiles={mutual} />
-      <FriendSection title="フォロー中（相手の反応待ち）" profiles={outgoing} />
+      <FriendSection
+        viewerId={viewerId}
+        title="相手からのフォロー"
+        profiles={incoming}
+        action="follow-back"
+      />
+      <FriendSection viewerId={viewerId} title="友人" profiles={mutual} action="remove-friend" />
+      <FriendSection
+        viewerId={viewerId}
+        title="フォロー中（相手の反応待ち）"
+        profiles={outgoing}
+        action="unfollow"
+      />
     </div>
   )
 }
