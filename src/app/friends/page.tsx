@@ -88,6 +88,7 @@ export default async function FriendsPage() {
 
   const friendsPanel = (
     <FriendsList
+      viewerId={user.id}
       incoming={incoming}
       mutual={mutual}
       outgoing={outgoing}
