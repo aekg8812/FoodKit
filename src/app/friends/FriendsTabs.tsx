@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import FriendsAddMenu from './FriendsAddMenu'
 
 const TABS = [
   { id: 'friends', label: '友人' },
@@ -16,33 +17,36 @@ export default function FriendsTabs() {
 
   return (
     <>
-      <nav
-        aria-label="友人・グループ表示切替"
-        className="grid grid-cols-2 border-b border-edge"
-        role="tablist"
-      >
-        {TABS.map((tab) => {
-          const isActive = activeTab === tab.id
+      <div className="flex items-end gap-2">
+        <nav
+          aria-label="友人・グループ表示切替"
+          className="grid min-w-0 flex-1 grid-cols-2 border-b border-edge"
+          role="tablist"
+        >
+          {TABS.map((tab) => {
+            const isActive = activeTab === tab.id
 
-          return (
-            <Link
-              key={tab.id}
-              id={`${tab.id}-tab`}
-              href={`/friends?tab=${tab.id}`}
-              role="tab"
-              aria-controls={`${tab.id}-panel`}
-              aria-selected={isActive}
-              className={`flex min-h-[44px] items-center justify-center border-b-2 px-4 text-sm font-semibold transition-colors duration-150 ${
-                isActive
-                  ? 'border-terra text-terra'
-                  : 'border-transparent text-ink-sub hover:text-ink'
-              }`}
-            >
-              {tab.label}
-            </Link>
-          )
-        })}
-      </nav>
+            return (
+              <Link
+                key={tab.id}
+                id={`${tab.id}-tab`}
+                href={`/friends?tab=${tab.id}`}
+                role="tab"
+                aria-controls={`${tab.id}-panel`}
+                aria-selected={isActive}
+                className={`flex min-h-[44px] items-center justify-center border-b-2 px-2 text-sm font-semibold transition-colors duration-150 ${
+                  isActive
+                    ? 'border-terra text-terra'
+                    : 'border-transparent text-ink-sub hover:text-ink'
+                }`}
+              >
+                {tab.label}
+              </Link>
+            )
+          })}
+        </nav>
+        <FriendsAddMenu activeTab={activeTab} />
+      </div>
 
       <section
         id={`${activeTab}-panel`}
