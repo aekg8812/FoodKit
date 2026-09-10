@@ -35,7 +35,7 @@ export default function FriendsAddMenu({ activeTab }: FriendsAddMenuProps) {
         onClose={() => setOpen(false)}
       >
         {activeTab === 'friends' ? (
-          <Link href="/username-test" onClick={() => setOpen(false)} className={MENU_LINK_CLASS}>
+          <Link href="/friends/search" onClick={() => setOpen(false)} className={MENU_LINK_CLASS}>
             ユーザーIDで探す
           </Link>
         ) : (
