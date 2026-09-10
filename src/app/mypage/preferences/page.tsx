@@ -6,7 +6,10 @@ import OnboardingForm from '@/app/onboarding/OnboardingForm'
 // 再診断対応: 初回診断が完了したユーザーだけ再診断を許可する
 export default async function PreferencesPage() {
   const supabase = await createClient()
-  const state = await getUserState(supabase)
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  const state = await getUserState(supabase, user)
 
   if (state === 'unauthenticated') redirect('/login')
   if (state === 'no_onboarding') redirect('/onboarding')

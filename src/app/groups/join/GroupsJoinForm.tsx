@@ -147,7 +147,6 @@ export default function GroupsJoinForm() {
       })
       if (error) throw error
 
-      router.refresh()
       router.push('/onboarding')
     } catch (err) {
       setJoinError(toJapaneseError(err))
@@ -174,7 +173,6 @@ export default function GroupsJoinForm() {
           <Button
             type="button"
             onClick={() => {
-              router.refresh()
               router.push('/onboarding')
             }}
           >

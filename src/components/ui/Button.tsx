@@ -1,22 +1,22 @@
-import { type ButtonHTMLAttributes, type ReactNode } from 'react'
+import { type ButtonHTMLAttributes, type ReactNode } from "react";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary'
-  loading?: boolean
-  children: ReactNode
+  variant?: "primary" | "secondary";
+  loading?: boolean;
+  children: ReactNode;
 }
 
 const VARIANT_CLASSES = {
-  primary: 'bg-terra text-white hover:bg-terra-deep',
-  secondary: 'border border-edge bg-surface text-ink hover:bg-canvas',
-}
+  primary: "bg-terra text-white hover:bg-terra-deep",
+  secondary: "border border-edge bg-surface text-ink hover:bg-canvas",
+};
 
 export default function Button({
-  variant = 'primary',
+  variant = "primary",
   loading = false,
   disabled,
   children,
-  className = '',
+  className = "",
   ...props
 }: ButtonProps) {
   return (
@@ -27,5 +27,5 @@ export default function Button({
     >
       {children}
     </button>
-  )
+  );
 }

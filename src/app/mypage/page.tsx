@@ -22,7 +22,7 @@ export default async function MypagePage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const state = await getUserState(supabase)
+  const state = await getUserState(supabase, user)
   if (state === 'no_onboarding') redirect('/onboarding')
 
   const [userResult, profileResult, myReviewsResult, myRestaurantsResult, groupsResult] =
