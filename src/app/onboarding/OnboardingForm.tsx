@@ -164,7 +164,6 @@ export default function OnboardingForm({ mode = 'initial' }: Props) {
   }
 
   function handleStart() {
-    router.refresh()
     // 再診断対応: 再診断後はマイページへ戻す
     router.push(mode === 'retake' ? '/mypage' : '/home')
   }

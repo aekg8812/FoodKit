@@ -49,7 +49,7 @@ export default async function GroupDetailPage({ params }: GroupDetailPageProps) 
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const state = await getUserState(supabase)
+  const state = await getUserState(supabase, user)
   if (state === 'no_onboarding') redirect('/onboarding')
 
   const [groupResult, membersResult, accessesResult] = await Promise.all([

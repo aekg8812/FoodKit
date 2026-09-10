@@ -13,7 +13,7 @@ export default async function ReviewHistoryPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const state = await getUserState(supabase)
+  const state = await getUserState(supabase, user)
   if (state === 'no_onboarding') redirect('/onboarding')
 
   // レビュー履歴ページ: 本人のレビューだけを新しい順ですべて取得する

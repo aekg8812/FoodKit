@@ -35,7 +35,7 @@ export default async function HomePage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const state = await getUserState(supabase);
+  const state = await getUserState(supabase, user);
   if (state === "no_onboarding") redirect("/onboarding");
 
   const [restaurantsResult, reviewsResult, profilesResult, userResult] =

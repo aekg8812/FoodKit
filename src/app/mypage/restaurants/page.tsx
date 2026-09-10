@@ -20,7 +20,7 @@ export default async function RegisteredRestaurantsPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const state = await getUserState(supabase)
+  const state = await getUserState(supabase, user)
   if (state === 'no_onboarding') redirect('/onboarding')
 
   // 記録店舗ページ: 本人のprivateアクセスがある店舗を専用一覧へ渡す
