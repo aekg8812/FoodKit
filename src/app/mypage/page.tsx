@@ -136,6 +136,7 @@ export default async function MypagePage() {
             viewerId={user.id}
             profileUserId={user.id}
             initialRelationship="self"
+            isOwnMypage
           />
         }
         reviews={reviews}
