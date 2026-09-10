@@ -114,7 +114,11 @@ export default function RegisteredRestaurantsClient({ restaurants }: Props) {
         <ul className="space-y-3">
           {visibleRestaurants.map((restaurant) => (
             <li key={restaurant.id}>
-              <Link href={`/restaurants/${restaurant.id}`} className="block">
+              <Link
+                href={`/restaurants/${restaurant.id}`}
+                prefetch={false}
+                className="block"
+              >
                 <Card interactive className="p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">

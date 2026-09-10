@@ -4,6 +4,7 @@ import BottomNav from '@/components/BottomNav'
 import ProfileLayout, { type ReviewGridItem } from '@/components/ProfileLayout'
 import { createClient } from '@/lib/supabase/server'
 import ProfileActions, { type FollowRelationship } from './ProfileActions'
+import { logPageAuthRequest } from '@/lib/diagnostics/authRequests'
 
 type PublicProfileRow = {
   id: string
@@ -63,6 +64,7 @@ export default async function UserProfilePage({
   const {
     data: { user: viewer },
   } = await supabase.auth.getUser()
+  await logPageAuthRequest('/users/[username]', Boolean(viewer))
   if (!viewer) redirect('/login')
 
   const { data: profileData, error: profileError } = await supabase

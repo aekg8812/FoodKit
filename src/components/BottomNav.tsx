@@ -33,6 +33,7 @@ export default function BottomNav() {
         <Link
           key={item.href}
           href={item.href}
+          prefetch={false}
           className={`flex flex-1 flex-col items-center justify-center gap-0.5 transition-all duration-150 ${
             isItemActive(item.href)
               ? 'text-terra'

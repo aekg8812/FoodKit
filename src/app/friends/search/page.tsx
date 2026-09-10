@@ -293,6 +293,7 @@ export default function FriendsSearchPage() {
                 <li key={result.id} className="flex items-center gap-2 py-3 first:pt-0 last:pb-0">
                   <Link
                     href={`/users/${result.username}`}
+                    prefetch={false}
                     className="flex min-h-14 min-w-0 flex-1 items-center gap-3 rounded-xl px-2 transition-colors hover:bg-canvas"
                   >
                     <span

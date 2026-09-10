@@ -63,6 +63,7 @@ export default function GroupsList({ groups, errorMessage }: GroupsListProps) {
           <Link
             key={group.id}
             href={`/groups/${group.id}`}
+            prefetch={false}
             className="flex min-h-[60px] items-center gap-3 px-4 py-3 transition-colors hover:bg-canvas"
           >
             <span

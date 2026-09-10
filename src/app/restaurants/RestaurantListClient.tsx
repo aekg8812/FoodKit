@@ -76,7 +76,7 @@ export default function RestaurantListClient({
   function renderRestaurant({ restaurant: r, dist }: RestaurantWithDist) {
     return (
       <li key={r.id}>
-        <Link href={`/restaurants/${r.id}`} className="block">
+        <Link href={`/restaurants/${r.id}`} prefetch={false} className="block">
           <Card interactive className="p-4">
             <p className="font-medium text-ink">{r.name}</p>
             {(r.area || r.genre) && (

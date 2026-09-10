@@ -81,6 +81,7 @@ export default function ProfileLayout({
               <Link
                 key={review.id}
                 href={`/restaurants/${review.restaurantId}`}
+                prefetch={false}
                 className="block min-w-0 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terra focus-visible:ring-offset-2"
               >
                 <Card interactive className="h-full overflow-hidden">

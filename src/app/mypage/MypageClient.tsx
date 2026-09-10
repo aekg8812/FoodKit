@@ -148,6 +148,7 @@ export default function MypageClient({
                   <li key={review.id} className="py-3 first:pt-0 last:pb-0">
                     <Link
                       href={`/restaurants/${review.restaurant_id}`}
+                      prefetch={false}
                       className="block transition-opacity duration-150 hover:opacity-70"
                     >
                       <p className="font-medium text-ink">
@@ -210,6 +211,7 @@ export default function MypageClient({
                   <li key={r.id} className="py-3 first:pt-0 last:pb-0">
                     <Link
                       href={`/restaurants/${r.id}`}
+                      prefetch={false}
                       className="block transition-opacity duration-150 hover:opacity-70"
                     >
                       <p className="font-medium text-ink">{r.name}</p>
@@ -249,6 +251,7 @@ export default function MypageClient({
                     <p className="text-sm text-ink">{group.name}</p>
                     <Link
                       href={`/groups/${group.id}`}
+                      prefetch={false}
                       className="shrink-0 text-sm text-terra transition-colors duration-150 hover:text-terra-deep"
                     >
                       グループを見る →

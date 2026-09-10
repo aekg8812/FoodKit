@@ -37,6 +37,7 @@ export default function FriendsTabs({ friendsPanel, groupsPanel }: FriendsTabsPr
                 key={tab.id}
                 id={`${tab.id}-tab`}
                 href={`/friends?tab=${tab.id}`}
+                prefetch={false}
                 role="tab"
                 aria-controls={`${tab.id}-panel`}
                 aria-selected={isActive}

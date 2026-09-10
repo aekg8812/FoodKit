@@ -58,6 +58,7 @@ function FriendSection({
             >
               <Link
                 href={`/users/${encodeURIComponent(profile.username)}`}
+                prefetch={false}
                 className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg transition-colors hover:bg-canvas"
               >
                 <span
