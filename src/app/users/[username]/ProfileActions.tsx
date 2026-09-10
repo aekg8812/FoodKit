@@ -28,12 +28,15 @@ export default function ProfileActions({
 
   if (initialRelationship === 'self') {
     return (
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
         <Link href="/mypage/preferences" className={ACTION_LINK_CLASS}>
           再診断
         </Link>
         <Link href="/mypage/reviews" className={ACTION_LINK_CLASS}>
           記録帳
+        </Link>
+        <Link href="/settings" className={ACTION_LINK_CLASS}>
+          設定
         </Link>
         <Link href="/mypage" className={ACTION_LINK_CLASS}>
           マイページへ
