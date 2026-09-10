@@ -12,6 +12,7 @@ type ProfileActionsProps = {
   viewerId: string
   profileUserId: string
   initialRelationship: FollowRelationship
+  isOwnMypage?: boolean
 }
 
 const ACTION_LINK_CLASS =
@@ -21,6 +22,7 @@ export default function ProfileActions({
   viewerId,
   profileUserId,
   initialRelationship,
+  isOwnMypage = false,
 }: ProfileActionsProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -28,7 +30,13 @@ export default function ProfileActions({
 
   if (initialRelationship === 'self') {
     return (
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
+      <div
+        className={
+          isOwnMypage
+            ? 'grid grid-cols-1 gap-2 sm:grid-cols-4'
+            : 'grid grid-cols-1 gap-2 sm:grid-cols-5'
+        }
+      >
         <Link href="/mypage/preferences" className={ACTION_LINK_CLASS}>
           再診断
         </Link>
@@ -38,9 +46,14 @@ export default function ProfileActions({
         <Link href="/settings" className={ACTION_LINK_CLASS}>
           設定
         </Link>
-        <Link href="/mypage" className={ACTION_LINK_CLASS}>
-          マイページへ
+        <Link href="/restaurants/search" className={ACTION_LINK_CLASS}>
+          店舗を記録する
         </Link>
+        {!isOwnMypage ? (
+          <Link href="/mypage" className={ACTION_LINK_CLASS}>
+            マイページへ
+          </Link>
+        ) : null}
       </div>
     )
   }
