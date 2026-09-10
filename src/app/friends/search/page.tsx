@@ -4,10 +4,12 @@ import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import BottomNav from '@/components/BottomNav'
 import ValueTypeBadge from '@/components/ValueTypeBadge'
+import BottomSheet from '@/components/ui/BottomSheet'
 import Button from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
 import ErrorMessage from '@/components/ui/ErrorMessage'
 import InputField from '@/components/ui/InputField'
+import { followUser, unfollowUser } from '@/lib/follows/mutations'
 import { createClient } from '@/lib/supabase/client'
 
 const SEARCH_DELAY_MS = 400
@@ -43,6 +45,15 @@ const RELATIONSHIP_LABEL: Record<FollowRelationship, string> = {
   none: 'フォロー',
 }
 
+const NEXT_RELATIONSHIP: Record<FollowRelationship, FollowRelationship> = {
+  mutual: 'incoming',
+  outgoing: 'none',
+  incoming: 'mutual',
+  none: 'outgoing',
+}
+
+const UNEXPECTED_ERROR_MESSAGE = 'フォロー操作に失敗しました。もう一度お試しください。'
+
 function logSupabaseError(
   context: string,
   error: { message?: string; code?: string; details?: string; hint?: string },
@@ -63,6 +74,10 @@ export default function FriendsSearchPage() {
   const [viewerId, setViewerId] = useState<string | null>(null)
   const [authError, setAuthError] = useState<string | null>(null)
   const [searchState, setSearchState] = useState<SearchState | null>(null)
+  const [pendingUserIds, setPendingUserIds] = useState<Set<string>>(() => new Set())
+  const [rowErrors, setRowErrors] = useState<Record<string, string>>({})
+  const [confirmTarget, setConfirmTarget] = useState<SearchResultWithRelationship | null>(null)
+  const inFlightUserIdsRef = useRef(new Set<string>())
 
   const currentSearch = searchState?.query === query ? searchState : null
   const loading = hasSearched && authError === null && currentSearch === null
@@ -155,6 +170,75 @@ export default function FriendsSearchPage() {
     return () => clearTimeout(timer)
   }, [hasSearched, query, supabase, viewerId])
 
+  async function executeRelationshipMutation(target: SearchResultWithRelationship) {
+    if (!viewerId || inFlightUserIdsRef.current.has(target.id)) return
+
+    inFlightUserIdsRef.current.add(target.id)
+    setPendingUserIds((current) => new Set(current).add(target.id))
+    setRowErrors((current) => {
+      const next = { ...current }
+      delete next[target.id]
+      return next
+    })
+
+    try {
+      const mutationResult =
+        target.relationship === 'none' || target.relationship === 'incoming'
+          ? await followUser(supabase, viewerId, target.id)
+          : await unfollowUser(supabase, viewerId, target.id)
+
+      if (!mutationResult.ok) {
+        setRowErrors((current) => ({
+          ...current,
+          [target.id]: mutationResult.message,
+        }))
+        return
+      }
+
+      setSearchState((current) => {
+        if (!current?.results) return current
+
+        return {
+          ...current,
+          results: current.results.map((result) =>
+            result.id === target.id
+              ? { ...result, relationship: NEXT_RELATIONSHIP[target.relationship] }
+              : result,
+          ),
+        }
+      })
+
+      if (target.relationship === 'mutual') setConfirmTarget(null)
+    } catch (error) {
+      console.error('FriendsSearchPage: unexpected follow mutation error', error)
+      setRowErrors((current) => ({
+        ...current,
+        [target.id]: UNEXPECTED_ERROR_MESSAGE,
+      }))
+    } finally {
+      inFlightUserIdsRef.current.delete(target.id)
+      setPendingUserIds((current) => {
+        const next = new Set(current)
+        next.delete(target.id)
+        return next
+      })
+    }
+  }
+
+  function handleRelationshipAction(target: SearchResultWithRelationship) {
+    if (target.relationship === 'mutual') {
+      setRowErrors((current) => {
+        const next = { ...current }
+        delete next[target.id]
+        return next
+      })
+      setConfirmTarget(target)
+      return
+    }
+
+    void executeRelationshipMutation(target)
+  }
+
   return (
     <main className="min-h-screen bg-canvas px-6 py-10 pb-20">
       <div className="mx-auto w-full max-w-md">
@@ -227,20 +311,70 @@ export default function FriendsSearchPage() {
                       </span>
                     </span>
                   </Link>
-                  <Button
-                    type="button"
-                    disabled
-                    className="w-auto min-w-24 shrink-0 px-3"
-                    aria-label={`${result.name}: ${RELATIONSHIP_LABEL[result.relationship]}`}
-                  >
-                    {RELATIONSHIP_LABEL[result.relationship]}
-                  </Button>
+                  <div className="w-24 shrink-0 text-right">
+                    <Button
+                      type="button"
+                      loading={pendingUserIds.has(result.id)}
+                      disabled={!viewerId || pendingUserIds.has(result.id)}
+                      onClick={() => handleRelationshipAction(result)}
+                      className="w-full px-2"
+                      aria-label={`${result.name}: ${RELATIONSHIP_LABEL[result.relationship]}`}
+                    >
+                      {pendingUserIds.has(result.id)
+                        ? '処理中…'
+                        : RELATIONSHIP_LABEL[result.relationship]}
+                    </Button>
+                    {rowErrors[result.id] ? (
+                      <p role="alert" className="mt-1 text-left text-xs text-red-600">
+                        {rowErrors[result.id]}
+                      </p>
+                    ) : null}
+                  </div>
                 </li>
               ))}
             </ul>
           </Card>
         ) : null}
       </div>
+
+      <BottomSheet
+        id="friends-search-remove-friend"
+        open={confirmTarget !== null}
+        title="友人関係を解除"
+        onClose={() => setConfirmTarget(null)}
+      >
+        {confirmTarget ? (
+          <>
+            <p className="text-sm leading-6 text-ink-sub">
+              {confirmTarget.name}
+              さんとの友人関係を解除しますか？お互いの記録が見えなくなります
+            </p>
+            {rowErrors[confirmTarget.id] ? (
+              <p role="alert" className="mt-3 text-sm text-red-600">
+                {rowErrors[confirmTarget.id]}
+              </p>
+            ) : null}
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                disabled={pendingUserIds.has(confirmTarget.id)}
+                onClick={() => setConfirmTarget(null)}
+                className="min-h-11 rounded-xl border border-edge bg-surface px-4 text-sm font-bold text-ink transition-colors hover:bg-canvas disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                disabled={pendingUserIds.has(confirmTarget.id)}
+                onClick={() => void executeRelationshipMutation(confirmTarget)}
+                className="min-h-11 rounded-xl bg-terra px-4 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {pendingUserIds.has(confirmTarget.id) ? '処理中…' : '解除する'}
+              </button>
+            </div>
+          </>
+        ) : null}
+      </BottomSheet>
       <BottomNav />
     </main>
   )
