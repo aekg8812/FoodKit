@@ -35,11 +35,9 @@ function escapeLikePattern(value: string): string {
 function getRelationship(
   viewerId: string,
   profileUserId: string,
-  isMutual: boolean,
   follows: FollowRow[],
 ): FollowRelationship {
   if (viewerId === profileUserId) return 'self'
-  if (isMutual) return 'mutual'
 
   const outgoing = follows.some(
     (follow) => follow.follower_id === viewerId && follow.followee_id === profileUserId,
@@ -48,6 +46,7 @@ function getRelationship(
     (follow) => follow.follower_id === profileUserId && follow.followee_id === viewerId,
   )
 
+  if (outgoing && incoming) return 'mutual'
   if (outgoing) return 'outgoing'
   if (incoming) return 'incoming'
   return 'none'
@@ -94,35 +93,27 @@ export default async function UserProfilePage({
     .eq('user_id', profile.id)
     .order('created_at', { ascending: false })
 
-  const relationshipQueries = isSelf
-    ? Promise.resolve([
-        { data: false, error: null },
-        { data: [] as FollowRow[], error: null },
-      ] as const)
-    : Promise.all([
-        supabase.rpc('is_mutual_follow', { p_other_user_id: profile.id }),
-        supabase
-          .from('follows')
-          .select('follower_id, followee_id')
-          .in('follower_id', [viewer.id, profile.id])
-          .in('followee_id', [viewer.id, profile.id])
-          .eq('status', 'accepted'),
-      ])
+  const followsQuery = isSelf
+    ? Promise.resolve({ data: [] as FollowRow[], error: null })
+    : supabase
+        .from('follows')
+        .select('follower_id, followee_id')
+        .in('follower_id', [viewer.id, profile.id])
+        .in('followee_id', [viewer.id, profile.id])
+        .eq('status', 'accepted')
 
-  const [valueProfileResult, friendCountResult, reviewsResult, relationshipResults] =
+  const [valueProfileResult, friendCountResult, reviewsResult, followsResult] =
     await Promise.all([
       valueProfileQuery,
       friendCountQuery,
       reviewsQuery,
-      relationshipQueries,
+      followsQuery,
     ])
-  const [mutualResult, followsResult] = relationshipResults
 
   const queryErrors = [
     ['value profile', valueProfileResult.error],
     ['friend count', friendCountResult.error],
     ['reviews', reviewsResult.error],
-    ['mutual follow', mutualResult.error],
     ['follow directions', followsResult.error],
   ] as const
   const failedQuery = queryErrors.find(([, error]) => error)
@@ -140,24 +131,24 @@ export default async function UserProfilePage({
         .filter((path): path is string => Boolean(path)),
     ),
   ]
-  const signedImageEntries = await Promise.all(
-    imagePaths.map(async (path) => {
-      const { data, error } = await supabase.storage
-        .from('review-images')
-        .createSignedUrl(path, 60 * 60)
+  const signedImagesResult = imagePaths.length
+    ? await supabase.storage.from('review-images').createSignedUrls(imagePaths, 60 * 60)
+    : { data: [], error: null }
 
-      if (error) {
-        console.error('UserProfilePage: failed to sign review image', {
-          path,
-          message: error.message,
-          statusCode: error.statusCode,
-        })
-      }
+  if (signedImagesResult.error) {
+    console.error('UserProfilePage: failed to sign review images', signedImagesResult.error)
+  }
 
-      return [path, data?.signedUrl ?? null] as const
-    }),
-  )
-  const signedImageUrls = new Map(signedImageEntries)
+  const signedImageUrls = new Map<string, string | null>()
+  for (const signedImage of signedImagesResult.data ?? []) {
+    if (signedImage.error) {
+      console.error('UserProfilePage: failed to sign review image', {
+        path: signedImage.path,
+        message: signedImage.error,
+      })
+    }
+    if (signedImage.path) signedImageUrls.set(signedImage.path, signedImage.signedUrl)
+  }
   const reviews: ReviewGridItem[] = reviewRows.map((review) => ({
     id: review.id,
     restaurantId: review.restaurant_id,
@@ -169,7 +160,6 @@ export default async function UserProfilePage({
   const relationship = getRelationship(
     viewer.id,
     profile.id,
-    Boolean(mutualResult.data),
     (followsResult.data ?? []) as FollowRow[],
   )
   const valueProfile = valueProfileResult.data as PublicValueProfileRow | null

@@ -109,17 +109,35 @@ export default async function HomePage() {
     }
   }
 
-  const signedImageEntries = await Promise.all(
-    [...latestImagePathByRestaurant.entries()].map(
-      async ([restaurantId, imagePath]) => {
-        const { data: signedImage } = await supabase.storage
-          .from("review-images")
-          .createSignedUrl(imagePath, 60 * 60);
-        return [restaurantId, signedImage?.signedUrl ?? null] as const;
-      },
-    ),
+  const imagePaths = [...new Set(latestImagePathByRestaurant.values())];
+  const signedImagesResult = imagePaths.length
+    ? await supabase.storage
+        .from("review-images")
+        .createSignedUrls(imagePaths, 60 * 60)
+    : { data: [], error: null };
+
+  if (signedImagesResult.error) {
+    console.error("HomePage: failed to sign review images", signedImagesResult.error);
+  }
+
+  const signedImageUrls = new Map<string, string | null>();
+  for (const signedImage of signedImagesResult.data ?? []) {
+    if (signedImage.error) {
+      console.error("HomePage: failed to sign review image", {
+        path: signedImage.path,
+        message: signedImage.error,
+      });
+    }
+    if (signedImage.path) {
+      signedImageUrls.set(signedImage.path, signedImage.signedUrl);
+    }
+  }
+  const imageUrlByRestaurant = new Map(
+    [...latestImagePathByRestaurant.entries()].map(([restaurantId, imagePath]) => [
+      restaurantId,
+      signedImageUrls.get(imagePath) ?? null,
+    ]),
   );
-  const imageUrlByRestaurant = new Map(signedImageEntries);
 
   return (
     <main className="min-h-screen bg-canvas pb-24">
