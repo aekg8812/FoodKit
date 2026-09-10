@@ -107,15 +107,24 @@ export default async function RestaurantDetailPage({
     ...reviewRows.map((review) => review.image_path),
     existingReviewRow?.image_path ?? null,
   ].filter((path): path is string => Boolean(path)))]
-  const signedImageEntries = await Promise.all(
-    imagePaths.map(async (path) => {
-      const { data: signedImage } = await supabase.storage
-        .from('review-images')
-        .createSignedUrl(path, 60 * 60)
-      return [path, signedImage?.signedUrl ?? null] as const
-    }),
-  )
-  const signedImageUrls = new Map(signedImageEntries)
+  const signedImagesResult = imagePaths.length
+    ? await supabase.storage.from('review-images').createSignedUrls(imagePaths, 60 * 60)
+    : { data: [], error: null }
+
+  if (signedImagesResult.error) {
+    console.error('RestaurantDetailPage: failed to sign review images', signedImagesResult.error)
+  }
+
+  const signedImageUrls = new Map<string, string | null>()
+  for (const signedImage of signedImagesResult.data ?? []) {
+    if (signedImage.error) {
+      console.error('RestaurantDetailPage: failed to sign review image', {
+        path: signedImage.path,
+        message: signedImage.error,
+      })
+    }
+    if (signedImage.path) signedImageUrls.set(signedImage.path, signedImage.signedUrl)
+  }
   const reviews: ReviewWithUser[] = reviewRows.map((review) => ({
     ...review,
     image_url: review.image_path ? signedImageUrls.get(review.image_path) ?? null : null,

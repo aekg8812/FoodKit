@@ -30,17 +30,36 @@ export default async function ReviewHistoryPage() {
   const reviewRows = (data ?? []) as unknown as Omit<ReviewHistoryRow, 'image_url'>[]
 
   // レビュー画像: 本人の履歴に表示するため、非公開画像の署名付きURLを発行する
-  const reviews: ReviewHistoryRow[] = await Promise.all(
-    reviewRows.map(async (review) => {
-      if (!review.image_path) return { ...review, image_url: null }
+  const imagePaths = [
+    ...new Set(
+      reviewRows
+        .map((review) => review.image_path)
+        .filter((path): path is string => Boolean(path)),
+    ),
+  ]
+  const signedImagesResult = imagePaths.length
+    ? await supabase.storage.from('review-images').createSignedUrls(imagePaths, 60 * 60)
+    : { data: [], error: null }
 
-      const { data: signedImage } = await supabase.storage
-        .from('review-images')
-        .createSignedUrl(review.image_path, 60 * 60)
+  if (signedImagesResult.error) {
+    console.error('ReviewHistoryPage: failed to sign review images', signedImagesResult.error)
+  }
 
-      return { ...review, image_url: signedImage?.signedUrl ?? null }
-    }),
-  )
+  const signedImageUrls = new Map<string, string | null>()
+  for (const signedImage of signedImagesResult.data ?? []) {
+    if (signedImage.error) {
+      console.error('ReviewHistoryPage: failed to sign review image', {
+        path: signedImage.path,
+        message: signedImage.error,
+      })
+    }
+    if (signedImage.path) signedImageUrls.set(signedImage.path, signedImage.signedUrl)
+  }
+
+  const reviews: ReviewHistoryRow[] = reviewRows.map((review) => ({
+    ...review,
+    image_url: review.image_path ? signedImageUrls.get(review.image_path) ?? null : null,
+  }))
 
   return (
     <main className="min-h-screen bg-canvas px-6 py-10 pb-20">
