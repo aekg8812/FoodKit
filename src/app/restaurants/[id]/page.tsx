@@ -6,6 +6,7 @@ import ReviewForm, { type ExistingReview } from './ReviewForm'
 import BottomNav from '@/components/BottomNav'
 import RatingBadge, { RATING_LABELS } from '@/components/RatingBadge'
 import RestaurantAccessGate from './RestaurantAccessGate'
+import { logPageAuthRequest } from '@/lib/diagnostics/authRequests'
 
 type Restaurant = {
   id: string
@@ -39,6 +40,7 @@ export default async function RestaurantDetailPage({
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  await logPageAuthRequest('/restaurants/[id]', Boolean(user))
   if (!user) redirect('/login')
 
   const { data, error } = await supabase

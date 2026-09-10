@@ -26,11 +26,14 @@ function getSupabaseEnv() {
   };
 }
 
-export async function updateSession(request: NextRequest) {
+export async function updateSession(request: NextRequest, requestId?: string) {
   const { supabaseUrl, supabaseKey } = getSupabaseEnv();
+  const requestHeaders = requestId ? new Headers(request.headers) : request.headers;
+  if (requestId) requestHeaders.set("x-foodkit-request-id", requestId);
+
   let response = NextResponse.next({
     request: {
-      headers: request.headers,
+      headers: requestHeaders,
     },
   });
 
@@ -46,7 +49,7 @@ export async function updateSession(request: NextRequest) {
 
         response = NextResponse.next({
           request: {
-            headers: request.headers,
+            headers: requestHeaders,
           },
         });
 

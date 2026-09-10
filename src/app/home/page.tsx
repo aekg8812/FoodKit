@@ -18,6 +18,7 @@ import {
   VALUE_TYPE_LABEL,
   type MainValueType,
 } from "@/lib/onboarding/classifyValueType";
+import { logPageAuthRequest } from "@/lib/diagnostics/authRequests";
 
 const TOP_N = 5;
 
@@ -33,6 +34,7 @@ export default async function HomePage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  await logPageAuthRequest("/home", Boolean(user));
   if (!user) redirect("/login");
 
   const state = await getUserState(supabase, user);

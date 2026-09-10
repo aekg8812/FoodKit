@@ -216,6 +216,7 @@ export default function ReviewHistoryClient({ reviews }: Props) {
               <Card className="overflow-hidden">
                 <Link
                   href={`/restaurants/${review.restaurant_id}`}
+                  prefetch={false}
                   className="block p-5 transition-colors hover:bg-canvas"
                 >
                   <div className="flex items-start justify-between gap-3">

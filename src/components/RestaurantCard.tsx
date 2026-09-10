@@ -58,7 +58,7 @@ export default function RestaurantCard({
 
   if (variant === 'featured') {
     return (
-      <Link href={`/restaurants/${restaurant.id}`} className="block">
+      <Link href={`/restaurants/${restaurant.id}`} prefetch={false} className="block">
         <div className="overflow-hidden rounded-2xl border border-edge bg-surface shadow-sm transition-all duration-150 hover:shadow-md motion-safe:active:scale-[0.99]">
           {/* 写真エリア */}
           <div className="h-44 w-full overflow-hidden">
@@ -99,7 +99,7 @@ export default function RestaurantCard({
 
   // compact — 写真＋店名＋分布バー（横スクロール用）
   return (
-    <Link href={`/restaurants/${restaurant.id}`} className="block">
+    <Link href={`/restaurants/${restaurant.id}`} prefetch={false} className="block">
       <div className="overflow-hidden rounded-2xl border border-edge bg-surface shadow-sm transition-all duration-150 hover:shadow-md motion-safe:active:scale-[0.99]">
         {/* 写真エリア（16:9） */}
         <div className="aspect-video w-full overflow-hidden">

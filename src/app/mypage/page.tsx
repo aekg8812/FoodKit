@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { logPageAuthRequest } from '@/lib/diagnostics/authRequests'
 import { getUserState } from '@/lib/auth/getUserState'
 import { redirect } from 'next/navigation'
 import MypageClient, {
@@ -20,6 +21,7 @@ export default async function MypagePage() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  await logPageAuthRequest('/mypage', Boolean(user))
   if (!user) redirect('/login')
 
   const state = await getUserState(supabase, user)

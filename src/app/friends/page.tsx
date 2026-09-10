@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import FriendsList, { type FriendProfile } from './FriendsList'
 import FriendsTabs from './FriendsTabs'
 import GroupsList, { type GroupListItem } from './GroupsList'
+import { logPageAuthRequest } from '@/lib/diagnostics/authRequests'
 
 type FollowRow = {
   follower_id: string
@@ -26,6 +27,7 @@ export default async function FriendsPage({
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  await logPageAuthRequest('/friends', Boolean(user))
   if (!user) redirect('/login')
 
   let groups: GroupListItem[] = []

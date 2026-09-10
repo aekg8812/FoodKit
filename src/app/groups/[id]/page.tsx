@@ -5,6 +5,7 @@ import GroupMenu, { type GroupMenuMember } from '@/components/groups/GroupMenu'
 import Card from '@/components/ui/Card'
 import { getUserState } from '@/lib/auth/getUserState'
 import { createClient } from '@/lib/supabase/server'
+import { logPageAuthRequest } from '@/lib/diagnostics/authRequests'
 
 type GroupRow = {
   id: string
@@ -47,6 +48,7 @@ export default async function GroupDetailPage({ params }: GroupDetailPageProps) 
   const {
     data: { user },
   } = await supabase.auth.getUser()
+  await logPageAuthRequest('/groups/[id]', Boolean(user))
   if (!user) redirect('/login')
 
   const state = await getUserState(supabase, user)
@@ -158,7 +160,11 @@ export default async function GroupDetailPage({ params }: GroupDetailPageProps) 
             <ul className="space-y-3">
               {sharedRestaurants.map((restaurant) => (
                 <li key={restaurant.id}>
-                  <Link href={`/restaurants/${restaurant.id}`} className="block">
+                  <Link
+                    href={`/restaurants/${restaurant.id}`}
+                    prefetch={false}
+                    className="block"
+                  >
                     <Card interactive className="p-5">
                       <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
