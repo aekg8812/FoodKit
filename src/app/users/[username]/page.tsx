@@ -10,6 +10,8 @@ type PublicProfileRow = {
   id: string
   username: string
   name: string
+  avatar_path: string | null
+  updated_at: string | null
 }
 
 type PublicValueProfileRow = {
@@ -69,7 +71,7 @@ export default async function UserProfilePage({
 
   const { data: profileData, error: profileError } = await supabase
     .from('user_public_profiles')
-    .select('id, username, name')
+    .select('id, username, name, avatar_path, updated_at')
     .ilike('username', escapeLikePattern(username))
     .limit(1)
     .maybeSingle()
@@ -165,6 +167,13 @@ export default async function UserProfilePage({
     (followsResult.data ?? []) as FollowRow[],
   )
   const valueProfile = valueProfileResult.data as PublicValueProfileRow | null
+  const publicAvatarUrl = profile.avatar_path
+    ? supabase.storage.from('avatars').getPublicUrl(profile.avatar_path).data.publicUrl
+    : null
+  const avatarUrl =
+    publicAvatarUrl && profile.updated_at
+      ? `${publicAvatarUrl}?v=${encodeURIComponent(profile.updated_at)}`
+      : publicAvatarUrl
   const emptyMessage =
     relationship === 'self'
       ? 'まだレビューを投稿していません'
@@ -188,7 +197,7 @@ export default async function UserProfilePage({
           id: profile.id,
           username: profile.username,
           name: profile.name,
-          avatarUrl: null,
+          avatarUrl,
         }}
         friendCount={Number(friendCountResult.data ?? 0)}
         valueType={valueProfile?.main_value_type ?? null}
