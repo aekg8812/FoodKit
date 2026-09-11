@@ -11,6 +11,18 @@ export default async function SettingsPage() {
 
   if (!user) redirect('/login')
 
+  // users は self-only の RLS のため、id = auth.uid() の自分の行だけを明示指定で取得する
+  const { data: profile, error } = await supabase
+    .from('users')
+    .select('username')
+    .eq('id', user.id)
+    .single()
+
+  if (error) {
+    console.error('SettingsPage: failed to load username', error)
+    throw new Error('設定情報を読み込めませんでした。')
+  }
+
   return (
     <main className="min-h-screen bg-canvas px-6 py-10">
       <div className="mx-auto w-full max-w-md space-y-6">
@@ -24,7 +36,23 @@ export default async function SettingsPage() {
         <section className="space-y-6 rounded-3xl border border-edge bg-surface p-6">
           <h1 className="text-2xl font-bold text-ink">設定</h1>
 
-          {/* TODO(F2・すがけんさん): ユーザーID変更・パスワード変更をここに追加する */}
+          <div className="divide-y divide-edge overflow-hidden rounded-2xl border border-edge">
+            <Link
+              href="/settings/username"
+              className="flex min-h-[44px] items-center justify-between px-4 py-3 text-sm transition-colors hover:bg-canvas"
+            >
+              <span className="font-medium text-ink">ユーザーID</span>
+              <span className="text-ink-sub">@{profile.username} ›</span>
+            </Link>
+            <Link
+              href="/settings/password"
+              className="flex min-h-[44px] items-center justify-between px-4 py-3 text-sm transition-colors hover:bg-canvas"
+            >
+              <span className="font-medium text-ink">パスワード変更</span>
+              <span className="text-ink-sub">›</span>
+            </Link>
+          </div>
+
           <LogoutButton />
         </section>
       </div>
