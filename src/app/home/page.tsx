@@ -7,12 +7,8 @@ import ValueTypeBadge from "@/components/ValueTypeBadge";
 import RestaurantCard from "@/components/RestaurantCard";
 import CategoryChips from "./CategoryChips";
 import {
-  buildProfileMap,
-  buildEligibleUserIds,
-  sortRestaurants,
+  distributionFromRecommendationRow,
   type RestaurantRow,
-  type ReviewRow,
-  type ProfileRow,
 } from "@/lib/restaurants/aggregate";
 import {
   VALUE_TYPE_LABEL,
@@ -20,9 +16,20 @@ import {
 } from "@/lib/onboarding/classifyValueType";
 import { logPageAuthRequest } from "@/lib/diagnostics/authRequests";
 
-const TOP_N = 5;
+type RecommendationRow = {
+  restaurant_id: string;
+  name: string;
+  area: string | null;
+  genre: string | null;
+  same_type_review_count: number;
+  rating_4_count: number;
+  rating_3_count: number;
+  rating_2_count: number;
+  rating_1_count: number;
+};
 
-type HomeReviewRow = ReviewRow & {
+type HomeImageReviewRow = {
+  restaurant_id: string;
   image_path: string | null;
   visit_date: string | null;
   created_at: string;
@@ -40,76 +47,80 @@ export default async function HomePage() {
   const state = await getUserState(supabase, user);
   if (state === "no_onboarding") redirect("/onboarding");
 
-  const [restaurantsResult, reviewsResult, profilesResult, userResult] =
+  const [recommendationsResult, valueTypeResult, userResult] =
     await Promise.all([
-      supabase.from("restaurants").select("id, name, area, genre, created_at"),
-      supabase
-        .from("reviews")
-        .select(
-          "restaurant_id, rating, user_id, image_path, visit_date, created_at",
-        ),
+      supabase.rpc("get_recommendations_same_type", { p_limit: 10 }),
       supabase
         .from("user_public_value_profiles")
-        .select("user_id, main_value_type"),
+        .select("main_value_type")
+        .eq("user_id", user.id)
+        .maybeSingle(),
       supabase.from("users").select("name").eq("id", user.id).single(),
     ]);
 
-  if (restaurantsResult.error) {
+  if (recommendationsResult.error) {
     throw new Error(
-      `HomePage: failed to load restaurants: ${restaurantsResult.error.message}`,
+      `HomePage: failed to load recommendations: ${recommendationsResult.error.message}`,
     );
   }
-  if (reviewsResult.error) {
+  if (valueTypeResult.error) {
     throw new Error(
-      `HomePage: failed to load reviews: ${reviewsResult.error.message}`,
-    );
-  }
-  if (profilesResult.error) {
-    throw new Error(
-      `HomePage: failed to load profiles: ${profilesResult.error.message}`,
+      `HomePage: failed to load value type: ${valueTypeResult.error.message}`,
     );
   }
 
-  const restaurants = (restaurantsResult.data ?? []) as RestaurantRow[];
-  const reviews = (reviewsResult.data ?? []) as HomeReviewRow[];
-  const profiles = (profilesResult.data ?? []) as ProfileRow[];
+  const recommendationRows =
+    (recommendationsResult.data ?? []) as RecommendationRow[];
   const userName = (userResult.data?.name as string | null | undefined) ?? null;
-
-  const profileMap = buildProfileMap(profiles);
-  const myValueType = (profileMap.get(user.id) ?? null) as MainValueType | null;
-  const eligibleUserIds = buildEligibleUserIds(profileMap, myValueType);
-  const topRestaurants = sortRestaurants(
-    restaurants,
-    reviews,
-    eligibleUserIds,
-  ).slice(0, TOP_N);
+  const myValueType =
+    (valueTypeResult.data?.main_value_type ?? null) as MainValueType | null;
+  const topRestaurants = recommendationRows.map((row) => ({
+    restaurant: {
+      id: row.restaurant_id,
+      name: row.name,
+      area: row.area,
+      genre: row.genre,
+      // A5の戻り値にはcreated_atがなく、compactカードでも参照しない。
+      created_at: "",
+    } satisfies RestaurantRow,
+    dist: distributionFromRecommendationRow(row),
+  }));
   const countLabel = myValueType ? VALUE_TYPE_LABEL[myValueType] : "全員";
 
   // おすすめ代表画像: 並び順は変えず、各店舗の最新レビュー写真だけをカードへ渡す
-  const topRestaurantIds = new Set(
-    topRestaurants.map(({ restaurant }) => restaurant.id),
-  );
+  const topRestaurantIds = topRestaurants.map(({ restaurant }) => restaurant.id);
+  const imageReviewsResult = topRestaurantIds.length
+    ? await supabase
+        .from("reviews")
+        .select("restaurant_id, image_path, visit_date, created_at")
+        .in("restaurant_id", topRestaurantIds)
+        .not("image_path", "is", null)
+    : { data: [], error: null };
+
+  if (imageReviewsResult.error) {
+    console.error(
+      "HomePage: failed to load recommendation images",
+      imageReviewsResult.error,
+    );
+  }
+
+  const imageReviews =
+    (imageReviewsResult.data ?? []) as HomeImageReviewRow[];
   const latestImagePathByRestaurant = new Map<string, string>();
-  const imageReviews = reviews
-    .filter(
-      (review) =>
-        topRestaurantIds.has(review.restaurant_id) &&
-        Boolean(review.image_path),
-    )
+  imageReviews
     .sort((a, b) => {
       const aDate = a.visit_date ?? a.created_at;
       const bDate = b.visit_date ?? b.created_at;
       return new Date(bDate).getTime() - new Date(aDate).getTime();
+    })
+    .forEach((review) => {
+      if (
+        !latestImagePathByRestaurant.has(review.restaurant_id) &&
+        review.image_path
+      ) {
+        latestImagePathByRestaurant.set(review.restaurant_id, review.image_path);
+      }
     });
-
-  for (const review of imageReviews) {
-    if (
-      !latestImagePathByRestaurant.has(review.restaurant_id) &&
-      review.image_path
-    ) {
-      latestImagePathByRestaurant.set(review.restaurant_id, review.image_path);
-    }
-  }
 
   const imagePaths = [...new Set(latestImagePathByRestaurant.values())];
   const signedImagesResult = imagePaths.length
