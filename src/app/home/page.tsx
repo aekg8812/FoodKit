@@ -8,8 +8,14 @@ import RestaurantCard from "@/components/RestaurantCard";
 import CategoryChips from "./CategoryChips";
 import {
   distributionFromRecommendationRow,
+  sortRestaurants,
+  type ReviewRow,
   type RestaurantRow,
 } from "@/lib/restaurants/aggregate";
+import {
+  computeMutualFollowIds,
+  type FollowRow,
+} from "@/lib/follows/queries";
 import {
   VALUE_TYPE_LABEL,
   type MainValueType,
@@ -35,6 +41,15 @@ type HomeImageReviewRow = {
   created_at: string;
 };
 
+type FriendValueProfileRow = {
+  user_id: string;
+  main_value_type: MainValueType | null;
+};
+
+type OwnReviewRow = {
+  restaurant_id: string;
+};
+
 export default async function HomePage() {
   const supabase = await createClient();
 
@@ -47,8 +62,13 @@ export default async function HomePage() {
   const state = await getUserState(supabase, user);
   if (state === "no_onboarding") redirect("/onboarding");
 
-  const [recommendationsResult, valueTypeResult, userResult] =
-    await Promise.all([
+  const [
+    recommendationsResult,
+    valueTypeResult,
+    userResult,
+    followsResult,
+    ownReviewsResult,
+  ] = await Promise.all([
       supabase.rpc("get_recommendations_same_type", { p_limit: 10 }),
       supabase
         .from("user_public_value_profiles")
@@ -56,6 +76,15 @@ export default async function HomePage() {
         .eq("user_id", user.id)
         .maybeSingle(),
       supabase.from("users").select("name").eq("id", user.id).single(),
+      supabase
+        .from("follows")
+        .select("follower_id, followee_id")
+        .or(`follower_id.eq.${user.id},followee_id.eq.${user.id}`)
+        .eq("status", "accepted"),
+      supabase
+        .from("reviews")
+        .select("restaurant_id")
+        .eq("user_id", user.id),
     ]);
 
   if (recommendationsResult.error) {
@@ -68,12 +97,94 @@ export default async function HomePage() {
       `HomePage: failed to load value type: ${valueTypeResult.error.message}`,
     );
   }
+  if (followsResult.error) {
+    throw new Error(
+      `HomePage: failed to load follows: ${followsResult.error.message}`,
+    );
+  }
+  if (ownReviewsResult.error) {
+    throw new Error(
+      `HomePage: failed to load own reviews: ${ownReviewsResult.error.message}`,
+    );
+  }
 
   const recommendationRows =
     (recommendationsResult.data ?? []) as RecommendationRow[];
   const userName = (userResult.data?.name as string | null | undefined) ?? null;
   const myValueType =
     (valueTypeResult.data?.main_value_type ?? null) as MainValueType | null;
+  const followRows = (followsResult.data ?? []) as FollowRow[];
+  const mutualFollowIds = computeMutualFollowIds(user.id, followRows);
+
+  const friendValueProfilesResult = mutualFollowIds.length
+    ? await supabase
+        .from("user_public_value_profiles")
+        .select("user_id, main_value_type")
+        .in("user_id", mutualFollowIds)
+    : { data: [], error: null };
+
+  if (friendValueProfilesResult.error) {
+    throw new Error(
+      `HomePage: failed to load friend value types: ${friendValueProfilesResult.error.message}`,
+    );
+  }
+
+  const sameTypeFriendIds = myValueType
+    ? ((friendValueProfilesResult.data ?? []) as FriendValueProfileRow[])
+        .filter((profile) => profile.main_value_type === myValueType)
+        .map((profile) => profile.user_id)
+    : [];
+
+  const friendReviewsResult = sameTypeFriendIds.length
+    ? await supabase
+        .from("reviews")
+        .select("restaurant_id, rating, user_id")
+        .in("user_id", sameTypeFriendIds)
+    : { data: [], error: null };
+
+  if (friendReviewsResult.error) {
+    throw new Error(
+      `HomePage: failed to load friend reviews: ${friendReviewsResult.error.message}`,
+    );
+  }
+
+  const ownReviewedRestaurantIds = new Set(
+    ((ownReviewsResult.data ?? []) as OwnReviewRow[]).map(
+      (review) => review.restaurant_id,
+    ),
+  );
+  const friendReviews = (friendReviewsResult.data ?? []) as ReviewRow[];
+  const candidateRestaurantIds = [
+    ...new Set(
+      friendReviews
+        .map((review) => review.restaurant_id)
+        .filter((restaurantId) => !ownReviewedRestaurantIds.has(restaurantId)),
+    ),
+  ];
+
+  const friendRestaurantsResult = candidateRestaurantIds.length
+    ? await supabase
+        .from("restaurants")
+        .select("id, name, area, genre, created_at")
+        .in("id", candidateRestaurantIds)
+    : { data: [], error: null };
+
+  if (friendRestaurantsResult.error) {
+    throw new Error(
+      `HomePage: failed to load friend restaurants: ${friendRestaurantsResult.error.message}`,
+    );
+  }
+
+  const candidateRestaurantIdSet = new Set(candidateRestaurantIds);
+  const candidateFriendReviews = friendReviews.filter((review) =>
+    candidateRestaurantIdSet.has(review.restaurant_id),
+  );
+  const sameTypeFriendRecommendations = sortRestaurants(
+    (friendRestaurantsResult.data ?? []) as RestaurantRow[],
+    candidateFriendReviews,
+    new Set(sameTypeFriendIds),
+  ).slice(0, 10);
+
   const topRestaurants = recommendationRows.map((row) => ({
     restaurant: {
       id: row.restaurant_id,
@@ -86,14 +197,24 @@ export default async function HomePage() {
     dist: distributionFromRecommendationRow(row),
   }));
   const countLabel = myValueType ? VALUE_TYPE_LABEL[myValueType] : "全員";
+  const friendCountLabel = myValueType
+    ? `${VALUE_TYPE_LABEL[myValueType]}の友人`
+    : "友人";
 
   // おすすめ代表画像: 並び順は変えず、各店舗の最新レビュー写真だけをカードへ渡す
-  const topRestaurantIds = topRestaurants.map(({ restaurant }) => restaurant.id);
-  const imageReviewsResult = topRestaurantIds.length
+  const recommendationRestaurantIds = [
+    ...new Set([
+      ...topRestaurants.map(({ restaurant }) => restaurant.id),
+      ...sameTypeFriendRecommendations.map(
+        ({ restaurant }) => restaurant.id,
+      ),
+    ]),
+  ];
+  const imageReviewsResult = recommendationRestaurantIds.length
     ? await supabase
         .from("reviews")
         .select("restaurant_id, image_path, visit_date, created_at")
-        .in("restaurant_id", topRestaurantIds)
+        .in("restaurant_id", recommendationRestaurantIds)
         .not("image_path", "is", null)
     : { data: [], error: null };
 
@@ -193,7 +314,7 @@ export default async function HomePage() {
 
       {/* おすすめ */}
       {topRestaurants.length > 0 && (
-        <section className="px-6">
+        <section className="mb-8 px-6">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-base font-semibold text-ink">おすすめ</h2>
             <Link
@@ -223,6 +344,39 @@ export default async function HomePage() {
                     restaurant={restaurant}
                     dist={dist}
                     countLabel={countLabel}
+                    imageUrl={
+                      imageUrlByRestaurant.get(restaurant.id) ?? undefined
+                    }
+                    variant="compact"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* おすすめ②（友人の「また行きたい」） */}
+      {sameTypeFriendRecommendations.length > 0 && (
+        <section className="px-6">
+          <div className="mb-4">
+            <h2 className="text-base font-semibold text-ink">
+              おすすめ②（友人の「また行きたい」）
+            </h2>
+          </div>
+
+          {/* -mx-6 で親 px-6 をキャンセルし画面端まで広げる */}
+          <div className="-mx-6 overflow-x-auto snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex gap-4 pl-6 pr-4 pb-3">
+              {sameTypeFriendRecommendations.map(({ restaurant, dist }) => (
+                <div
+                  key={restaurant.id}
+                  className="w-[280px] shrink-0 snap-start"
+                >
+                  <RestaurantCard
+                    restaurant={restaurant}
+                    dist={dist}
+                    countLabel={friendCountLabel}
                     imageUrl={
                       imageUrlByRestaurant.get(restaurant.id) ?? undefined
                     }
