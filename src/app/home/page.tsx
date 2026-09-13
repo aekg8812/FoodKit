@@ -192,41 +192,26 @@ export default async function HomePage() {
       </section>
 
       {/* おすすめ */}
-      <section className="px-6">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-ink">おすすめ</h2>
-          <Link
-            href="/restaurants"
-            className="text-sm text-terra transition-colors duration-150 hover:text-terra-deep"
-          >
-            全て見る →
-          </Link>
-        </div>
-
-        {myValueType && (
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <span className="text-xs text-ink-sub">あなたのタイプ：</span>
-            <ValueTypeBadge type={myValueType} />
-          </div>
-        )}
-
-        {topRestaurants.length === 0 ? (
-          <div className="rounded-2xl border border-edge bg-surface p-8 text-center shadow-sm">
-            <p className="mb-2 text-3xl" aria-hidden="true">
-              🍽️
-            </p>
-            <p className="mb-5 text-sm text-ink-sub">
-              まだ店舗がありません。登録してみましょう。
-            </p>
+      {topRestaurants.length > 0 && (
+        <section className="px-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-base font-semibold text-ink">おすすめ</h2>
             <Link
-              href="/restaurants/search"
-              className="inline-flex min-h-[44px] items-center rounded-full bg-terra px-5 text-sm font-medium text-white transition-all duration-150 hover:bg-terra-deep motion-safe:active:scale-[0.98]"
+              href="/restaurants"
+              className="text-sm text-terra transition-colors duration-150 hover:text-terra-deep"
             >
-              店舗を探す・追加する
+              全て見る →
             </Link>
           </div>
-        ) : (
-          /* -mx-6 で親 px-6 をキャンセルし画面端まで広げる */
+
+          {myValueType && (
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <span className="text-xs text-ink-sub">あなたのタイプ：</span>
+              <ValueTypeBadge type={myValueType} />
+            </div>
+          )}
+
+          {/* -mx-6 で親 px-6 をキャンセルし画面端まで広げる */}
           <div className="-mx-6 overflow-x-auto snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <div className="flex gap-4 pl-6 pr-4 pb-3">
               {topRestaurants.map(({ restaurant, dist }) => (
@@ -247,8 +232,8 @@ export default async function HomePage() {
               ))}
             </div>
           </div>
-        )}
-      </section>
+        </section>
+      )}
 
       <BottomNav />
     </main>
