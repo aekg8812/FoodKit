@@ -6,6 +6,8 @@ import BottomNav from "@/components/BottomNav";
 import ValueTypeBadge from "@/components/ValueTypeBadge";
 import RestaurantCard from "@/components/RestaurantCard";
 import CategoryChips from "./CategoryChips";
+import TodayFilterSheet from "./TodayFilterSheet";
+import { escapeLikePattern } from "@/lib/restaurants/search";
 import {
   distributionFromRecommendationRow,
   sortRestaurants,
@@ -50,7 +52,23 @@ type OwnReviewRow = {
   restaurant_id: string;
 };
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    area?: string | string[];
+    genre?: string | string[];
+    budget?: string | string[];
+  }>;
+}) {
+  const params = await searchParams;
+  const getParam = (value: string | string[] | undefined) =>
+    (Array.isArray(value) ? value[0] : value)?.trim() ?? "";
+  const area = getParam(params.area);
+  const genre = getParam(params.genre);
+  const budget = getParam(params.budget);
+  const hasFilter = Boolean(area || genre || budget);
+
   const supabase = await createClient();
 
   const {
@@ -69,22 +87,33 @@ export default async function HomePage() {
     followsResult,
     ownReviewsResult,
   ] = await Promise.all([
-      supabase.rpc("get_recommendations_same_type", { p_limit: 10 }),
+      hasFilter
+        ? supabase.rpc("get_recommendations_filtered", {
+            p_area: area ? escapeLikePattern(area) : null,
+            p_genre: genre ? escapeLikePattern(genre) : null,
+            p_budget_range: budget || null,
+            p_limit: 10,
+          })
+        : supabase.rpc("get_recommendations_same_type", { p_limit: 10 }),
       supabase
         .from("user_public_value_profiles")
         .select("main_value_type")
         .eq("user_id", user.id)
         .maybeSingle(),
       supabase.from("users").select("name").eq("id", user.id).single(),
-      supabase
-        .from("follows")
-        .select("follower_id, followee_id")
-        .or(`follower_id.eq.${user.id},followee_id.eq.${user.id}`)
-        .eq("status", "accepted"),
-      supabase
-        .from("reviews")
-        .select("restaurant_id")
-        .eq("user_id", user.id),
+      hasFilter
+        ? Promise.resolve({ data: [], error: null })
+        : supabase
+            .from("follows")
+            .select("follower_id, followee_id")
+            .or(`follower_id.eq.${user.id},followee_id.eq.${user.id}`)
+            .eq("status", "accepted"),
+      hasFilter
+        ? Promise.resolve({ data: [], error: null })
+        : supabase
+            .from("reviews")
+            .select("restaurant_id")
+            .eq("user_id", user.id),
     ]);
 
   if (recommendationsResult.error) {
@@ -179,13 +208,15 @@ export default async function HomePage() {
   const candidateFriendReviews = friendReviews.filter((review) =>
     candidateRestaurantIdSet.has(review.restaurant_id),
   );
-  const sameTypeFriendRecommendations = sortRestaurants(
+  const sameTypeFriendRecommendations = hasFilter
+    ? []
+    : sortRestaurants(
     (friendRestaurantsResult.data ?? []) as RestaurantRow[],
     candidateFriendReviews,
     new Set(sameTypeFriendIds),
-  ).slice(0, 10);
+    ).slice(0, 10);
 
-  const topRestaurants = recommendationRows.map((row) => ({
+  const recommendationCards = recommendationRows.map((row) => ({
     restaurant: {
       id: row.restaurant_id,
       name: row.name,
@@ -196,6 +227,8 @@ export default async function HomePage() {
     } satisfies RestaurantRow,
     dist: distributionFromRecommendationRow(row),
   }));
+  const topRestaurants = hasFilter ? [] : recommendationCards;
+  const todayRestaurants = hasFilter ? recommendationCards : [];
   const countLabel = myValueType ? VALUE_TYPE_LABEL[myValueType] : "全員";
   const friendCountLabel = myValueType
     ? `${VALUE_TYPE_LABEL[myValueType]}の友人`
@@ -208,6 +241,7 @@ export default async function HomePage() {
       ...sameTypeFriendRecommendations.map(
         ({ restaurant }) => restaurant.id,
       ),
+      ...todayRestaurants.map(({ restaurant }) => restaurant.id),
     ]),
   ];
   const imageReviewsResult = recommendationRestaurantIds.length
@@ -288,12 +322,7 @@ export default async function HomePage() {
 
       {/* 検索バー */}
       <div className="mb-6 px-6">
-        <div className="flex min-h-[44px] items-center gap-3 rounded-full border border-edge bg-surface px-5 shadow-sm transition-all duration-150 hover:shadow-md motion-safe:active:scale-[0.99]">
-          <span className="text-base" aria-hidden="true">
-            🔍
-          </span>
-          <span className="text-sm text-ink-sub">店舗を探す・追加する</span>
-        </div>
+        <TodayFilterSheet area={area} genre={genre} budget={budget} />
         <div className="mt-2 text-right">
           <Link
             href="/restaurants"
@@ -312,8 +341,37 @@ export default async function HomePage() {
         <CategoryChips />
       </section>
 
+      {hasFilter && (
+        <section className="mb-8 px-6">
+          <div className="mb-4">
+            <h2 className="text-base font-semibold text-ink">今日のおすすめ</h2>
+          </div>
+          {todayRestaurants.length === 0 ? (
+            <p className="text-sm text-ink-sub">
+              条件に合う店舗が見つかりませんでした。条件を変えてお試しください。
+            </p>
+          ) : (
+            <div className="-mx-6 overflow-x-auto snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="flex gap-4 pl-6 pr-4 pb-3">
+                {todayRestaurants.map(({ restaurant, dist }) => (
+                  <div key={restaurant.id} className="w-[280px] shrink-0 snap-start">
+                    <RestaurantCard
+                      restaurant={restaurant}
+                      dist={dist}
+                      countLabel={countLabel}
+                      imageUrl={imageUrlByRestaurant.get(restaurant.id) ?? undefined}
+                      variant="compact"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
       {/* おすすめ */}
-      {topRestaurants.length > 0 && (
+      {!hasFilter && topRestaurants.length > 0 && (
         <section className="mb-8 px-6">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-base font-semibold text-ink">おすすめ</h2>
@@ -357,7 +415,7 @@ export default async function HomePage() {
       )}
 
       {/* おすすめ②（友人の「また行きたい」） */}
-      <section className="px-6">
+      {!hasFilter && <section className="px-6">
         <div className="mb-4">
           <h2 className="text-base font-semibold text-ink">
             おすすめ②（友人の「また行きたい」）
@@ -391,7 +449,7 @@ export default async function HomePage() {
             </div>
           </div>
         )}
-      </section>
+      </section>}
 
       <BottomNav />
     </main>
