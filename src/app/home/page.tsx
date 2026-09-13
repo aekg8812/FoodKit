@@ -357,16 +357,20 @@ export default async function HomePage() {
       )}
 
       {/* おすすめ②（友人の「また行きたい」） */}
-      {sameTypeFriendRecommendations.length > 0 && (
-        <section className="px-6">
-          <div className="mb-4">
-            <h2 className="text-base font-semibold text-ink">
-              おすすめ②（友人の「また行きたい」）
-            </h2>
-          </div>
+      <section className="px-6">
+        <div className="mb-4">
+          <h2 className="text-base font-semibold text-ink">
+            おすすめ②（友人の「また行きたい」）
+          </h2>
+        </div>
 
-          {/* -mx-6 で親 px-6 をキャンセルし画面端まで広げる */}
+        {sameTypeFriendRecommendations.length === 0 ? (
+          <p className="text-sm text-ink-sub">
+            フォローすると、ここにおすすめが表示されます
+          </p>
+        ) : (
           <div className="-mx-6 overflow-x-auto snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {/* -mx-6 で親 px-6 をキャンセルし画面端まで広げる */}
             <div className="flex gap-4 pl-6 pr-4 pb-3">
               {sameTypeFriendRecommendations.map(({ restaurant, dist }) => (
                 <div
@@ -386,8 +390,8 @@ export default async function HomePage() {
               ))}
             </div>
           </div>
-        </section>
-      )}
+        )}
+      </section>
 
       <BottomNav />
     </main>
