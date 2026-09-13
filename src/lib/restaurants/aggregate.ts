@@ -95,6 +95,36 @@ export function computeDistribution(
   }
 }
 
+export function distributionFromRecommendationRow(row: {
+  rating_4_count: number
+  rating_3_count: number
+  rating_2_count: number
+  rating_1_count: number
+}): Distribution {
+  const counts: Record<1 | 2 | 3 | 4, number> = {
+    4: row.rating_4_count,
+    3: row.rating_3_count,
+    2: row.rating_2_count,
+    1: row.rating_1_count,
+  }
+  const total = counts[4] + counts[3] + counts[2] + counts[1]
+
+  if (total === 0) {
+    return { total: 0, counts, percents: { 4: 0, 3: 0, 2: 0, 1: 0 } }
+  }
+
+  return {
+    total,
+    counts,
+    percents: {
+      4: Math.round((counts[4] / total) * 100),
+      3: Math.round((counts[3] / total) * 100),
+      2: Math.round((counts[2] / total) * 100),
+      1: Math.round((counts[1] / total) * 100),
+    },
+  }
+}
+
 /**
  * 高評価率（rating 4+3）の降順でソートする。
  * 評価が0件の店は末尾（created_at 降順）。
