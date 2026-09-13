@@ -6,11 +6,10 @@ import FriendsList, { type FriendProfile } from './FriendsList'
 import FriendsTabs from './FriendsTabs'
 import GroupsList, { type GroupListItem } from './GroupsList'
 import { logPageAuthRequest } from '@/lib/diagnostics/authRequests'
-
-type FollowRow = {
-  follower_id: string
-  followee_id: string
-}
+import {
+  computeMutualFollowIds,
+  type FollowRow,
+} from '@/lib/follows/queries'
 
 const LOAD_ERROR_MESSAGE = '友人一覧を読み込めませんでした。もう一度お試しください。'
 const GROUPS_LOAD_ERROR_MESSAGE =
@@ -79,6 +78,7 @@ export default async function FriendsPage({
           ),
         ),
       ]
+      const mutualIds = computeMutualFollowIds(user.id, followRows)
 
       if (relatedIds.length > 0) {
         const { data: profileData, error: profileError } = await supabase
@@ -102,9 +102,7 @@ export default async function FriendsPage({
           incoming = profilesFor(
             relatedIds.filter((id) => incomingIds.has(id) && !outgoingIds.has(id)),
           )
-          mutual = profilesFor(
-            relatedIds.filter((id) => incomingIds.has(id) && outgoingIds.has(id)),
-          )
+          mutual = profilesFor(mutualIds)
           outgoing = profilesFor(
             relatedIds.filter((id) => outgoingIds.has(id) && !incomingIds.has(id)),
           )
