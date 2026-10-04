@@ -121,7 +121,7 @@ export default async function GroupDetailPage({ params }: GroupDetailPageProps) 
     <main className="min-h-screen bg-canvas px-6 py-10 pb-20">
       <div className="mx-auto w-full max-w-md">
         <Link
-          href="/friends?tab=groups"
+          href="/groups"
           className="mb-5 inline-flex min-h-11 items-center text-sm font-medium text-ink-sub transition-colors hover:text-ink"
         >
           ← グループ一覧に戻る
