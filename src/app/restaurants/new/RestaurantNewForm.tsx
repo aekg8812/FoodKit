@@ -47,15 +47,24 @@ type Props = {
   initialName?: string
   initialArea?: string
   initialGenre?: string
+  successDestination?: 'restaurant' | 'record'
 }
 
 export default function RestaurantNewForm({
   initialName = '',
   initialArea = '',
   initialGenre = '',
+  successDestination = 'restaurant',
 }: Props) {
   const router = useRouter()
   const supabase = createClient()
+
+  function successPush(id: string) {
+    router.push(successDestination === 'record' ? `/record/${id}` : `/restaurants/${id}`)
+  }
+
+  const backHref = successDestination === 'record' ? '/record' : '/restaurants/search'
+  const backLabel = successDestination === 'record' ? '← 店舗選択に戻る' : '← 店舗検索に戻る'
 
   const [step, setStep] = useState<FormStep>({ kind: 'form' })
   const [name, setName] = useState(initialName)
@@ -122,7 +131,7 @@ export default function RestaurantNewForm({
       return
     }
 
-    router.push(`/restaurants/${restaurantId}`)
+    successPush(restaurantId)
   }
 
   async function handleCreateDespiteWarning() {
@@ -153,7 +162,7 @@ export default function RestaurantNewForm({
 
       await ensureRestaurantAccesses(supabase, restaurantId, user.id)
 
-      router.push(`/restaurants/${restaurantId}`)
+      successPush(restaurantId)
     } catch (err) {
       logError(err)
       setError('共有設定の保存に失敗しました。時間をおいて再度お試しください')
@@ -173,7 +182,7 @@ export default function RestaurantNewForm({
       if (!user) throw new Error('Authentication is required')
 
       await ensureRestaurantAccesses(supabase, restaurantId, user.id)
-      router.push(`/restaurants/${restaurantId}`)
+      successPush(restaurantId)
     } catch (err) {
       logError(err)
       setError('店舗を自分の記録に追加できませんでした。時間をおいて再度お試しください')
@@ -364,8 +373,8 @@ export default function RestaurantNewForm({
         </form>
 
         <div className="mt-4">
-          <Link href="/restaurants/search" className="text-sm text-ink-sub hover:text-ink">
-            ← 店舗検索に戻る
+          <Link href={backHref} className="text-sm text-ink-sub hover:text-ink">
+            {backLabel}
           </Link>
         </div>
       </section>

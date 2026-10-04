@@ -11,6 +11,7 @@ export default async function RestaurantNewPage({
     name?: string | string[]
     area?: string | string[]
     genre?: string | string[]
+    from?: string | string[]
   }>
 }) {
   const supabase = await createClient()
@@ -37,11 +38,16 @@ export default async function RestaurantNewPage({
     ? requestedGenre
     : ''
 
+  // Only 'record' is a recognised source; anything else falls through to the normal flow.
+  const from = typeof requestedParams.from === 'string' ? requestedParams.from : ''
+  const successDestination = from === 'record' ? 'record' as const : 'restaurant' as const
+
   return (
     <RestaurantNewForm
       initialName={initialName}
       initialArea={initialArea}
       initialGenre={initialGenre}
+      successDestination={successDestination}
     />
   )
 }
