@@ -21,6 +21,7 @@ export type ExistingReview = {
 interface Props {
   restaurantId: string
   existingReview: ExistingReview | null
+  successRedirectHref?: string
 }
 
 export const RATING_OPTIONS = [4, 3, 2, 1] as const
@@ -80,7 +81,7 @@ function getLocalToday(): string {
   return `${year}-${month}-${day}`
 }
 
-export default function ReviewForm({ restaurantId, existingReview }: Props) {
+export default function ReviewForm({ restaurantId, existingReview, successRedirectHref }: Props) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -227,7 +228,11 @@ export default function ReviewForm({ restaurantId, existingReview }: Props) {
         }
       }
 
-      router.refresh()
+      if (successRedirectHref) {
+        router.push(successRedirectHref)
+      } else {
+        router.refresh()
+      }
     } catch (err) {
       logError(err)
       setError(toJapaneseError(err))
