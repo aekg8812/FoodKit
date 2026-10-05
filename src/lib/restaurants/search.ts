@@ -37,7 +37,8 @@ export async function searchRestaurants(
     .order('name')
 
   if (normalizedQuery) {
-    request = request.ilike('name', `%${escapeLikePattern(normalizedQuery)}%`)
+    const pattern = `%${escapeLikePattern(normalizedQuery)}%`
+    request = request.or(`name.ilike.${pattern},area.ilike.${pattern},genre.ilike.${pattern}`)
   }
   if (area) request = request.eq('area', area)
   if (genre) request = request.eq('genre', genre)
