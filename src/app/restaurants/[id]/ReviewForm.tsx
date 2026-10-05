@@ -201,7 +201,13 @@ export default function ReviewForm({ restaurantId, existingReview, successRedire
           })
           .select('id')
           .single()
-        if (insertError) throw insertError
+        if (insertError) {
+          if (insertError.code === '23505') {
+            window.location.reload()
+            return
+          }
+          throw insertError
+        }
 
         // レビュー画像: レビューIDを含むパスで保存し、レビューと1対1で紐づける
         if (imageFile) {
