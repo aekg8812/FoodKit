@@ -52,6 +52,7 @@ export type TodaySearchParams = {
   food: FoodValue | null
   walkIn: boolean
   parking: boolean
+  openNow: boolean
 }
 
 type RawParams = Record<string, string | string[] | undefined>
@@ -84,8 +85,9 @@ export function parseTodaySearchParams(raw: RawParams): TodaySearchParams {
 
   const walkIn = getString(raw, 'walk_in') === '1'
   const parking = getString(raw, 'parking') === '1'
+  const openNow = getString(raw, 'open_now') === '1'
 
-  return { party, budget, vibe, food, walkIn, parking }
+  return { party, budget, vibe, food, walkIn, parking, openNow }
 }
 
 export function serializeTodaySearchParams(params: TodaySearchParams): URLSearchParams {
@@ -96,6 +98,7 @@ export function serializeTodaySearchParams(params: TodaySearchParams): URLSearch
   if (params.food) p.set('food', params.food)
   if (params.walkIn) p.set('walk_in', '1')
   if (params.parking) p.set('parking', '1')
+  if (params.openNow) p.set('open_now', '1')
   return p
 }
 
@@ -107,5 +110,6 @@ export function getActiveConditionLabels(params: TodaySearchParams): string[] {
   if (params.food) labels.push(FOOD_LABEL[params.food])
   if (params.walkIn) labels.push('予約なしOK')
   if (params.parking) labels.push('駐車場あり')
+  if (params.openNow) labels.push('今すぐ開いている')
   return labels
 }

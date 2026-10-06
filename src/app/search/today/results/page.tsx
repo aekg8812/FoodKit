@@ -81,6 +81,7 @@ export default async function SearchTodayResultsPage({ searchParams }: SearchTod
     p_walk_in: parsed.walkIn,
     p_parking: parsed.parking,
     p_limit: 20,
+    p_open_now: parsed.openNow,
   })
 
   if (error) {

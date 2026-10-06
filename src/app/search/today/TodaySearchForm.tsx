@@ -73,6 +73,7 @@ export default function TodaySearchForm({ initialValues }: TodaySearchFormProps)
   const [food, setFood] = useState<FoodValue | null>(initialValues.food)
   const [walkIn, setWalkIn] = useState(initialValues.walkIn)
   const [parking, setParking] = useState(initialValues.parking)
+  const [openNow, setOpenNow] = useState(initialValues.openNow)
 
   function toggleParty(v: PartyValue) {
     setParty(party === v ? null : v)
@@ -88,7 +89,7 @@ export default function TodaySearchForm({ initialValues }: TodaySearchFormProps)
   }
 
   function handleSubmit() {
-    const params = serializeTodaySearchParams({ party, budget, vibe, food, walkIn, parking })
+    const params = serializeTodaySearchParams({ party, budget, vibe, food, walkIn, parking, openNow })
     const qs = params.toString()
     router.push(`/search/today/results${qs ? `?${qs}` : ''}`)
   }
@@ -142,6 +143,15 @@ export default function TodaySearchForm({ initialValues }: TodaySearchFormProps)
               className="h-4 w-4 accent-terra"
             />
             <span className="text-sm text-ink">駐車場あり</span>
+          </label>
+          <label className="flex min-h-[44px] cursor-pointer items-center gap-3 rounded-2xl border border-edge bg-surface px-4">
+            <input
+              type="checkbox"
+              checked={openNow}
+              onChange={(e) => setOpenNow(e.target.checked)}
+              className="h-4 w-4 accent-terra"
+            />
+            <span className="text-sm text-ink">今すぐ開いている店</span>
           </label>
         </div>
       </div>
