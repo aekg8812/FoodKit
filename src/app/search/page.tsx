@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import BottomNav from '@/components/BottomNav'
 import PageHeader from '@/components/PageHeader'
 import Button from '@/components/ui/Button'
@@ -41,6 +42,19 @@ export default async function SearchPage() {
           </div>
           <Button type="submit">検索する</Button>
         </form>
+
+        <div className="mt-8 border-t border-edge pt-8">
+          <h2 className="text-sm font-semibold text-ink">今日のお店を探す</h2>
+          <p className="mt-1 text-sm text-ink-sub">
+            人数・予算・移動時間・雰囲気などの条件でおすすめ店舗を絞り込めます。
+          </p>
+          <Link
+            href="/search/today"
+            className="mt-3 flex min-h-[44px] w-full items-center justify-center rounded-full bg-terra px-5 text-sm font-medium text-white transition-colors hover:bg-terra-deep"
+          >
+            今日のお店を探す
+          </Link>
+        </div>
       </div>
       <BottomNav />
     </main>
