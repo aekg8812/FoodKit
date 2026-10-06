@@ -108,7 +108,8 @@ export default function SignupPage() {
 
     // public.users and public.user_value_profiles are created by the
     // handle_new_user DB trigger — no explicit INSERT needed here.
-    router.push('/home')
+    // New users have onboarding_version=2 and must select preference cards.
+    router.push('/onboarding/preferences')
   }
 
   return (

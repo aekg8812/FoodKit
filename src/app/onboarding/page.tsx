@@ -10,11 +10,20 @@ export default async function OnboardingPage() {
   } = await supabase.auth.getUser()
   const state = await getUserState(supabase, user)
 
-  // グループ参加済み・診断未完了のユーザーだけ表示する
   if (state !== 'no_onboarding') {
     redirect('/home')
   }
 
-  {/* 再診断対応: このルートは初回診断として表示する */}
+  // V2 users are redirected to the preference-cards route instead of V1 diagnosis.
+  const { data: userRow } = await supabase
+    .from('users')
+    .select('onboarding_version')
+    .eq('id', user!.id)
+    .single()
+
+  if (userRow?.onboarding_version === 2) {
+    redirect('/onboarding/preferences')
+  }
+
   return <OnboardingForm mode="initial" />
 }
