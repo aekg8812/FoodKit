@@ -6,15 +6,21 @@ import Button from '@/components/ui/Button'
 import {
   PARTY_VALUES,
   BUDGET_VALUES,
+  TRANSPORT_VALUES,
+  TRAVEL_VALUES,
   VIBE_VALUES,
   FOOD_VALUES,
   PARTY_LABEL,
   BUDGET_LABEL,
+  TRANSPORT_LABEL,
+  TRAVEL_LABEL,
   VIBE_LABEL,
   FOOD_LABEL,
   serializeTodaySearchParams,
   type PartyValue,
   type BudgetValue,
+  type TransportValue,
+  type TravelValue,
   type VibeValue,
   type FoodValue,
   type TodaySearchParams,
@@ -69,27 +75,25 @@ export default function TodaySearchForm({ initialValues }: TodaySearchFormProps)
 
   const [party, setParty] = useState<PartyValue | null>(initialValues.party)
   const [budget, setBudget] = useState<BudgetValue | null>(initialValues.budget)
+  const [transport, setTransport] = useState<TransportValue | null>(initialValues.transport)
+  const [travel, setTravel] = useState<TravelValue | null>(initialValues.travel)
   const [vibe, setVibe] = useState<VibeValue | null>(initialValues.vibe)
   const [food, setFood] = useState<FoodValue | null>(initialValues.food)
   const [walkIn, setWalkIn] = useState(initialValues.walkIn)
   const [parking, setParking] = useState(initialValues.parking)
   const [openNow, setOpenNow] = useState(initialValues.openNow)
 
-  function toggleParty(v: PartyValue) {
-    setParty(party === v ? null : v)
-  }
-  function toggleBudget(v: BudgetValue) {
-    setBudget(budget === v ? null : v)
-  }
-  function toggleVibe(v: VibeValue) {
-    setVibe(vibe === v ? null : v)
-  }
-  function toggleFood(v: FoodValue) {
-    setFood(food === v ? null : v)
-  }
+  function toggleParty(v: PartyValue) { setParty(party === v ? null : v) }
+  function toggleBudget(v: BudgetValue) { setBudget(budget === v ? null : v) }
+  function toggleTransport(v: TransportValue) { setTransport(transport === v ? null : v) }
+  function toggleTravel(v: TravelValue) { setTravel(travel === v ? null : v) }
+  function toggleVibe(v: VibeValue) { setVibe(vibe === v ? null : v) }
+  function toggleFood(v: FoodValue) { setFood(food === v ? null : v) }
 
   function handleSubmit() {
-    const params = serializeTodaySearchParams({ party, budget, vibe, food, walkIn, parking, openNow })
+    const params = serializeTodaySearchParams({
+      party, budget, transport, travel, vibe, food, walkIn, parking, openNow,
+    })
     const qs = params.toString()
     router.push(`/search/today/results${qs ? `?${qs}` : ''}`)
   }
@@ -107,6 +111,19 @@ export default function TodaySearchForm({ initialValues }: TodaySearchFormProps)
           <Chip key={v} label={BUDGET_LABEL[v]} value={v} selected={budget === v} onSelect={toggleBudget} />
         ))}
         <Chip label="指定なし" value={0} selected={budget === null} onSelect={() => setBudget(null)} />
+      </Section>
+
+      <Section title="移動手段">
+        {TRANSPORT_VALUES.map((v) => (
+          <Chip key={v} label={TRANSPORT_LABEL[v]} value={v} selected={transport === v} onSelect={toggleTransport} />
+        ))}
+      </Section>
+
+      <Section title="移動時間の目安">
+        {TRAVEL_VALUES.map((v) => (
+          <Chip key={v} label={TRAVEL_LABEL[v]} value={v} selected={travel === v} onSelect={toggleTravel} />
+        ))}
+        <Chip label="指定なし" value={0} selected={travel === null} onSelect={() => setTravel(null)} />
       </Section>
 
       <Section title="今日はどんな雰囲気？">
