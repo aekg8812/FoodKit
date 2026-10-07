@@ -10,7 +10,6 @@ type SearchResult = {
   id: string
   username: string
   name: string
-  main_value_type: string | null
 }
 
 type Props = {

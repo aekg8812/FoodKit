@@ -254,7 +254,7 @@ export default function ReviewForm({ restaurantId, existingReview, successRedire
         <p className="text-xs font-medium text-ink-sub">保存先</p>
         <p className="mt-1 text-sm font-medium text-ink">あなたの記録</p>
         <p className="mt-1 text-xs leading-relaxed text-ink-sub">
-          このレビューはあなただけに表示されます（グループ共有は近日公開）。
+          この記録はあなただけに表示されます。
         </p>
       </div>
 

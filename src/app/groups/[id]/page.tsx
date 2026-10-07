@@ -234,7 +234,7 @@ export default async function GroupDetailPage({ params }: GroupDetailPageProps) 
         <section className="rounded-2xl border border-edge bg-surface p-5 shadow-sm">
           <h2 className="text-sm font-semibold text-ink">おすすめ</h2>
           <p className="mt-1 text-xs text-ink-sub">
-            グループの好みが近い人のレビューをもとに提案します
+            グループの好みが近い人の記録をもとに提案します
           </p>
           <div className="mt-4 space-y-3">
             <Link
