@@ -63,6 +63,15 @@ Manually verify at 375px viewport width (iPhone SE / Responsive DevTools):
 - `/groups/[id]/recommendations/results` — results list
 - BottomNav 5 tabs — all tabs visible and tappable at 375px
 
+### 375px mobile smoke test (MILESTONE 6)
+
+Manually verify at 375px viewport width:
+
+- `/home` — search bar, Today CTA, following records preview (3), recs preview (5), groups, notification bell badge
+- `/home/following-records` — full list ordered by created_at DESC; empty state with "ユーザーを探す" when no followees
+- `/home/recommendations` — full recs list with evidence badges; empty state with two CTA buttons
+- `/notifications` — all/unread tabs, unread dot, mark-read on click, "すべて既読" button
+
 ## Autonomous Milestone Mode
 
 Within an approved milestone, proceed without stopping for approval after each small batch:
