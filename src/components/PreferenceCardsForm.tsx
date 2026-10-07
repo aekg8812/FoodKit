@@ -85,7 +85,7 @@ export default function PreferenceCardsForm({ cards, initialKeys, mode }: Props)
     if (mode === 'initial') {
       router.push('/home')
     } else {
-      router.push('/mypage')
+      router.push('/mypage/food-preferences')
     }
   }
 
