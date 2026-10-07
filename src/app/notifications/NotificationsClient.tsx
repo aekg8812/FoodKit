@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
@@ -46,9 +47,19 @@ type Props = {
 }
 
 export default function NotificationsClient({ supabaseUrl }: Props) {
+  const router       = useRouter()
+  const searchParams = useSearchParams()
+  const rawTab       = searchParams.get('tab')
+  const tab: TabValue = rawTab === 'unread' ? 'unread' : 'all'
+
   const [notifications, setNotifications] = useState<ProcessedNotification[]>([])
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<TabValue>('all')
+
+  function setTab(t: TabValue) {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('tab', t)
+    router.replace(`/notifications?${params.toString()}`)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -88,13 +99,14 @@ export default function NotificationsClient({ supabaseUrl }: Props) {
     return () => { cancelled = true }
   }, [])
 
-  async function handleClick(n: ProcessedNotification) {
+  function handleClick(n: ProcessedNotification) {
     if (n.read_at) return
     const supabase = createClient()
-    await supabase.rpc('mark_notification_read', { p_notification_id: n.id })
-    setNotifications(prev =>
-      prev.map(x => x.id === n.id ? { ...x, read_at: new Date().toISOString() } : x)
-    )
+    supabase.rpc('mark_notification_read', { p_notification_id: n.id }).then(() => {
+      setNotifications(prev =>
+        prev.map(x => x.id === n.id ? { ...x, read_at: new Date().toISOString() } : x)
+      )
+    })
   }
 
   async function handleMarkAllRead() {

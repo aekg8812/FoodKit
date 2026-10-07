@@ -26,7 +26,9 @@ export default async function NotificationsPage() {
 
         <h1 className="text-xl font-bold text-ink">通知</h1>
 
-        <NotificationsClient supabaseUrl={supabaseUrl} />
+        <Suspense>
+          <NotificationsClient supabaseUrl={supabaseUrl} />
+        </Suspense>
       </div>
 
       <BottomNav />
