@@ -2,9 +2,12 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound, redirect } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
+import { Suspense } from 'react'
 import BottomNav from '@/components/BottomNav'
+import BackButton from '@/components/BackButton'
 import RatingBadge, { RATING_LABELS } from '@/components/RatingBadge'
 import { logPageAuthRequest } from '@/lib/diagnostics/authRequests'
+import { getUserState } from '@/lib/auth/getUserState'
 
 type ReviewRow = {
   id: string
@@ -45,6 +48,9 @@ export default async function RecordDetailPage({ params }: PageProps) {
   } = await supabase.auth.getUser()
   await logPageAuthRequest('/records/[reviewId]', Boolean(user))
   if (!user) redirect('/login')
+
+  const state = await getUserState(supabase, user)
+  if (state === 'no_onboarding') redirect('/onboarding')
 
   const { data: reviewData, error: reviewError } = await supabase
     .from('reviews')
@@ -105,13 +111,12 @@ export default async function RecordDetailPage({ params }: PageProps) {
   return (
     <main className="min-h-screen bg-canvas px-4 py-6 pb-20">
       <div className="mx-auto max-w-md space-y-4">
-        {/* Back */}
-        <Link
-          href={restaurant ? `/restaurants/${restaurant.id}` : '/restaurants'}
-          className="block text-sm text-ink-sub transition-colors hover:text-ink"
-        >
-          ← 戻る
-        </Link>
+        {/* Back: browser history を使うので遷入元 (records list, user profile, etc) へ戻る */}
+        <Suspense>
+          <BackButton
+            fallbackHref={restaurant ? `/restaurants/${restaurant.id}` : '/restaurants'}
+          />
+        </Suspense>
 
         {/* Reviewer info */}
         <section className="rounded-2xl border border-edge bg-surface p-5 shadow-sm">

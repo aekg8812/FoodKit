@@ -5,24 +5,32 @@ import { useCallback } from 'react'
 type Props = {
   title: string
   text?: string
-  url: string
+  url?: string
 }
 
 export default function ShareButton({ title, text, url }: Props) {
   const handleShare = useCallback(async () => {
+    const shareUrl =
+      url && url.startsWith('http')
+        ? url
+        : typeof window !== 'undefined'
+          ? window.location.href
+          : url ?? ''
+
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
-        await navigator.share({ title, text, url })
+        await navigator.share({ title, text, url: shareUrl })
       } catch {
         // AbortError = user cancelled, ignore
       }
-    } else {
-      try {
-        await navigator.clipboard.writeText(url)
-        alert('URLをコピーしました')
-      } catch {
-        alert(url)
-      }
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      alert('URLをコピーしました')
+    } catch {
+      alert(`URLをコピーしてください:\n${shareUrl}`)
     }
   }, [title, text, url])
 

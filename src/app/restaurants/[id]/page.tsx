@@ -2,10 +2,12 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import BottomNav from '@/components/BottomNav'
+import BackButton from '@/components/BackButton'
 import ReviewCard, { type ReviewCardData } from '@/components/ReviewCard'
 import ReviewTabsNav, { type ReviewTab } from '@/components/ReviewTabsNav'
 import ShareButton from '@/components/ShareButton'
 import { logPageAuthRequest } from '@/lib/diagnostics/authRequests'
+import { getUserState } from '@/lib/auth/getUserState'
 import { Suspense } from 'react'
 
 const REVIEW_PREVIEW_COUNT = 3
@@ -61,6 +63,9 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
   } = await supabase.auth.getUser()
   await logPageAuthRequest('/restaurants/[id]', Boolean(user))
   if (!user) redirect('/login')
+
+  const state = await getUserState(supabase, user)
+  if (state === 'no_onboarding') redirect('/onboarding')
 
   const { data: restaurantData, error: restaurantError } = await supabase
     .from('restaurants')
@@ -139,7 +144,10 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
   }))
 
   const mapsUrl = buildMapsUrl(r.name, r.address)
-  const pageUrl = `${process.env.NEXT_PUBLIC_SITE_URL ?? ''}/restaurants/${id}`
+  // pageUrl is a hint; ShareButton falls back to window.location.href when empty/relative
+  const pageUrl = process.env.NEXT_PUBLIC_SITE_URL
+    ? `${process.env.NEXT_PUBLIC_SITE_URL}/restaurants/${id}`
+    : undefined
 
   const viewerNeedsPreference = reviewTab === 'similar' && viewerCardCount < 5
 
@@ -153,9 +161,9 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
     <main className="min-h-screen bg-canvas px-4 py-6 pb-20">
       <div className="mx-auto max-w-md space-y-4">
         {/* Back */}
-        <Link href="/restaurants" className="block text-sm text-ink-sub transition-colors hover:text-ink">
-          ← 一覧に戻る
-        </Link>
+        <Suspense>
+          <BackButton fallbackHref="/restaurants" label="← 戻る" />
+        </Suspense>
 
         {/* Restaurant info */}
         <section className="rounded-2xl border border-edge bg-surface p-5 shadow-sm">

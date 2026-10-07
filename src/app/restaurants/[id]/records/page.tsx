@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getUserState } from '@/lib/auth/getUserState'
 import RecordsClient from './RecordsClient'
 
 type PageProps = {
@@ -17,6 +18,9 @@ export default async function RecordsPage({ params, searchParams }: PageProps) {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
+
+  const state = await getUserState(supabase, user)
+  if (state === 'no_onboarding') redirect('/onboarding')
 
   const tab = (() => {
     const v = Array.isArray(raw.reviewTab) ? raw.reviewTab[0] : raw.reviewTab
