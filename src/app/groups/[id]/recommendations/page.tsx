@@ -22,8 +22,19 @@ type RecommendationRow = {
   review_evidence_count: number
 }
 
+type PrefSummaryRow = {
+  valid_member_count: number
+}
+
 type GroupRecommendationsPageProps = {
   params: Promise<{ id: string }>
+}
+
+function memberCountToPartyTag(count: number): string {
+  if (count <= 1) return 'solo'
+  if (count === 2) return 'pair'
+  if (count <= 4) return 'small_group'
+  return 'large_group'
 }
 
 export default async function GroupRecommendationsPage({ params }: GroupRecommendationsPageProps) {
@@ -38,19 +49,25 @@ export default async function GroupRecommendationsPage({ params }: GroupRecommen
   const state = await getUserState(supabase, user)
   if (state === 'no_onboarding') redirect('/onboarding')
 
-  const { data: groupData, error: groupError } = await supabase
-    .from('groups')
-    .select('id, name')
-    .eq('id', groupId)
-    .maybeSingle()
+  const [groupResult, membersResult, prefSummaryResult] = await Promise.all([
+    supabase.from('groups').select('id, name').eq('id', groupId).maybeSingle(),
+    supabase.from('group_members').select('user_id').eq('group_id', groupId),
+    supabase.rpc('get_group_preference_summary', { p_group_id: groupId }),
+  ])
 
-  if (groupError) throw new Error('グループ情報を読み込めませんでした。')
-  if (!groupData) notFound()
+  if (groupResult.error) throw new Error('グループ情報を読み込めませんでした。')
+  if (!groupResult.data) notFound()
 
-  const group = groupData as { id: string; name: string }
+  const group = groupResult.data as { id: string; name: string }
+  const memberCount = (membersResult.data ?? []).length
+  const partyTag = memberCountToPartyTag(memberCount)
+
+  const prefRows = (prefSummaryResult.data ?? []) as PrefSummaryRow[]
+  const validMemberCount = prefRows.length > 0 ? Number(prefRows[0].valid_member_count) : 0
 
   const { data: recData, error: recError } = await supabase.rpc('get_group_recommendations_v2', {
     p_group_id: groupId,
+    p_party_tag: partyTag,
     p_limit: 20,
   })
 
@@ -82,12 +99,21 @@ export default async function GroupRecommendationsPage({ params }: GroupRecommen
           </Link>
         </div>
 
-        {recommendations.length === 0 ? (
+        {recommendations.length === 0 && validMemberCount === 0 ? (
+          <div className="rounded-2xl border border-edge bg-surface px-5 py-10 text-center shadow-sm">
+            <p className="text-sm font-medium text-ink">
+              メンバーの食の好みデータがまだ足りません
+            </p>
+            <p className="mt-2 text-xs leading-5 text-ink-sub">
+              グループメンバーがFoodKitで5枚以上の好みカードを設定すると、
+              グループのおすすめが表示されます。
+            </p>
+          </div>
+        ) : recommendations.length === 0 ? (
           <div className="rounded-2xl border border-edge bg-surface px-5 py-10 text-center shadow-sm">
             <p className="text-sm font-medium text-ink">おすすめが見つかりませんでした</p>
             <p className="mt-2 text-xs leading-5 text-ink-sub">
-              グループメンバー全員がFoodKitで5枚以上の好みカードを設定すると、
-              グループのおすすめが表示されます。
+              グループのメンバーが似た好みの人のレビューがある飲食店が見つかりませんでした。
             </p>
           </div>
         ) : (

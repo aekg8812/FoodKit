@@ -3,16 +3,24 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  BUDGET_VALUES,
-  BUDGET_LABEL,
+  GROUP_BUDGET_VALUES,
+  GROUP_BUDGET_LABEL,
   FOOD_VALUES,
   FOOD_TO_GENRE,
   VIBE_VALUES,
   VIBE_LABEL,
-  type BudgetValue,
+  TRANSPORT_VALUES,
+  TRANSPORT_LABEL,
+  TRAVEL_VALUES,
+  TRAVEL_LABEL,
+  serializeGroupSearchParams,
+  type GroupBudgetValue,
+  type GroupSearchParams,
   type FoodValue,
   type VibeValue,
-} from '@/lib/restaurants/todaySearch'
+  type TransportValue,
+  type TravelValue,
+} from '@/lib/restaurants/groupSearch'
 
 const MEAL_VALUES = ['lunch', 'dinner'] as const
 type MealValue = (typeof MEAL_VALUES)[number]
@@ -22,6 +30,7 @@ type Props = {
   groupId: string
   memberCount: number
   partyLabel: string
+  initial: GroupSearchParams
 }
 
 type ChipProps = {
@@ -57,54 +66,33 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-export default function GroupConditionsForm({ groupId, memberCount, partyLabel }: Props) {
+export default function GroupConditionsForm({ groupId, memberCount, partyLabel, initial }: Props) {
   const router = useRouter()
 
-  const [budget, setBudget] = useState<BudgetValue | null>(null)
-  const [food, setFood] = useState<FoodValue | null>(null)
-  const [vibe, setVibe] = useState<VibeValue | null>(null)
-  const [meal, setMeal] = useState<MealValue | null>(null)
-  const [walkIn, setWalkIn] = useState(false)
-  const [parking, setParking] = useState(false)
-  const [openNow, setOpenNow] = useState(false)
-  const [location, setLocation] = useState<{ lat: number; lng: number; km: number } | null>(null)
-  const [geoLoading, setGeoLoading] = useState(false)
-  const [geoError, setGeoError] = useState<string | null>(null)
-
-  function handleGeolocate() {
-    if (!navigator.geolocation) {
-      setGeoError('このブラウザは位置情報に対応していません')
-      return
-    }
-    setGeoLoading(true)
-    setGeoError(null)
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, km: 2 })
-        setGeoLoading(false)
-      },
-      () => {
-        setGeoError('位置情報を取得できませんでした')
-        setGeoLoading(false)
-      },
-    )
-  }
+  const [budget, setBudget] = useState<GroupBudgetValue | null>(initial.budget)
+  const [food, setFood] = useState<FoodValue | null>(initial.food)
+  const [vibe, setVibe] = useState<VibeValue | null>(initial.vibe)
+  const [meal, setMeal] = useState<MealValue | null>(initial.meal)
+  const [walkIn, setWalkIn] = useState(initial.walkIn)
+  const [parking, setParking] = useState(initial.parking)
+  const [openNow, setOpenNow] = useState(initial.openNow)
+  const [transport, setTransport] = useState<TransportValue | null>(initial.transport)
+  const [travel, setTravel] = useState<TravelValue | null>(initial.travel)
 
   function handleSubmit() {
-    const params = new URLSearchParams()
-    if (budget !== null) params.set('budget', String(budget))
-    if (food) params.set('food', food)
-    if (vibe) params.set('vibe', vibe)
-    if (meal) params.set('meal', meal)
-    if (walkIn) params.set('walk_in', '1')
-    if (parking) params.set('parking', '1')
-    if (openNow) params.set('open_now', '1')
-    if (location) {
-      params.set('lat', String(location.lat))
-      params.set('lng', String(location.lng))
-      params.set('km', String(location.km))
+    const params: GroupSearchParams = {
+      budget,
+      food,
+      vibe,
+      meal,
+      walkIn,
+      parking,
+      openNow,
+      transport,
+      travel,
     }
-    router.push(`/groups/${groupId}/recommendations/results?${params.toString()}`)
+    const qs = serializeGroupSearchParams(params).toString()
+    router.push(`/groups/${groupId}/recommendations/results${qs ? `?${qs}` : ''}`)
   }
 
   return (
@@ -120,10 +108,10 @@ export default function GroupConditionsForm({ groupId, memberCount, partyLabel }
 
       {/* Budget */}
       <Section title="予算（1人あたり）">
-        {BUDGET_VALUES.map((v) => (
+        {GROUP_BUDGET_VALUES.map((v) => (
           <Chip
             key={v}
-            label={BUDGET_LABEL[v]}
+            label={GROUP_BUDGET_LABEL[v]}
             selected={budget === v}
             onToggle={() => setBudget((prev) => (prev === v ? null : v))}
           />
@@ -173,32 +161,39 @@ export default function GroupConditionsForm({ groupId, memberCount, partyLabel }
         <Chip label="今開いている" selected={openNow} onToggle={() => setOpenNow((p) => !p)} />
       </Section>
 
-      {/* Distance */}
-      <div className="space-y-2">
-        <h2 className="text-sm font-semibold text-ink">距離</h2>
-        {location ? (
-          <div className="flex items-center gap-3 rounded-xl border border-edge bg-canvas px-4 py-3">
-            <p className="flex-1 text-sm text-ink">現在地から2km以内</p>
-            <button
-              type="button"
-              onClick={() => setLocation(null)}
-              className="text-xs text-ink-sub hover:underline"
-            >
-              クリア
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={handleGeolocate}
-            disabled={geoLoading}
-            className="flex min-h-11 items-center gap-2 rounded-full border border-edge bg-surface px-5 text-sm font-medium text-ink transition-colors hover:bg-canvas disabled:opacity-50"
-          >
-            📍 {geoLoading ? '位置情報取得中…' : '現在地を使う'}
-          </button>
-        )}
-        {geoError && <p className="text-xs text-red-600">{geoError}</p>}
-      </div>
+      {/* Transport (triggers geolocation on results page) */}
+      <Section title="移動手段">
+        {TRANSPORT_VALUES.map((v) => (
+          <Chip
+            key={v}
+            label={TRANSPORT_LABEL[v]}
+            selected={transport === v}
+            onToggle={() => {
+              const next = transport === v ? null : v
+              setTransport(next)
+              if (next !== null && travel === null) setTravel(10)
+              if (next === null) setTravel(null)
+            }}
+          />
+        ))}
+      </Section>
+
+      {transport !== null && (
+        <Section title="移動時間">
+          {TRAVEL_VALUES.map((v) => (
+            <Chip
+              key={v}
+              label={TRAVEL_LABEL[v]}
+              selected={travel === v}
+              onToggle={() => setTravel((prev) => (prev === v ? null : v))}
+            />
+          ))}
+        </Section>
+      )}
+
+      {transport !== null && travel !== null && (
+        <p className="text-xs text-ink-sub">結果画面で現在地を取得します</p>
+      )}
 
       <button
         type="button"

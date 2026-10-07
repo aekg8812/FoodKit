@@ -22,7 +22,7 @@ export default function BottomNav() {
       return pathname === '/search' || pathname.startsWith('/search/')
     }
     if (href === '/record') {
-      return pathname === '/record' || pathname.startsWith('/records/')
+      return pathname === '/record' || pathname.startsWith('/record/') || pathname.startsWith('/records/')
     }
     if (href === '/groups') {
       return (
@@ -31,6 +31,9 @@ export default function BottomNav() {
         pathname === '/friends' ||
         pathname.startsWith('/friends/')
       )
+    }
+    if (href === '/mypage') {
+      return pathname === '/mypage' || pathname.startsWith('/mypage/')
     }
     return pathname === href
   }

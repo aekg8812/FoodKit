@@ -4,10 +4,12 @@ import BottomNav from '@/components/BottomNav'
 import BackButton from '@/components/BackButton'
 import { getUserState } from '@/lib/auth/getUserState'
 import { createClient } from '@/lib/supabase/server'
+import { parseGroupSearchParams } from '@/lib/restaurants/groupSearch'
 import GroupConditionsForm from './GroupConditionsForm'
 
 type GroupConditionsPageProps = {
   params: Promise<{ id: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
 function memberCountToPartyLabel(count: number): string {
@@ -17,8 +19,9 @@ function memberCountToPartyLabel(count: number): string {
   return '5人以上'
 }
 
-export default async function GroupConditionsPage({ params }: GroupConditionsPageProps) {
+export default async function GroupConditionsPage({ params, searchParams }: GroupConditionsPageProps) {
   const { id: groupId } = await params
+  const raw = await searchParams
   const supabase = await createClient()
 
   const {
@@ -31,10 +34,7 @@ export default async function GroupConditionsPage({ params }: GroupConditionsPag
 
   const [groupResult, membersResult] = await Promise.all([
     supabase.from('groups').select('id, name').eq('id', groupId).maybeSingle(),
-    supabase
-      .from('group_members')
-      .select('user_id')
-      .eq('group_id', groupId),
+    supabase.from('group_members').select('user_id').eq('group_id', groupId),
   ])
 
   if (groupResult.error) throw new Error('グループ情報を読み込めませんでした。')
@@ -43,6 +43,7 @@ export default async function GroupConditionsPage({ params }: GroupConditionsPag
   const group = groupResult.data as { id: string; name: string }
   const memberCount = (membersResult.data ?? []).length
   const partyLabel = memberCountToPartyLabel(memberCount)
+  const initial = parseGroupSearchParams(raw)
 
   return (
     <main className="min-h-screen bg-canvas px-4 py-6 pb-20">
@@ -60,6 +61,7 @@ export default async function GroupConditionsPage({ params }: GroupConditionsPag
           groupId={groupId}
           memberCount={memberCount}
           partyLabel={partyLabel}
+          initial={initial}
         />
       </div>
 

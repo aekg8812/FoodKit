@@ -14,9 +14,15 @@ type GroupRow = {
   invite_code: string
 }
 
-type MemberRow = {
+type MemberIdRow = {
   user_id: string
-  user_public_profiles: { username: string; name: string | null; avatar_path: string | null } | null
+}
+
+type ProfileRow = {
+  id: string
+  username: string
+  name: string | null
+  avatar_path: string | null
 }
 
 type PreferenceCardRow = {
@@ -51,12 +57,10 @@ export default async function GroupDetailPage({ params }: GroupDetailPageProps) 
   const state = await getUserState(supabase, user)
   if (state === 'no_onboarding') redirect('/onboarding')
 
-  const [groupResult, membersResult, prefSummaryResult] = await Promise.all([
+  // Step 1: group + member IDs + preference summary in parallel
+  const [groupResult, memberIdsResult, prefSummaryResult] = await Promise.all([
     supabase.from('groups').select('id, name, invite_code').eq('id', groupId).maybeSingle(),
-    supabase
-      .from('group_members')
-      .select('user_id, user_public_profiles(username, name, avatar_path)')
-      .eq('group_id', groupId),
+    supabase.from('group_members').select('user_id').eq('group_id', groupId),
     supabase.rpc('get_group_preference_summary', { p_group_id: groupId }),
   ])
 
@@ -66,24 +70,44 @@ export default async function GroupDetailPage({ params }: GroupDetailPageProps) 
   }
   if (!groupResult.data) notFound()
 
-  if (membersResult.error) {
-    console.error('GroupDetailPage: failed to load members', membersResult.error)
+  if (memberIdsResult.error) {
+    console.error('GroupDetailPage: failed to load member ids', memberIdsResult.error)
     throw new Error('メンバー情報を読み込めませんでした。')
   }
 
   const group = groupResult.data as GroupRow
-  const memberRows = (membersResult.data ?? []) as unknown as MemberRow[]
-  const isCurrentMember = memberRows.some((m) => m.user_id === user.id)
+  const memberIdRows = (memberIdsResult.data ?? []) as MemberIdRow[]
+  const memberUserIds = memberIdRows.map((m) => m.user_id)
 
-  const members: GroupMenuMember[] = memberRows.map((m) => ({
-    id: m.user_id,
-    name: m.user_public_profiles?.name ?? '（名前なし）',
+  // Step 2: fetch profiles by ID (safe 2-query — avoids PostgREST view join)
+  const profilesResult =
+    memberUserIds.length > 0
+      ? await supabase
+          .from('user_public_profiles')
+          .select('id, username, name, avatar_path')
+          .in('id', memberUserIds)
+      : { data: [] as ProfileRow[], error: null }
+
+  if (profilesResult.error) {
+    console.error('GroupDetailPage: failed to load profiles', profilesResult.error)
+    throw new Error('メンバー情報を読み込めませんでした。')
+  }
+
+  const profileMap = new Map(
+    ((profilesResult.data ?? []) as ProfileRow[]).map((p) => [p.id, p]),
+  )
+
+  const isCurrentMember = memberUserIds.includes(user.id)
+
+  const members: GroupMenuMember[] = memberUserIds.map((uid) => ({
+    id: uid,
+    name: profileMap.get(uid)?.name ?? '（名前なし）',
     valueType: null,
   }))
 
   const prefCards = (prefSummaryResult.data ?? []) as PreferenceCardRow[]
   const validMemberCount = prefCards[0]?.valid_member_count ?? 0
-  const memberCount = memberRows.length
+  const memberCount = memberUserIds.length
   const partyLabel = memberCountToPartyLabel(memberCount)
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
@@ -115,23 +139,28 @@ export default async function GroupDetailPage({ params }: GroupDetailPageProps) 
         <section className="rounded-2xl border border-edge bg-surface p-5 shadow-sm">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-ink">
-              メンバー <span className="ml-1 text-ink-sub">({memberCount}人 · {partyLabel})</span>
+              メンバー{' '}
+              <span className="text-ink-sub">
+                ({memberCount}人 · {partyLabel})
+              </span>
             </h2>
             <Link href={`/groups/${groupId}/members`} className="text-xs text-terra hover:underline">
               全員を見る
             </Link>
           </div>
+
           <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-            {memberRows.slice(0, 6).map((m) => {
-              const profile = m.user_public_profiles
+            {memberUserIds.slice(0, 6).map((uid) => {
+              const profile = profileMap.get(uid)
               const avatarPath = profile?.avatar_path
               const avatarUrl = avatarPath
                 ? `${supabaseUrl}/storage/v1/object/public/avatars/${avatarPath}`
                 : null
-              const initial = Array.from((profile?.name ?? profile?.username ?? '?').trim())[0] ?? '?'
+              const initial =
+                Array.from((profile?.name ?? profile?.username ?? '?').trim())[0] ?? '?'
               return (
                 <Link
-                  key={m.user_id}
+                  key={uid}
                   href={profile?.username ? `/users/${profile.username}` : '#'}
                   className="flex shrink-0 flex-col items-center gap-1"
                 >
@@ -155,12 +184,13 @@ export default async function GroupDetailPage({ params }: GroupDetailPageProps) 
                 </Link>
               )
             })}
-            {memberRows.length > 6 && (
+            {memberCount > 6 && (
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-canvas text-xs text-ink-sub">
-                +{memberRows.length - 6}
+                +{memberCount - 6}
               </span>
             )}
           </div>
+
           <div className="mt-3">
             <Link
               href={`/groups/${groupId}/invite`}
@@ -173,9 +203,7 @@ export default async function GroupDetailPage({ params }: GroupDetailPageProps) 
 
         {/* Preference summary */}
         <section className="rounded-2xl border border-edge bg-surface p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-ink">グループの食の好み</h2>
-          </div>
+          <h2 className="text-sm font-semibold text-ink">グループの食の好み</h2>
           {validMemberCount === 0 ? (
             <p className="mt-3 text-sm text-ink-sub">
               好みを設定済みのメンバーがいません（5枚以上設定で有効）
@@ -184,9 +212,7 @@ export default async function GroupDetailPage({ params }: GroupDetailPageProps) 
             <p className="mt-3 text-sm text-ink-sub">まだ共通の好みがありません</p>
           ) : (
             <>
-              <p className="mt-1 text-xs text-ink-sub">
-                {validMemberCount}人中の選択状況
-              </p>
+              <p className="mt-1 text-xs text-ink-sub">{validMemberCount}人中の選択状況</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {prefCards.slice(0, 8).map((card) => (
                   <span
@@ -216,7 +242,9 @@ export default async function GroupDetailPage({ params }: GroupDetailPageProps) 
               className="flex min-h-11 w-full items-center justify-between rounded-xl border border-edge bg-canvas px-4 py-3 text-sm font-medium text-ink transition-colors hover:bg-surface"
             >
               <span>条件なしでおすすめを見る</span>
-              <span className="text-ink-sub" aria-hidden="true">→</span>
+              <span className="text-ink-sub" aria-hidden="true">
+                →
+              </span>
             </Link>
             <Link
               href={`/groups/${groupId}/recommendations/conditions`}
