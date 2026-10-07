@@ -119,6 +119,7 @@ export default async function RecordPage({ params }: RecordPageProps) {
             restaurantId={restaurantId}
             existingReview={existingReview}
             successRedirectHref={`/restaurants/${restaurantId}`}
+            submitLabel={existingReview ? '記録を更新する' : '記録する'}
           />
         </div>
       </div>

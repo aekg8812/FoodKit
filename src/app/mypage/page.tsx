@@ -142,14 +142,6 @@ export default async function MypagePage() {
             </Link>
           </div>
 
-          <div className="mt-4">
-            <Link
-              href="/settings"
-              className="inline-flex min-h-[40px] items-center rounded-full border border-edge bg-canvas px-5 text-sm font-medium text-ink transition-colors hover:bg-surface"
-            >
-              プロフィールを編集
-            </Link>
-          </div>
         </div>
       </div>
 
@@ -184,42 +176,61 @@ export default async function MypagePage() {
                   : null
                 return (
                   <li key={review.id}>
-                    <Link
-                      href={`/records/${review.id}`}
-                      className="flex items-center gap-3 rounded-2xl border border-edge bg-surface p-4 transition-colors hover:bg-canvas"
-                    >
-                      {imgUrl ? (
-                        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-canvas">
-                          <Image
-                            src={imgUrl}
-                            alt={review.restaurants?.name ?? ''}
-                            fill
-                            sizes="56px"
-                            className="object-cover"
-                            unoptimized
-                          />
+                    <div className="rounded-2xl border border-edge bg-surface overflow-hidden">
+                      {/* Restaurant name → restaurant detail */}
+                      {review.restaurants ? (
+                        <div className="border-b border-edge px-4 pt-3 pb-2">
+                          <Link
+                            href={`/restaurants/${review.restaurants.id}`}
+                            className="inline-flex min-h-[28px] items-center gap-1 text-sm font-semibold text-terra hover:text-terra-deep"
+                          >
+                            {review.restaurants.name}
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 shrink-0">
+                              <path fillRule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                            </svg>
+                          </Link>
                         </div>
                       ) : (
-                        <div className="h-14 w-14 shrink-0 rounded-lg bg-canvas" />
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium text-ink text-sm">
-                          {review.restaurants?.name ?? '店舗情報なし'}
-                        </p>
-                        <div className="mt-1 flex items-center gap-2">
-                          <RatingBadge rating={review.rating} />
+                        <div className="border-b border-edge px-4 pt-3 pb-2">
+                          <p className="text-sm font-semibold text-ink-sub">店舗情報なし</p>
                         </div>
-                        {review.comment && (
-                          <p className="mt-1 line-clamp-1 text-xs text-ink-sub">{review.comment}</p>
+                      )}
+
+                      {/* Record body → record detail */}
+                      <Link
+                        href={`/records/${review.id}`}
+                        className="flex items-center gap-3 p-4 transition-colors hover:bg-canvas"
+                      >
+                        {imgUrl ? (
+                          <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-canvas">
+                            <Image
+                              src={imgUrl}
+                              alt={review.restaurants?.name ?? ''}
+                              fill
+                              sizes="56px"
+                              className="object-cover"
+                              unoptimized
+                            />
+                          </div>
+                        ) : (
+                          <div className="h-14 w-14 shrink-0 rounded-lg bg-canvas" />
                         )}
-                        {review.visit_date && (
-                          <p className="mt-0.5 text-xs text-ink-sub">{review.visit_date}</p>
-                        )}
-                      </div>
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0 text-ink-sub">
-                        <path fillRule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-                      </svg>
-                    </Link>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <RatingBadge rating={review.rating} />
+                          </div>
+                          {review.comment && (
+                            <p className="mt-1 line-clamp-1 text-xs text-ink-sub">{review.comment}</p>
+                          )}
+                          {review.visit_date && (
+                            <p className="mt-0.5 text-xs text-ink-sub">{review.visit_date}</p>
+                          )}
+                        </div>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0 text-ink-sub">
+                          <path fillRule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                        </svg>
+                      </Link>
+                    </div>
                   </li>
                 )
               })}
