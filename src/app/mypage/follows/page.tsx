@@ -1,0 +1,127 @@
+import { redirect } from 'next/navigation'
+import Link from 'next/link'
+import { Suspense } from 'react'
+import BottomNav from '@/components/BottomNav'
+import BackButton from '@/components/BackButton'
+import { createClient } from '@/lib/supabase/server'
+import { getUserState } from '@/lib/auth/getUserState'
+import FollowsClient, { type FollowUserRow } from './FollowsClient'
+
+type PageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}
+
+type ProfileRow = {
+  id: string
+  username: string
+  name: string
+  avatar_path: string | null
+  updated_at: string | null
+}
+
+type FollowRow = {
+  follower_id: string
+  followee_id: string
+  follower: ProfileRow | null
+  followee: ProfileRow | null
+}
+
+export default async function FollowsPage({ searchParams }: PageProps) {
+  const raw = await searchParams
+  const tabRaw = Array.isArray(raw.tab) ? raw.tab[0] : raw.tab
+  const tab = tabRaw === 'followers' ? 'followers' : 'following'
+
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const state = await getUserState(supabase, user)
+  if (state === 'no_onboarding') redirect('/onboarding')
+
+  // Load all follows involving the viewer
+  const { data: followsData, error: followsError } = await supabase
+    .from('follows')
+    .select(
+      'follower_id, followee_id, follower:user_public_profiles!follower_id(id, username, name, avatar_path, updated_at), followee:user_public_profiles!followee_id(id, username, name, avatar_path, updated_at)',
+    )
+    .or(`follower_id.eq.${user.id},followee_id.eq.${user.id}`)
+    .eq('status', 'accepted')
+
+  if (followsError)
+    throw new Error(`FollowsPage: follows query failed: ${followsError.message}`)
+
+  const follows = (followsData ?? []) as unknown as FollowRow[]
+
+  // Partition
+  const outgoing = follows.filter((f) => f.follower_id === user.id)
+  const incoming = follows.filter((f) => f.followee_id === user.id)
+  const outgoingIds = new Set(outgoing.map((f) => f.followee_id))
+
+  function buildAvatarUrl(path: string | null, updatedAt: string | null): string | null {
+    if (!path) return null
+    const pub = supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl
+    return updatedAt ? `${pub}?v=${encodeURIComponent(updatedAt)}` : pub
+  }
+
+  const followingList: FollowUserRow[] = outgoing
+    .map((f) => {
+      const p = f.followee
+      if (!p) return null
+      return {
+        id: p.id,
+        username: p.username,
+        name: p.name,
+        avatar_url: buildAvatarUrl(p.avatar_path, p.updated_at),
+        is_following_back: false,
+      }
+    })
+    .filter((x): x is FollowUserRow => x !== null)
+
+  const followersList: FollowUserRow[] = incoming
+    .map((f) => {
+      const p = f.follower
+      if (!p) return null
+      return {
+        id: p.id,
+        username: p.username,
+        name: p.name,
+        avatar_url: buildAvatarUrl(p.avatar_path, p.updated_at),
+        is_following_back: outgoingIds.has(p.id),
+      }
+    })
+    .filter((x): x is FollowUserRow => x !== null)
+
+  return (
+    <main className="min-h-screen bg-canvas px-4 py-6 pb-20">
+      <div className="mx-auto max-w-md space-y-4">
+        <div className="flex items-center justify-between">
+          <Suspense>
+            <BackButton fallbackHref="/mypage" label="← 戻る" />
+          </Suspense>
+          <Link
+            href="/mypage/follows/search"
+            className="rounded-full border border-edge bg-surface px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-canvas"
+          >
+            ユーザーを探す
+          </Link>
+        </div>
+
+        <h1 className="text-base font-bold text-ink">フォロー / フォロワー</h1>
+
+        <Suspense>
+          <FollowsClient
+            viewerId={user.id}
+            tab={tab}
+            followingList={followingList}
+            followersList={followersList}
+          />
+        </Suspense>
+      </div>
+
+      <BottomNav />
+    </main>
+  )
+}
