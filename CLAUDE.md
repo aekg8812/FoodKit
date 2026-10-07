@@ -81,6 +81,18 @@ Manually verify at 375px viewport width:
 - `/records/[ownReviewId]` — edit CTA visible for own review, not visible for others
 - `/records/[ownReviewId]/edit` — form fields (rating, comment, visit_date, image), 保存する button, cancel link
 
+### 375px mobile smoke test (MILESTONE 8)
+
+Manually verify at 375px viewport width:
+
+- `/mypage/profile/edit` — avatar upload, name field (edit + save), username display with "設定から変更" link
+- `/settings` — account section (username/password links), legal section (disabled "準備中" buttons), logout with BottomSheet confirmation
+- `/settings/password` — current password field, new password + confirm, 保存する button
+- `/settings/username` — username field, validation, success → /settings
+- `/login` — "パスワードを忘れた方" link visible below form
+- `/forgot-password` — email field, submit, enumeration-safe success message
+- `/reset-password` — accessed via recovery link; invalid/expired link state, new password form, success state
+
 ## Autonomous Milestone Mode
 
 Within an approved milestone, proceed without stopping for approval after each small batch:
