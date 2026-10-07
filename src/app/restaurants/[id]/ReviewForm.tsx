@@ -22,6 +22,7 @@ interface Props {
   restaurantId: string
   existingReview: ExistingReview | null
   successRedirectHref?: string
+  submitLabel?: string
 }
 
 export const RATING_OPTIONS = [4, 3, 2, 1] as const
@@ -81,7 +82,7 @@ function getLocalToday(): string {
   return `${year}-${month}-${day}`
 }
 
-export default function ReviewForm({ restaurantId, existingReview, successRedirectHref }: Props) {
+export default function ReviewForm({ restaurantId, existingReview, successRedirectHref, submitLabel }: Props) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -374,9 +375,7 @@ export default function ReviewForm({ restaurantId, existingReview, successRedire
       >
         {submitting
           ? '送信中...'
-          : existingReview
-            ? 'グループの投稿を更新'
-            : 'グループに投稿する'}
+          : submitLabel ?? (existingReview ? 'グループの投稿を更新' : 'グループに投稿する')}
       </Button>
     </form>
   )
