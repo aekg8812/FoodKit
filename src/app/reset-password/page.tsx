@@ -45,9 +45,15 @@ function ResetPasswordForm() {
         return
       }
 
-      // Hash/implicit flow: check if session is already established (Supabase client reads hash automatically)
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
+      // Hash/implicit flow: verify this is a recovery session by checking AMR.
+      // A normal password-login session must NOT enable the reset form — that
+      // would let logged-in users skip the current-password check in /settings/password.
+      // Recovery sessions have amr method='otp'; password sessions have method='password'.
+      const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+      const isRecovery = (aal?.currentAuthenticationMethods ?? []).some(
+        (m) => typeof m !== 'string' && m.method === 'otp',
+      )
+      if (isRecovery) {
         setStatus('ready')
       } else {
         setStatus('invalid')

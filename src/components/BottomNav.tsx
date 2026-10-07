@@ -33,7 +33,12 @@ export default function BottomNav() {
       )
     }
     if (href === '/mypage') {
-      return pathname === '/mypage' || pathname.startsWith('/mypage/')
+      return (
+        pathname === '/mypage' ||
+        pathname.startsWith('/mypage/') ||
+        pathname === '/settings' ||
+        pathname.startsWith('/settings/')
+      )
     }
     return pathname === href
   }
