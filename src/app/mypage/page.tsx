@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import BottomNav from '@/components/BottomNav'
 import ProfileLayout, { type ReviewGridItem } from '@/components/ProfileLayout'
 import { getUserState } from '@/lib/auth/getUserState'
@@ -131,6 +132,19 @@ export default async function MypagePage() {
 
   return (
     <main className="min-h-screen bg-canvas px-6 py-10 pb-20">
+      {/* V2 follows link */}
+      <div className="mx-auto mb-4 w-full max-w-md">
+        <Link
+          href="/mypage/follows"
+          className="flex items-center justify-between rounded-2xl border border-edge bg-surface px-4 py-3 shadow-sm transition-colors hover:bg-canvas"
+        >
+          <span className="text-sm font-medium text-ink">フォロー・フォロワー</span>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-ink-sub">
+            <path fillRule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+          </svg>
+        </Link>
+      </div>
+
       <ProfileLayout
         user={{
           id: profile.id,

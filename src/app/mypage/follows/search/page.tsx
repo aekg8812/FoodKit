@@ -6,7 +6,17 @@ import { createClient } from '@/lib/supabase/server'
 import { getUserState } from '@/lib/auth/getUserState'
 import UserSearchClient from './UserSearchClient'
 
-export default async function UserSearchPage() {
+type PageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}
+
+export default async function UserSearchPage({ searchParams }: PageProps) {
+  const raw = await searchParams
+  const tabRaw = Array.isArray(raw.tab) ? raw.tab[0] : raw.tab
+  const returnTab = tabRaw === 'followers' ? 'followers' : 'following'
+  const queryRaw = Array.isArray(raw.q) ? raw.q[0] : raw.q
+  const initialQuery = queryRaw?.trim() ?? ''
+
   const supabase = await createClient()
 
   const {
@@ -17,7 +27,6 @@ export default async function UserSearchPage() {
   const state = await getUserState(supabase, user)
   if (state === 'no_onboarding') redirect('/onboarding')
 
-  // Pre-load viewer's current following list so the client can show state immediately
   const { data: followingData } = await supabase
     .from('follows')
     .select('followee_id')
@@ -30,12 +39,19 @@ export default async function UserSearchPage() {
     <main className="min-h-screen bg-canvas px-4 py-6 pb-20">
       <div className="mx-auto max-w-md space-y-4">
         <Suspense>
-          <BackButton fallbackHref="/mypage/follows" label="← 戻る" />
+          <BackButton fallbackHref={`/mypage/follows?tab=${returnTab}`} label="← 戻る" />
         </Suspense>
 
         <h1 className="text-base font-bold text-ink">ユーザーを探す</h1>
 
-        <UserSearchClient viewerId={user.id} initialFollowingIds={followingIds} />
+        <Suspense>
+          <UserSearchClient
+            viewerId={user.id}
+            initialFollowingIds={followingIds}
+            returnTab={returnTab}
+            initialQuery={initialQuery}
+          />
+        </Suspense>
       </div>
 
       <BottomNav />

@@ -218,18 +218,22 @@ export default async function UserProfilePage({
           </div>
         </section>
 
-        {/* Preference cards */}
-        {prefCards.length > 0 && (
-          <section className="rounded-2xl border border-edge bg-surface p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-ink">食の好み</h2>
+        {/* Preference cards — always shown, empty state when 0 */}
+        <section className="rounded-2xl border border-edge bg-surface p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-ink">食の好み</h2>
+            {prefCards.length > 0 && (
               <Link
                 href={`/users/${profile.username}/preferences`}
                 className="text-xs text-terra hover:underline"
               >
                 すべて見る
               </Link>
-            </div>
+            )}
+          </div>
+          {prefCards.length === 0 ? (
+            <p className="mt-3 text-sm text-ink-sub">まだ好みが設定されていません</p>
+          ) : (
             <div className="mt-3 flex flex-wrap gap-2">
               {prefCards.slice(0, 5).map((card) => (
                 <span
@@ -240,8 +244,8 @@ export default async function UserProfilePage({
                 </span>
               ))}
             </div>
-          </section>
-        )}
+          )}
+        </section>
 
         {/* Recent records */}
         <section className="rounded-2xl border border-edge bg-surface shadow-sm">

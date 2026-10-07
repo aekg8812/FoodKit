@@ -19,11 +19,9 @@ type ProfileRow = {
   updated_at: string | null
 }
 
-type FollowRow = {
+type FollowEdge = {
   follower_id: string
   followee_id: string
-  follower: ProfileRow | null
-  followee: ProfileRow | null
 }
 
 export default async function FollowsPage({ searchParams }: PageProps) {
@@ -41,24 +39,40 @@ export default async function FollowsPage({ searchParams }: PageProps) {
   const state = await getUserState(supabase, user)
   if (state === 'no_onboarding') redirect('/onboarding')
 
-  // Load all follows involving the viewer
-  const { data: followsData, error: followsError } = await supabase
+  // Query follows edges involving the viewer
+  const { data: edgesData, error: edgesError } = await supabase
     .from('follows')
-    .select(
-      'follower_id, followee_id, follower:user_public_profiles!follower_id(id, username, name, avatar_path, updated_at), followee:user_public_profiles!followee_id(id, username, name, avatar_path, updated_at)',
-    )
+    .select('follower_id, followee_id')
     .or(`follower_id.eq.${user.id},followee_id.eq.${user.id}`)
     .eq('status', 'accepted')
 
-  if (followsError)
-    throw new Error(`FollowsPage: follows query failed: ${followsError.message}`)
+  if (edgesError) throw new Error(`FollowsPage: follows query failed: ${edgesError.message}`)
 
-  const follows = (followsData ?? []) as unknown as FollowRow[]
-
-  // Partition
-  const outgoing = follows.filter((f) => f.follower_id === user.id)
-  const incoming = follows.filter((f) => f.followee_id === user.id)
+  const edges = (edgesData ?? []) as FollowEdge[]
+  const outgoing = edges.filter((f) => f.follower_id === user.id)
+  const incoming = edges.filter((f) => f.followee_id === user.id)
   const outgoingIds = new Set(outgoing.map((f) => f.followee_id))
+
+  // Collect all relevant user IDs (avoid SELECT on users directly)
+  const relevantIds = [
+    ...new Set([...outgoing.map((f) => f.followee_id), ...incoming.map((f) => f.follower_id)]),
+  ]
+
+  // Load profiles from user_public_profiles view
+  const profileMap = new Map<string, ProfileRow>()
+  if (relevantIds.length > 0) {
+    const { data: profilesData, error: profilesError } = await supabase
+      .from('user_public_profiles')
+      .select('id, username, name, avatar_path, updated_at')
+      .in('id', relevantIds)
+
+    if (profilesError)
+      throw new Error(`FollowsPage: profiles query failed: ${profilesError.message}`)
+
+    for (const p of (profilesData ?? []) as ProfileRow[]) {
+      profileMap.set(p.id, p)
+    }
+  }
 
   function buildAvatarUrl(path: string | null, updatedAt: string | null): string | null {
     if (!path) return null
@@ -68,7 +82,7 @@ export default async function FollowsPage({ searchParams }: PageProps) {
 
   const followingList: FollowUserRow[] = outgoing
     .map((f) => {
-      const p = f.followee
+      const p = profileMap.get(f.followee_id)
       if (!p) return null
       return {
         id: p.id,
@@ -82,7 +96,7 @@ export default async function FollowsPage({ searchParams }: PageProps) {
 
   const followersList: FollowUserRow[] = incoming
     .map((f) => {
-      const p = f.follower
+      const p = profileMap.get(f.follower_id)
       if (!p) return null
       return {
         id: p.id,
@@ -102,7 +116,7 @@ export default async function FollowsPage({ searchParams }: PageProps) {
             <BackButton fallbackHref="/mypage" label="← 戻る" />
           </Suspense>
           <Link
-            href="/mypage/follows/search"
+            href={`/mypage/follows/search?tab=${tab}`}
             className="rounded-full border border-edge bg-surface px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-canvas"
           >
             ユーザーを探す

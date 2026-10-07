@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback, useTransition } from 'react'
+import { useState, useCallback, useTransition, useEffect } from 'react'
+import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { followUser, unfollowUser } from '@/lib/follows/mutations'
 import { createClient } from '@/lib/supabase/client'
@@ -15,19 +16,56 @@ type SearchResult = {
 type Props = {
   viewerId: string
   initialFollowingIds: string[]
+  returnTab: 'following' | 'followers'
+  initialQuery: string
 }
 
-export default function UserSearchClient({ viewerId, initialFollowingIds }: Props) {
-  const [query, setQuery] = useState('')
+export default function UserSearchClient({
+  viewerId,
+  initialFollowingIds,
+  returnTab,
+  initialQuery,
+}: Props) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const [query, setQuery] = useState(initialQuery)
   const [results, setResults] = useState<SearchResult[]>([])
   const [followingIds, setFollowingIds] = useState<Set<string>>(() => new Set(initialFollowingIds))
   const [isPending, startTransition] = useTransition()
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const supabase = createClient()
 
+  // Run initial search if page loaded with ?q=
+  useEffect(() => {
+    if (initialQuery.trim().length >= 2) {
+      startTransition(async () => {
+        const { data } = await supabase.rpc('search_users_by_username', {
+          p_query: initialQuery.trim(),
+        })
+        setResults((data ?? []) as SearchResult[])
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const updateUrl = useCallback(
+    (value: string) => {
+      const params = new URLSearchParams(searchParams.toString())
+      if (value.trim()) {
+        params.set('q', value.trim())
+      } else {
+        params.delete('q')
+      }
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+    },
+    [router, pathname, searchParams],
+  )
+
   const handleSearch = useCallback(
     (value: string) => {
       setQuery(value)
+      updateUrl(value)
       if (value.trim().length < 2) {
         setResults([])
         return
@@ -37,7 +75,7 @@ export default function UserSearchClient({ viewerId, initialFollowingIds }: Prop
         setResults((data ?? []) as SearchResult[])
       })
     },
-    [supabase],
+    [supabase, updateUrl],
   )
 
   async function handleFollow(targetId: string) {
@@ -69,6 +107,7 @@ export default function UserSearchClient({ viewerId, initialFollowingIds }: Prop
           value={query}
           onChange={(e) => handleSearch(e.target.value)}
           className="w-full rounded-xl border border-edge bg-surface px-4 py-3 text-sm text-ink placeholder-ink-sub focus:outline-none focus:ring-2 focus:ring-terra"
+          autoFocus
         />
         {isPending && (
           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink-sub">
@@ -98,7 +137,9 @@ export default function UserSearchClient({ viewerId, initialFollowingIds }: Prop
 
                 <button
                   type="button"
-                  onClick={() => isFollowing ? handleUnfollow(user.id) : handleFollow(user.id)}
+                  onClick={() =>
+                    isFollowing ? handleUnfollow(user.id) : handleFollow(user.id)
+                  }
                   disabled={isLoading}
                   className={
                     isFollowing
@@ -112,6 +153,18 @@ export default function UserSearchClient({ viewerId, initialFollowingIds }: Prop
             )
           })}
         </ul>
+      )}
+
+      {/* Clear / return link */}
+      {query.trim().length > 0 && (
+        <div className="pt-2 text-center">
+          <Link
+            href={`/mypage/follows?tab=${returnTab}`}
+            className="text-xs text-ink-sub hover:text-ink hover:underline"
+          >
+            検索をクリアして戻る
+          </Link>
+        </div>
       )}
     </div>
   )
