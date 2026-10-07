@@ -78,7 +78,7 @@ export default function GroupMenu({
         return
       }
 
-      router.push('/friends?tab=groups')
+      router.push('/groups')
     } catch (error) {
       console.error('GroupMenu: unexpected leave error', error)
       setErrorMessage('グループから退会できませんでした。もう一度お試しください。')
@@ -112,7 +112,7 @@ export default function GroupMenu({
         return
       }
 
-      router.push('/friends?tab=groups')
+      router.push('/groups')
     } catch (error) {
       console.error('GroupMenu: unexpected delete error', error)
       setErrorMessage('グループを削除できませんでした。もう一度お試しください。')

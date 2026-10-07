@@ -4,9 +4,11 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const NAV_ITEMS = [
-  { href: '/home', label: 'ホーム', emoji: '🏠' },
-  { href: '/friends', label: '友人・グループ', emoji: '👥' },
-  { href: '/mypage', label: 'マイページ', emoji: '👤' },
+  { href: '/home',    label: 'ホーム',     emoji: '🏠' },
+  { href: '/search',  label: '検索',       emoji: '🔍' },
+  { href: '/record',  label: '記録',       emoji: '📝' },
+  { href: '/groups',  label: 'グループ',   emoji: '👥' },
+  { href: '/mypage',  label: 'マイページ', emoji: '👤' },
 ] as const
 
 export default function BottomNav() {
@@ -14,14 +16,20 @@ export default function BottomNav() {
 
   function isItemActive(href: string): boolean {
     if (href === '/home') {
-      // /restaurants 系はホームタブ扱い（ホームから来る動線のため）
       return pathname === '/home' || pathname.startsWith('/restaurants')
     }
-    if (href === '/friends') {
-      // グループ詳細は友人・グループタブ扱い。参加・作成フローは対象外。
+    if (href === '/search') {
+      return pathname === '/search' || pathname.startsWith('/search/')
+    }
+    if (href === '/record') {
+      return pathname === '/record' || pathname.startsWith('/records/')
+    }
+    if (href === '/groups') {
       return (
+        pathname === '/groups' ||
+        pathname.startsWith('/groups/') ||
         pathname === '/friends' ||
-        (pathname.startsWith('/groups/') && pathname !== '/groups/join')
+        pathname.startsWith('/friends/')
       )
     }
     return pathname === href

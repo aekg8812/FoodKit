@@ -1,11 +1,12 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { notFound, redirect } from 'next/navigation'
+import { Suspense } from 'react'
 import BottomNav from '@/components/BottomNav'
+import BackButton from '@/components/BackButton'
 import GroupMenu, { type GroupMenuMember } from '@/components/groups/GroupMenu'
-import Card from '@/components/ui/Card'
 import { getUserState } from '@/lib/auth/getUserState'
 import { createClient } from '@/lib/supabase/server'
-import { logPageAuthRequest } from '@/lib/diagnostics/authRequests'
 
 type GroupRow = {
   id: string
@@ -14,31 +15,28 @@ type GroupRow = {
 }
 
 type MemberRow = {
-  group_id: string
   user_id: string
-  users: { name: string } | null
+  user_public_profiles: { username: string; name: string | null; avatar_path: string | null } | null
 }
 
-type ValueProfileRow = {
-  user_id: string
-  main_value_type: string | null
-}
-
-type SharedRestaurant = {
-  id: string
-  name: string
-  area: string | null
-  genre: string | null
-  created_at: string
-}
-
-type RestaurantAccessRow = {
-  created_at: string
-  restaurants: SharedRestaurant | null
+type PreferenceCardRow = {
+  label: string
+  description: string | null
+  image_path: string | null
+  sort_order: number
+  selected_member_count: number
+  valid_member_count: number
 }
 
 type GroupDetailPageProps = {
   params: Promise<{ id: string }>
+}
+
+function memberCountToPartyLabel(count: number): string {
+  if (count <= 1) return '1人'
+  if (count === 2) return '2人'
+  if (count <= 4) return '3〜4人'
+  return '5人以上'
 }
 
 export default async function GroupDetailPage({ params }: GroupDetailPageProps) {
@@ -48,24 +46,18 @@ export default async function GroupDetailPage({ params }: GroupDetailPageProps) 
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  await logPageAuthRequest('/groups/[id]', Boolean(user))
   if (!user) redirect('/login')
 
   const state = await getUserState(supabase, user)
   if (state === 'no_onboarding') redirect('/onboarding')
 
-  const [groupResult, membersResult, accessesResult] = await Promise.all([
+  const [groupResult, membersResult, prefSummaryResult] = await Promise.all([
     supabase.from('groups').select('id, name, invite_code').eq('id', groupId).maybeSingle(),
     supabase
       .from('group_members')
-      .select('group_id, user_id, users:user_public_profiles(name)')
+      .select('user_id, user_public_profiles(username, name, avatar_path)')
       .eq('group_id', groupId),
-    supabase
-      .from('restaurant_accesses')
-      .select('created_at, restaurants(id, name, area, genre, created_at)')
-      .eq('group_id', groupId)
-      .eq('visibility', 'group')
-      .order('created_at', { ascending: false }),
+    supabase.rpc('get_group_preference_summary', { p_group_id: groupId }),
   ])
 
   if (groupResult.error) {
@@ -78,59 +70,36 @@ export default async function GroupDetailPage({ params }: GroupDetailPageProps) 
     console.error('GroupDetailPage: failed to load members', membersResult.error)
     throw new Error('メンバー情報を読み込めませんでした。')
   }
-  if (accessesResult.error) {
-    console.error('GroupDetailPage: failed to load shared restaurants', accessesResult.error)
-    throw new Error('共有店舗を読み込めませんでした。')
-  }
 
   const group = groupResult.data as GroupRow
   const memberRows = (membersResult.data ?? []) as unknown as MemberRow[]
-  const memberIds = memberRows.map((member) => member.user_id)
+  const isCurrentMember = memberRows.some((m) => m.user_id === user.id)
 
-  let valueProfiles: ValueProfileRow[] = []
-  if (memberIds.length > 0) {
-    const { data, error } = await supabase
-      .from('user_public_value_profiles')
-      .select('user_id, main_value_type')
-      .in('user_id', memberIds)
-
-    if (error) {
-      console.error('GroupDetailPage: failed to load value profiles', error)
-      throw new Error('メンバーの価値タイプを読み込めませんでした。')
-    }
-    valueProfiles = (data ?? []) as ValueProfileRow[]
-  }
-
-  const valueTypeByUserId = new Map(
-    valueProfiles.map((profile) => [profile.user_id, profile.main_value_type]),
-  )
-  const members: GroupMenuMember[] = memberRows.map((member) => ({
-    id: member.user_id,
-    name: member.users?.name ?? '（名前なし）',
-    valueType: valueTypeByUserId.get(member.user_id) ?? null,
+  const members: GroupMenuMember[] = memberRows.map((m) => ({
+    id: m.user_id,
+    name: m.user_public_profiles?.name ?? '（名前なし）',
+    valueType: null,
   }))
-  const isCurrentMember = members.some((member) => member.id === user.id)
-  const sharedRestaurants = ((accessesResult.data ?? []) as unknown as RestaurantAccessRow[])
-    .filter(
-      (access): access is RestaurantAccessRow & { restaurants: SharedRestaurant } =>
-        access.restaurants !== null,
-    )
-    .map((access) => access.restaurants)
+
+  const prefCards = (prefSummaryResult.data ?? []) as PreferenceCardRow[]
+  const validMemberCount = prefCards[0]?.valid_member_count ?? 0
+  const memberCount = memberRows.length
+  const partyLabel = memberCountToPartyLabel(memberCount)
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 
   return (
-    <main className="min-h-screen bg-canvas px-6 py-10 pb-20">
-      <div className="mx-auto w-full max-w-md">
-        <Link
-          href="/groups"
-          className="mb-5 inline-flex min-h-11 items-center text-sm font-medium text-ink-sub transition-colors hover:text-ink"
-        >
-          ← グループ一覧に戻る
-        </Link>
+    <main className="min-h-screen bg-canvas px-4 py-6 pb-20">
+      <div className="mx-auto max-w-md space-y-4">
+        <Suspense>
+          <BackButton fallbackHref="/groups" label="← グループ一覧" />
+        </Suspense>
 
-        <div className="mb-6 flex items-start justify-between gap-4">
+        {/* Group header */}
+        <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="mb-1 text-xs font-medium text-ink-sub">グループ</p>
-            <h1 className="break-words text-2xl font-bold text-ink">{group.name}</h1>
+            <p className="text-xs font-medium text-ink-sub">グループ</p>
+            <h1 className="break-words text-xl font-bold text-ink">{group.name}</h1>
           </div>
           <GroupMenu
             groupId={group.id}
@@ -142,51 +111,124 @@ export default async function GroupDetailPage({ params }: GroupDetailPageProps) 
           />
         </div>
 
-        <section aria-labelledby="shared-restaurants-heading">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 id="shared-restaurants-heading" className="text-base font-bold text-ink">
-              共有店舗
+        {/* Members card */}
+        <section className="rounded-2xl border border-edge bg-surface p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-ink">
+              メンバー <span className="ml-1 text-ink-sub">({memberCount}人 · {partyLabel})</span>
             </h2>
-            <span className="text-sm tabular-nums text-ink-sub">
-              {sharedRestaurants.length}件
-            </span>
+            <Link href={`/groups/${groupId}/members`} className="text-xs text-terra hover:underline">
+              全員を見る
+            </Link>
           </div>
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+            {memberRows.slice(0, 6).map((m) => {
+              const profile = m.user_public_profiles
+              const avatarPath = profile?.avatar_path
+              const avatarUrl = avatarPath
+                ? `${supabaseUrl}/storage/v1/object/public/avatars/${avatarPath}`
+                : null
+              const initial = Array.from((profile?.name ?? profile?.username ?? '?').trim())[0] ?? '?'
+              return (
+                <Link
+                  key={m.user_id}
+                  href={profile?.username ? `/users/${profile.username}` : '#'}
+                  className="flex shrink-0 flex-col items-center gap-1"
+                >
+                  {avatarUrl ? (
+                    <Image
+                      src={avatarUrl}
+                      alt={profile?.name ?? profile?.username ?? ''}
+                      width={40}
+                      height={40}
+                      className="h-10 w-10 rounded-full object-cover"
+                      unoptimized
+                    />
+                  ) : (
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-cream text-sm font-semibold text-amber-800">
+                      {initial}
+                    </span>
+                  )}
+                  <span className="max-w-[48px] truncate text-[10px] text-ink-sub">
+                    {profile?.name ?? profile?.username ?? ''}
+                  </span>
+                </Link>
+              )
+            })}
+            {memberRows.length > 6 && (
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-canvas text-xs text-ink-sub">
+                +{memberRows.length - 6}
+              </span>
+            )}
+          </div>
+          <div className="mt-3">
+            <Link
+              href={`/groups/${groupId}/invite`}
+              className="inline-flex min-h-9 items-center rounded-full border border-terra px-4 text-xs font-semibold text-terra transition-colors hover:bg-cream"
+            >
+              招待する
+            </Link>
+          </div>
+        </section>
 
-          {sharedRestaurants.length === 0 ? (
-            <Card className="p-8 text-center">
-              <p className="text-sm text-ink-sub">共有されている店舗はありません</p>
-            </Card>
+        {/* Preference summary */}
+        <section className="rounded-2xl border border-edge bg-surface p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-ink">グループの食の好み</h2>
+          </div>
+          {validMemberCount === 0 ? (
+            <p className="mt-3 text-sm text-ink-sub">
+              好みを設定済みのメンバーがいません（5枚以上設定で有効）
+            </p>
+          ) : prefCards.length === 0 ? (
+            <p className="mt-3 text-sm text-ink-sub">まだ共通の好みがありません</p>
           ) : (
-            <ul className="space-y-3">
-              {sharedRestaurants.map((restaurant) => (
-                <li key={restaurant.id}>
-                  <Link
-                    href={`/restaurants/${restaurant.id}`}
-                    prefetch={false}
-                    className="block"
+            <>
+              <p className="mt-1 text-xs text-ink-sub">
+                {validMemberCount}人中の選択状況
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {prefCards.slice(0, 8).map((card) => (
+                  <span
+                    key={card.sort_order}
+                    className="rounded-full bg-cream px-3 py-1 text-xs font-medium text-amber-800"
                   >
-                    <Card interactive className="p-5">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="min-w-0">
-                          <p className="truncate font-medium text-ink">{restaurant.name}</p>
-                          {restaurant.genre || restaurant.area ? (
-                            <p className="mt-1 truncate text-sm text-ink-sub">
-                              {[restaurant.genre, restaurant.area].filter(Boolean).join(' · ')}
-                            </p>
-                          ) : null}
-                        </div>
-                        <span className="shrink-0 text-sm text-ink-sub" aria-hidden="true">
-                          →
-                        </span>
-                      </div>
-                    </Card>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+                    {card.label}
+                    <span className="ml-1 text-amber-600">
+                      {card.selected_member_count}/{validMemberCount}
+                    </span>
+                  </span>
+                ))}
+              </div>
+            </>
           )}
         </section>
+
+        {/* Recommendations */}
+        <section className="rounded-2xl border border-edge bg-surface p-5 shadow-sm">
+          <h2 className="text-sm font-semibold text-ink">おすすめ</h2>
+          <p className="mt-1 text-xs text-ink-sub">
+            グループの好みが近い人のレビューをもとに提案します
+          </p>
+          <div className="mt-4 space-y-3">
+            <Link
+              href={`/groups/${groupId}/recommendations`}
+              className="flex min-h-11 w-full items-center justify-between rounded-xl border border-edge bg-canvas px-4 py-3 text-sm font-medium text-ink transition-colors hover:bg-surface"
+            >
+              <span>条件なしでおすすめを見る</span>
+              <span className="text-ink-sub" aria-hidden="true">→</span>
+            </Link>
+            <Link
+              href={`/groups/${groupId}/recommendations/conditions`}
+              className="flex min-h-11 w-full items-center justify-between rounded-xl bg-terra px-4 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            >
+              <span>条件を指定して探す</span>
+              <span aria-hidden="true">→</span>
+            </Link>
+          </div>
+        </section>
       </div>
+
       <BottomNav />
     </main>
   )

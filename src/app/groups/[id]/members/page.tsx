@@ -1,0 +1,122 @@
+import Link from 'next/link'
+import Image from 'next/image'
+import { notFound, redirect } from 'next/navigation'
+import { Suspense } from 'react'
+import BottomNav from '@/components/BottomNav'
+import BackButton from '@/components/BackButton'
+import { getUserState } from '@/lib/auth/getUserState'
+import { createClient } from '@/lib/supabase/server'
+
+type MemberRow = {
+  user_id: string
+  joined_at: string
+  user_public_profiles: { username: string; name: string | null; avatar_path: string | null } | null
+}
+
+type GroupMembersPageProps = {
+  params: Promise<{ id: string }>
+}
+
+export default async function GroupMembersPage({ params }: GroupMembersPageProps) {
+  const { id: groupId } = await params
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const state = await getUserState(supabase, user)
+  if (state === 'no_onboarding') redirect('/onboarding')
+
+  const [groupResult, membersResult] = await Promise.all([
+    supabase.from('groups').select('id, name').eq('id', groupId).maybeSingle(),
+    supabase
+      .from('group_members')
+      .select('user_id, joined_at, user_public_profiles(username, name, avatar_path)')
+      .eq('group_id', groupId)
+      .order('joined_at', { ascending: true }),
+  ])
+
+  if (groupResult.error) throw new Error('グループ情報を読み込めませんでした。')
+  if (!groupResult.data) notFound()
+  if (membersResult.error) throw new Error('メンバー情報を読み込めませんでした。')
+
+  const group = groupResult.data as { id: string; name: string }
+  const memberRows = (membersResult.data ?? []) as unknown as MemberRow[]
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+
+  return (
+    <main className="min-h-screen bg-canvas px-4 py-6 pb-20">
+      <div className="mx-auto max-w-md space-y-4">
+        <Suspense>
+          <BackButton fallbackHref={`/groups/${groupId}`} label="← グループに戻る" />
+        </Suspense>
+
+        <div>
+          <p className="text-xs text-ink-sub">{group.name}</p>
+          <h1 className="text-xl font-bold text-ink">
+            メンバー <span className="text-base font-normal text-ink-sub">({memberRows.length}人)</span>
+          </h1>
+        </div>
+
+        {memberRows.length === 0 ? (
+          <p className="rounded-2xl border border-edge bg-surface px-5 py-8 text-center text-sm text-ink-sub">
+            メンバーがいません
+          </p>
+        ) : (
+          <ul className="divide-y divide-edge rounded-2xl border border-edge bg-surface overflow-hidden">
+            {memberRows.map((m) => {
+              const profile = m.user_public_profiles
+              const avatarPath = profile?.avatar_path
+              const avatarUrl = avatarPath
+                ? `${supabaseUrl}/storage/v1/object/public/avatars/${avatarPath}`
+                : null
+              const initial = Array.from((profile?.name ?? profile?.username ?? '?').trim())[0] ?? '?'
+              const isSelf = m.user_id === user.id
+
+              return (
+                <li key={m.user_id}>
+                  <Link
+                    href={profile?.username ? `/users/${profile.username}` : '#'}
+                    className="flex min-h-[60px] items-center gap-3 px-4 py-3 transition-colors hover:bg-canvas"
+                  >
+                    {avatarUrl ? (
+                      <Image
+                        src={avatarUrl}
+                        alt={profile?.name ?? profile?.username ?? ''}
+                        width={40}
+                        height={40}
+                        className="h-10 w-10 shrink-0 rounded-full object-cover"
+                        unoptimized
+                      />
+                    ) : (
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cream text-sm font-semibold text-amber-800">
+                        {initial}
+                      </span>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-ink">
+                        {profile?.name ?? profile?.username ?? '（名前なし）'}
+                        {isSelf && (
+                          <span className="ml-1.5 text-xs font-normal text-ink-sub">（あなた）</span>
+                        )}
+                      </p>
+                      {profile?.username && (
+                        <p className="truncate text-xs text-ink-sub">@{profile.username}</p>
+                      )}
+                    </div>
+                    <span className="shrink-0 text-sm text-ink-sub" aria-hidden="true">→</span>
+                  </Link>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
+
+      <BottomNav />
+    </main>
+  )
+}
