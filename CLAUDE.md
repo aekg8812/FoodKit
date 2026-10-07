@@ -72,6 +72,15 @@ Manually verify at 375px viewport width:
 - `/home/recommendations` — full recs list with evidence badges; empty state with two CTA buttons
 - `/notifications` — all/unread tabs, unread dot, mark-read on click, "すべて既読" button
 
+### 375px mobile smoke test (MILESTONE 7)
+
+Manually verify at 375px viewport width:
+
+- `/mypage` — avatar, name, username, review count, recent records, preference card chips, follow/follower counts, settings link
+- `/mypage/records` — sort tabs, rating filter tabs, record cards, empty states
+- `/records/[ownReviewId]` — edit CTA visible for own review, not visible for others
+- `/records/[ownReviewId]/edit` — form fields (rating, comment, visit_date, image), 保存する button, cancel link
+
 ## Autonomous Milestone Mode
 
 Within an approved milestone, proceed without stopping for approval after each small batch:
