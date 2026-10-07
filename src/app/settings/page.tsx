@@ -1,8 +1,9 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import LogoutButton from '@/components/LogoutButton'
+import BottomNav from '@/components/BottomNav'
+import { getUserState } from '@/lib/auth/getUserState'
 import { createClient } from '@/lib/supabase/server'
-import AvatarUploadForm from './AvatarUploadForm'
+import SettingsLogoutSection from './SettingsLogoutSection'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -12,29 +13,26 @@ export default async function SettingsPage() {
 
   if (!user) redirect('/login')
 
-  // users は self-only の RLS のため、id = auth.uid() の自分の行だけを明示指定で取得する
+  const state = await getUserState(supabase, user)
+  if (state === 'no_onboarding') redirect('/onboarding')
+
   const { data: profile, error } = await supabase
     .from('users')
-    .select('username, avatar_path, updated_at')
+    .select('username')
     .eq('id', user.id)
     .single()
 
   if (error) {
-    console.error('SettingsPage: failed to load username', error)
+    console.error('SettingsPage: failed to load profile', {
+      message: error.message,
+      code: error.code,
+    })
     throw new Error('設定情報を読み込めませんでした。')
   }
 
-  const publicAvatarUrl = profile.avatar_path
-    ? supabase.storage.from('avatars').getPublicUrl(profile.avatar_path).data.publicUrl
-    : null
-  const avatarUrl =
-    publicAvatarUrl && profile.updated_at
-      ? `${publicAvatarUrl}?v=${encodeURIComponent(profile.updated_at)}`
-      : publicAvatarUrl
-
   return (
-    <main className="min-h-screen bg-canvas px-6 py-10">
-      <div className="mx-auto w-full max-w-md space-y-6">
+    <main className="min-h-screen bg-canvas pb-24">
+      <div className="mx-auto w-full max-w-md px-4 pt-6 space-y-5">
         <Link
           href="/mypage"
           className="inline-flex min-h-[44px] items-center text-sm font-medium text-ink-sub transition-colors hover:text-ink"
@@ -42,11 +40,12 @@ export default async function SettingsPage() {
           ← マイページに戻る
         </Link>
 
-        <section className="space-y-6 rounded-3xl border border-edge bg-surface p-6">
-          <h1 className="text-2xl font-bold text-ink">設定</h1>
+        <h1 className="text-2xl font-bold text-ink">設定</h1>
 
-          <div className="divide-y divide-edge overflow-hidden rounded-2xl border border-edge">
-            <AvatarUploadForm userId={user.id} currentAvatarUrl={avatarUrl} />
+        {/* Account */}
+        <section>
+          <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-ink-sub">アカウント</p>
+          <div className="divide-y divide-edge overflow-hidden rounded-2xl border border-edge bg-surface">
             <Link
               href="/settings/username"
               className="flex min-h-[44px] items-center justify-between px-4 py-3 text-sm transition-colors hover:bg-canvas"
@@ -58,14 +57,46 @@ export default async function SettingsPage() {
               href="/settings/password"
               className="flex min-h-[44px] items-center justify-between px-4 py-3 text-sm transition-colors hover:bg-canvas"
             >
-              <span className="font-medium text-ink">パスワード変更</span>
+              <span className="font-medium text-ink">パスワードを変更</span>
               <span className="text-ink-sub">›</span>
             </Link>
           </div>
+        </section>
 
-          <LogoutButton />
+        {/* Legal — V3 UI only */}
+        <section>
+          <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-ink-sub">法的情報</p>
+          <div className="divide-y divide-edge overflow-hidden rounded-2xl border border-edge bg-surface">
+            <button
+              type="button"
+              disabled
+              className="flex min-h-[44px] w-full items-center justify-between px-4 py-3 text-sm opacity-50"
+              title="V3以降で公開予定"
+            >
+              <span className="font-medium text-ink">利用規約</span>
+              <span className="text-ink-sub">準備中 ›</span>
+            </button>
+            <button
+              type="button"
+              disabled
+              className="flex min-h-[44px] w-full items-center justify-between px-4 py-3 text-sm opacity-50"
+              title="V3以降で公開予定"
+            >
+              <span className="font-medium text-ink">プライバシーポリシー</span>
+              <span className="text-ink-sub">準備中 ›</span>
+            </button>
+          </div>
+        </section>
+
+        {/* Logout */}
+        <section>
+          <div className="overflow-hidden rounded-2xl border border-edge bg-surface">
+            <SettingsLogoutSection />
+          </div>
         </section>
       </div>
+
+      <BottomNav />
     </main>
   )
 }

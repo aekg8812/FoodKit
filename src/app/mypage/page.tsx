@@ -131,6 +131,15 @@ export default async function MypagePage() {
             </div>
           </div>
 
+          <div className="mt-4">
+            <Link
+              href="/mypage/profile/edit"
+              className="inline-flex min-h-[40px] items-center rounded-full border border-edge bg-canvas px-5 text-sm font-medium text-ink transition-colors hover:bg-surface"
+            >
+              プロフィールを編集
+            </Link>
+          </div>
+
           <div className="mt-4 flex gap-4 text-sm">
             <Link href="/mypage/follows" className="hover:underline">
               <span className="font-semibold text-ink tabular-nums">{Number(followCounts.following_count)}</span>

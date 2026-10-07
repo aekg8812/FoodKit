@@ -8,6 +8,19 @@ import Button from '@/components/ui/Button'
 import InputField from '@/components/ui/InputField'
 import ErrorMessage from '@/components/ui/ErrorMessage'
 
+function toJapaneseAuthError(message: string): string {
+  if (message.includes('Invalid login credentials') || message.includes('invalid_credentials')) {
+    return 'メールアドレスまたはパスワードが正しくありません。'
+  }
+  if (message.includes('Email not confirmed')) {
+    return 'メールアドレスの確認が完了していません。受信メールをご確認ください。'
+  }
+  if (message.includes('Too many requests')) {
+    return '試行回数が多すぎます。しばらく待ってから再度お試しください。'
+  }
+  return 'ログインできませんでした。時間をおいて再度お試しください。'
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -21,10 +34,14 @@ export default function LoginPage() {
     setLoading(true)
     setError(null)
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
 
-    if (error) {
-      setError(error.message)
+    if (signInError) {
+      console.error('LoginPage: sign in failed', {
+        message: signInError.message,
+        code: signInError.status,
+      })
+      setError(toJapaneseAuthError(signInError.message))
       setLoading(false)
       return
     }
@@ -50,6 +67,7 @@ export default function LoginPage() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
           />
           <InputField
             id="password"
@@ -58,6 +76,7 @@ export default function LoginPage() {
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
           />
 
           {error && <ErrorMessage message={error} />}
@@ -67,7 +86,16 @@ export default function LoginPage() {
           </Button>
         </form>
 
-        <p className="mt-5 text-center text-sm text-ink-sub">
+        <div className="mt-4 text-center">
+          <Link
+            href="/forgot-password"
+            className="text-sm text-terra transition-colors hover:text-terra-deep"
+          >
+            パスワードを忘れた方
+          </Link>
+        </div>
+
+        <p className="mt-4 text-center text-sm text-ink-sub">
           アカウントをお持ちでない方は{' '}
           <Link href="/signup" className="font-medium text-terra transition-colors duration-150 hover:text-terra-deep underline">
             新規登録

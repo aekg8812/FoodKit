@@ -96,9 +96,7 @@ export default function SettingsUsernameForm({ userId, currentUsername }: Props)
       return
     }
 
-    setLoading(false)
-    setSuccess(true)
-    router.refresh()
+    router.push('/settings')
   }
 
   return (

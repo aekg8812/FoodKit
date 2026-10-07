@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import Button from '@/components/ui/Button'
 import InputField from '@/components/ui/InputField'
@@ -9,18 +10,27 @@ import { createClient } from '@/lib/supabase/client'
 
 const PASSWORD_MIN = 6
 
-export default function SettingsPasswordForm() {
+type Props = {
+  userEmail: string
+}
+
+export default function SettingsPasswordForm({ userEmail }: Props) {
+  const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
+  const router = useRouter()
   const supabase = createClient()
 
-  const tooShort = newPassword !== '' && newPassword.length < PASSWORD_MIN
+  const newTooShort = newPassword !== '' && newPassword.length < PASSWORD_MIN
   const mismatch = confirmPassword !== '' && newPassword !== confirmPassword
   const canSubmit =
-    newPassword.length >= PASSWORD_MIN && confirmPassword !== '' && newPassword === confirmPassword
+    currentPassword.length > 0 &&
+    newPassword.length >= PASSWORD_MIN &&
+    confirmPassword !== '' &&
+    newPassword === confirmPassword
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -28,10 +38,33 @@ export default function SettingsPasswordForm() {
     setError(null)
     setSuccess(false)
 
-    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    // Verify current password via re-authentication
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: userEmail,
+      password: currentPassword,
+    })
 
-    if (error) {
-      console.error('SettingsPasswordForm: failed to update password', error)
+    if (signInError) {
+      // Do not log password fields
+      console.error('SettingsPasswordForm: re-authentication failed', {
+        message: signInError.message,
+        code: signInError.status,
+      })
+      setError('現在のパスワードが正しくありません。')
+      setLoading(false)
+      return
+    }
+
+    // Current password verified — update to new password
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: newPassword,
+    })
+
+    if (updateError) {
+      console.error('SettingsPasswordForm: failed to update password', {
+        message: updateError.message,
+        code: updateError.status,
+      })
       setError('パスワードを変更できませんでした。もう一度お試しください。')
       setLoading(false)
       return
@@ -39,8 +72,12 @@ export default function SettingsPasswordForm() {
 
     setLoading(false)
     setSuccess(true)
+    setCurrentPassword('')
     setNewPassword('')
     setConfirmPassword('')
+
+    // Navigate back to settings after short delay so success message is visible
+    setTimeout(() => router.push('/settings'), 1500)
   }
 
   return (
@@ -58,6 +95,19 @@ export default function SettingsPasswordForm() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <InputField
+              id="current-password"
+              label="現在のパスワード"
+              type="password"
+              required
+              value={currentPassword}
+              onChange={(e) => {
+                setCurrentPassword(e.target.value)
+                setSuccess(false)
+              }}
+              autoComplete="current-password"
+            />
+
+            <InputField
               id="new-password"
               label="新しいパスワード"
               type="password"
@@ -68,7 +118,7 @@ export default function SettingsPasswordForm() {
                 setNewPassword(e.target.value)
                 setSuccess(false)
               }}
-              error={tooShort ? `${PASSWORD_MIN}文字以上で入力してください` : undefined}
+              error={newTooShort ? `${PASSWORD_MIN}文字以上で入力してください` : undefined}
               autoComplete="new-password"
             />
 
@@ -88,7 +138,7 @@ export default function SettingsPasswordForm() {
 
             {error && <ErrorMessage message={error} />}
             {success && (
-              <p className="rounded-md bg-green-50 p-3 text-sm text-green-700">
+              <p role="status" className="rounded-md bg-green-50 p-3 text-sm text-green-700">
                 パスワードを変更しました
               </p>
             )}

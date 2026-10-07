@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getUserState } from '@/lib/auth/getUserState'
 import SettingsUsernameForm from './SettingsUsernameForm'
 
 export default async function SettingsUsernamePage() {
@@ -9,6 +10,9 @@ export default async function SettingsUsernamePage() {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
+
+  const state = await getUserState(supabase, user)
+  if (state === 'no_onboarding') redirect('/onboarding')
 
   const { data: profile, error } = await supabase
     .from('users')
