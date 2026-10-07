@@ -27,41 +27,62 @@ function ResetPasswordForm() {
     newPassword.length >= PASSWORD_MIN && confirmPassword !== '' && newPassword === confirmPassword
 
   useEffect(() => {
-    async function exchangeCode() {
-      const code = searchParams.get('code')
+    // `recovered` guards against late state mutations after unmount or
+    // duplicate events. All closures share the same variable.
+    let recovered = false
 
-      if (code) {
-        // PKCE flow: exchange code for recovery session
-        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+    // PASSWORD_RECOVERY is the sole event that enables the reset form.
+    // INITIAL_SESSION / SIGNED_IN / TOKEN_REFRESHED from normal sessions do NOT.
+    //
+    // Hash/implicit flow: _initialize() reads #type=recovery from the URL,
+    //   fires PASSWORD_RECOVERY on the next tick via setTimeout(..., 0).
+    // PKCE flow: exchangeCodeForSession() reads the stored code-verifier which
+    //   carries a "/recovery" suffix set by resetPasswordForEmail(), and fires
+    //   PASSWORD_RECOVERY (not SIGNED_IN) when that suffix is present.
+    // OTP normal login: fires SIGNED_IN (params.type !== 'recovery') — blocked.
+    // Password normal login: fires SIGNED_IN — blocked.
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' && session) {
+        recovered = true
+        setStatus('ready')
+      }
+    })
+
+    // PKCE: exchange ?code= so the SDK can determine redirectType from storage.
+    // On success PASSWORD_RECOVERY fires via the subscriber above; we do not
+    // set status here. On failure the code is invalid/expired → invalid state.
+    const code = searchParams.get('code')
+    if (code) {
+      supabase.auth.exchangeCodeForSession(code).then(({ error: exchangeError }) => {
         if (exchangeError) {
           console.error('ResetPasswordPage: code exchange failed', {
             message: exchangeError.message,
             code: exchangeError.status,
           })
-          setStatus('invalid')
-          return
+          if (!recovered) {
+            setStatus('invalid')
+          }
         }
-        setStatus('ready')
-        return
-      }
-
-      // Hash/implicit flow: verify this is a recovery session by checking AMR.
-      // A normal password-login session must NOT enable the reset form — that
-      // would let logged-in users skip the current-password check in /settings/password.
-      // Recovery sessions have amr method='otp'; password sessions have method='password'.
-      const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-      const isRecovery = (aal?.currentAuthenticationMethods ?? []).some(
-        (m) => typeof m !== 'string' && m.method === 'otp',
-      )
-      if (isRecovery) {
-        setStatus('ready')
-      } else {
-        setStatus('invalid')
-      }
+      })
     }
 
-    void exchangeCode()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Fallback timeout: if PASSWORD_RECOVERY never fires (direct access by a
+    // normal user, expired link, missing hash/code), show invalid after 2s.
+    const timer = setTimeout(() => {
+      if (!recovered) {
+        setStatus('invalid')
+      }
+    }, 2000)
+
+    return () => {
+      recovered = true // prevent late state mutation after unmount
+      subscription.unsubscribe()
+      clearTimeout(timer)
+    }
+    // searchParams is stable; supabase client is stable — safe to omit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
