@@ -4,7 +4,6 @@ import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import BottomNav from '@/components/BottomNav'
 import BackButton from '@/components/BackButton'
-import RatingBadge, { RATING_LABELS } from '@/components/RatingBadge'
 import { getUserState } from '@/lib/auth/getUserState'
 import { createClient } from '@/lib/supabase/server'
 
@@ -15,7 +14,14 @@ type ReviewRow = {
   visit_date: string | null
   created_at: string
   image_path: string | null
-  restaurants: { id: string; name: string } | null
+  restaurants: { id: string; name: string; genre: string | null; area: string | null } | null
+}
+
+type UserProfile = {
+  name: string | null
+  username: string | null
+  avatar_path: string | null
+  updated_at: string | null
 }
 
 type PageProps = {
@@ -36,13 +42,17 @@ function parseRating(raw: string | string[] | undefined): RatingFilter {
   return 'all'
 }
 
-const RATING_OPTIONS: Array<{ value: RatingFilter; label: string }> = [
-  { value: 'all', label: 'すべて' },
-  { value: 4, label: '4' },
-  { value: 3, label: '3' },
-  { value: 2, label: '2' },
-  { value: 1, label: '1' },
-]
+const RATING_CHIP: Record<number, { label: string; bg: string; text: string; border: string }> = {
+  4: { label: '常連になりたい', bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-300' },
+  3: { label: 'また行きたい', bg: 'bg-pink-50', text: 'text-[#E05C7A]', border: 'border-pink-300' },
+  2: { label: '一度で十分', bg: 'bg-sky-50', text: 'text-sky-600', border: 'border-sky-300' },
+  1: { label: '二度と行かない', bg: 'bg-zinc-100', text: 'text-zinc-600', border: 'border-zinc-300' },
+}
+
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr)
+  return `${d.getMonth() + 1}月${d.getDate()}日`
+}
 
 export default async function MyRecordsPage({ searchParams }: PageProps) {
   const sp = await searchParams
@@ -59,9 +69,27 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
   const state = await getUserState(supabase, user)
   if (state === 'no_onboarding') redirect('/onboarding')
 
+  // Fetch own profile (can read own users row directly)
+  const { data: profileData } = await supabase
+    .from('users')
+    .select('name, username, avatar_path, updated_at')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  const profile = profileData as UserProfile | null
+
+  const avatarUrl = profile?.avatar_path
+    ? (() => {
+        const raw = supabase.storage.from('avatars').getPublicUrl(profile.avatar_path!).data.publicUrl
+        return profile.updated_at ? `${raw}?v=${encodeURIComponent(profile.updated_at)}` : raw
+      })()
+    : null
+
+  const initial = Array.from((profile?.name ?? profile?.username ?? '?').trim())[0] ?? '?'
+
   let query = supabase
     .from('reviews')
-    .select('id, rating, comment, visit_date, created_at, image_path, restaurants(id, name)')
+    .select('id, rating, comment, visit_date, created_at, image_path, restaurants(id, name, genre, area)')
     .eq('user_id', user.id)
 
   if (ratingFilter !== 'all') {
@@ -83,11 +111,7 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
 
   // Signed URLs for review images
   const imagePaths = [
-    ...new Set(
-      reviews
-        .map((r) => r.image_path)
-        .filter((p): p is string => Boolean(p)),
-    ),
+    ...new Set(reviews.map((r) => r.image_path).filter((p): p is string => Boolean(p))),
   ]
   const signedImagesResult = imagePaths.length
     ? await supabase.storage.from('review-images').createSignedUrls(imagePaths, 60 * 60)
@@ -98,14 +122,12 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
     if (s.path) signedImageUrls.set(s.path, s.signedUrl)
   }
 
-  // Get total own review count to distinguish "no records at all" vs "filter = 0"
   const { count: totalCount } = await supabase
     .from('reviews')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', user.id)
 
   const hasAnyReviews = (totalCount ?? 0) > 0
-  const isFiltered = ratingFilter !== 'all'
 
   function sortHref(s: SortOrder) {
     const params = new URLSearchParams()
@@ -121,27 +143,58 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
     return `/mypage/records?${params.toString()}`
   }
 
+  const displayName = profile?.name ?? profile?.username ?? 'あなた'
+
   return (
     <main className="min-h-screen bg-canvas pb-24">
-      {/* Page header */}
-      <div className="flex items-center justify-between px-5 pt-14 pb-4">
+      {/* Header */}
+      <div className="flex items-center border-b border-edge bg-canvas px-4 pt-14 pb-3">
         <Suspense>
           <BackButton fallbackHref="/mypage" label="" />
         </Suspense>
-        <h1 className="text-base font-bold text-ink">自分の記録</h1>
+        <h1 className="flex-1 text-center text-base font-bold text-ink">
+          {displayName}の記録
+        </h1>
         <div className="w-10" />
       </div>
 
-      <div className="mx-auto max-w-md px-4 space-y-4">
-        {/* Sort tabs — underline style */}
-        <div className="flex border-b border-edge">
+      <div className="px-4 pt-4 space-y-4">
+        {/* Profile row */}
+        <div className="flex items-center gap-3">
+          {avatarUrl ? (
+            <Image
+              src={avatarUrl}
+              alt={displayName}
+              width={52}
+              height={52}
+              className="h-13 w-13 rounded-full object-cover"
+              unoptimized
+            />
+          ) : (
+            <span className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-edge text-lg font-bold text-ink-sub">
+              {initial}
+            </span>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="font-bold text-ink">{profile?.name ?? profile?.username ?? 'あなた'}</p>
+            {profile?.username && (
+              <p className="text-xs text-ink-sub">@{profile.username}</p>
+            )}
+          </div>
+          <p className="shrink-0 text-sm text-ink-sub">
+            <span className="text-xl font-black text-ink">{totalCount ?? 0}</span>件の記録
+          </p>
+        </div>
+
+        {/* Sort toggle */}
+        <div className="flex overflow-hidden rounded-full border border-edge bg-surface p-1 gap-1">
           {(['newest', 'oldest'] as const).map((s) => (
             <Link
               key={s}
               href={sortHref(s)}
               replace
-              className={`flex flex-1 items-center justify-center py-3 text-sm font-semibold transition-colors ${
-                sort === s ? 'border-b-2 border-terra text-terra' : 'text-ink-sub hover:text-ink'
+              className={`flex flex-1 items-center justify-center rounded-full py-2.5 text-sm font-bold transition-colors ${
+                sort === s ? 'bg-terra text-white' : 'text-ink-sub hover:text-ink'
               }`}
             >
               {s === 'newest' ? '新しい順' : '古い順'}
@@ -149,36 +202,49 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
           ))}
         </div>
 
-        {/* Rating filter chips */}
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {RATING_OPTIONS.map((opt) => (
-            <Link
-              key={String(opt.value)}
-              href={ratingHref(opt.value)}
-              replace
-              className={`shrink-0 flex min-h-[32px] items-center rounded-full px-4 text-sm font-medium transition-colors ${
-                ratingFilter === opt.value
-                  ? 'bg-terra text-white'
-                  : 'border border-edge bg-surface text-ink-sub hover:text-ink'
-              }`}
-            >
-              {opt.label}
-            </Link>
-          ))}
+        {/* Rating filter chips — horizontal scroll */}
+        <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <Link
+            href={ratingHref('all')}
+            replace
+            className={`shrink-0 flex h-[34px] items-center rounded-full border px-4 text-sm font-bold transition-colors ${
+              ratingFilter === 'all'
+                ? 'border-terra bg-[#FFF3EC] text-terra'
+                : 'border-edge bg-surface text-ink-sub hover:text-ink'
+            }`}
+          >
+            すべて
+          </Link>
+          {([4, 3, 2, 1] as const).map((r) => {
+            const chip = RATING_CHIP[r]
+            const isActive = ratingFilter === r
+            return (
+              <Link
+                key={r}
+                href={ratingHref(r)}
+                replace
+                className={`shrink-0 flex h-[34px] items-center rounded-full border px-4 text-sm font-medium transition-colors ${
+                  isActive
+                    ? `${chip.bg} ${chip.text} ${chip.border}`
+                    : 'border-edge bg-surface text-ink-sub hover:text-ink'
+                }`}
+              >
+                {chip.label}
+              </Link>
+            )
+          })}
         </div>
-
-        <p className="text-xs text-ink-sub tabular-nums">{reviews.length}件</p>
 
         {/* Empty state */}
         {reviews.length === 0 && (
-          <div className="rounded-2xl border border-edge bg-surface p-8 text-center">
-            {hasAnyReviews && isFiltered ? (
+          <div className="rounded-2xl border border-edge bg-surface px-6 py-10 text-center">
+            {hasAnyReviews && ratingFilter !== 'all' ? (
               <>
                 <p className="text-sm text-ink-sub">条件に合う記録がありません</p>
                 <Link
                   href={`/mypage/records?sort=${sort}`}
                   replace
-                  className="mt-4 inline-flex min-h-[40px] items-center rounded-full border border-edge bg-canvas px-5 text-sm font-medium text-ink transition-colors hover:bg-surface"
+                  className="mt-4 inline-flex min-h-[40px] items-center rounded-full border border-edge bg-canvas px-5 text-sm font-medium text-ink"
                 >
                   絞り込みを解除
                 </Link>
@@ -188,7 +254,7 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
                 <p className="text-sm text-ink-sub">まだ記録がありません</p>
                 <Link
                   href="/record"
-                  className="mt-4 inline-flex min-h-[40px] items-center rounded-full bg-terra px-5 text-sm font-medium text-white transition-colors hover:bg-terra-deep"
+                  className="mt-4 inline-flex min-h-[40px] items-center rounded-full bg-terra px-5 text-sm font-medium text-white"
                 >
                   記録する
                 </Link>
@@ -199,73 +265,76 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
 
         {/* Records list */}
         {reviews.length > 0 && (
-          <ul className="space-y-3">
+          <div className="divide-y divide-edge overflow-hidden rounded-2xl bg-surface">
             {reviews.map((review) => {
               const imgUrl = review.image_path
                 ? signedImageUrls.get(review.image_path) ?? null
                 : null
-              return (
-                <li key={review.id}>
-                  <div className="rounded-2xl border border-edge bg-surface overflow-hidden">
-                    {/* Tap record card → record detail */}
-                    <Link
-                      href={`/records/${review.id}`}
-                      className="flex items-start gap-3 p-4 transition-colors hover:bg-canvas"
-                    >
-                      {imgUrl ? (
-                        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-canvas">
-                          <Image
-                            src={imgUrl}
-                            alt={review.restaurants?.name ?? ''}
-                            fill
-                            sizes="64px"
-                            className="object-cover"
-                            unoptimized
-                          />
-                        </div>
-                      ) : (
-                        <div className="h-16 w-16 shrink-0 rounded-lg bg-canvas" />
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <RatingBadge rating={review.rating} />
-                          <span className="text-xs text-ink-sub">{RATING_LABELS[review.rating]}</span>
-                        </div>
-                        {review.comment && (
-                          <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-ink">
-                            {review.comment}
-                          </p>
-                        )}
-                        <p className="mt-1 text-xs text-ink-sub">
-                          {review.visit_date
-                            ? `訪問日 ${review.visit_date}`
-                            : `投稿日 ${review.created_at.slice(0, 10)}`}
-                        </p>
-                      </div>
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0 text-ink-sub mt-1">
-                        <path fillRule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-                      </svg>
-                    </Link>
+              const chip = RATING_CHIP[review.rating]
+              const dateStr = review.visit_date
+                ? formatDate(review.visit_date)
+                : formatDate(review.created_at)
 
-                    {/* Tap restaurant name → restaurant detail */}
-                    {review.restaurants && (
-                      <div className="border-t border-edge px-4 py-2">
-                        <Link
-                          href={`/restaurants/${review.restaurants.id}`}
-                          className="inline-flex min-h-[36px] items-center gap-1 text-sm text-terra hover:text-terra-deep font-medium"
-                        >
-                          {review.restaurants.name}
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
-                            <path fillRule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-                          </svg>
-                        </Link>
-                      </div>
+              return (
+                <Link
+                  key={review.id}
+                  href={`/records/${review.id}`}
+                  className="flex items-start gap-3 p-4 hover:bg-canvas"
+                >
+                  {/* Thumbnail */}
+                  {imgUrl ? (
+                    <div className="relative h-[70px] w-[70px] shrink-0 overflow-hidden rounded-xl">
+                      <Image
+                        src={imgUrl}
+                        alt={review.restaurants?.name ?? ''}
+                        fill
+                        sizes="70px"
+                        className="object-cover"
+                        unoptimized
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex h-[70px] w-[70px] shrink-0 items-center justify-center rounded-xl bg-[#F3E5D8]">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C9A98A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
+                        <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
+                        <line x1="6" y1="1" x2="6" y2="4" />
+                        <line x1="10" y1="1" x2="10" y2="4" />
+                        <line x1="14" y1="1" x2="14" y2="4" />
+                      </svg>
+                    </div>
+                  )}
+
+                  {/* Info */}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-terra">
+                      {review.restaurants?.name ?? '不明な店舗'}
+                    </p>
+                    {(review.restaurants?.genre || review.restaurants?.area) && (
+                      <p className="text-xs text-ink-sub">
+                        {[review.restaurants.genre, review.restaurants.area].filter(Boolean).join('・')}
+                      </p>
+                    )}
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <span className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${chip.bg} ${chip.text} ${chip.border}`}>
+                        {chip.label}
+                      </span>
+                      <span className="text-xs text-ink-sub">{dateStr}</span>
+                    </div>
+                    {review.comment && (
+                      <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-ink-sub">
+                        {review.comment}
+                      </p>
                     )}
                   </div>
-                </li>
+
+                  <svg width="8" height="14" viewBox="0 0 8 14" fill="none" className="mt-1 shrink-0 text-ink-sub" aria-hidden="true">
+                    <path d="M1 1l6 6-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </Link>
               )
             })}
-          </ul>
+          </div>
         )}
       </div>
 
@@ -273,4 +342,3 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
     </main>
   )
 }
-
