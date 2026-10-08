@@ -13,11 +13,8 @@ import {
   validateUsernameFormat,
 } from '@/lib/users/username'
 
-// 入力が止まってから空き確認を投げるまでの待ち時間（設計書 E1 §5）
 const USERNAME_CHECK_DELAY_MS = 400
 
-// 空き確認の結果。どの入力値に対する結果かを保持し、
-// 入力が変わったら自動的に無効になるようにする。
 type UsernameCheck = {
   value: string
   available: boolean
@@ -35,14 +32,9 @@ export default function SignupPage() {
   const router = useRouter()
   const supabase = createClient()
 
-  // 空き確認のリクエスト世代。応答が入れ替わって届いたとき、
-  // 古い応答が新しい入力の結果を上書きしないように捨てる。
   const checkSeq = useRef(0)
 
-  // 形式チェックは通信不要なのでレンダー中に導出する（stateにしない）
   const formatError = username === '' ? null : validateUsernameFormat(username)
-
-  // 入力値と一致する結果だけを有効とみなす
   const currentCheck = usernameCheck?.value === username ? usernameCheck : null
   const usernameAvailable = currentCheck?.available ?? false
   const usernameError = formatError ?? currentCheck?.error ?? null
@@ -60,15 +52,12 @@ export default function SignupPage() {
         setUsernameCheck({
           value: username,
           available,
-          // is_username_available は重複と予約語を区別せず false を返すため、
-          // どちらでも成り立つ文言にする（予約語リストはDBが唯一の正）
           error: available
             ? null
             : 'このユーザーIDは使用できません。すでに使われているか、予約語です',
         })
       } catch {
         if (seq !== checkSeq.current) return
-        // 生エラーは checkUsernameAvailable 内で console.error 済み
         setUsernameCheck({
           value: username,
           available: false,
@@ -77,7 +66,6 @@ export default function SignupPage() {
       }
     }, USERNAME_CHECK_DELAY_MS)
 
-    // 入力が続いている間は前回のタイマーを破棄する
     return () => clearTimeout(timer)
   }, [username])
 
@@ -89,7 +77,6 @@ export default function SignupPage() {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      // username は handle_new_user トリガーが raw_user_meta_data から読む
       options: { data: { name, username } },
     })
 
@@ -99,100 +86,109 @@ export default function SignupPage() {
       return
     }
 
-    // When email confirmation is enabled in production, session is null until confirmed.
     if (!data.session) {
       setError('メールを確認してからログインしてください。')
       setLoading(false)
       return
     }
 
-    // public.users and public.user_value_profiles are created by the
-    // handle_new_user DB trigger — no explicit INSERT needed here.
-    // New users have onboarding_version=2 and must select preference cards.
     router.push('/onboarding/preferences')
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-canvas px-6 py-16">
-      <div className="mb-6 text-center">
-        <span className="text-3xl" aria-hidden="true">🍽️</span>
-        <p className="mt-1 text-sm font-medium text-ink-sub">FoodKit</p>
+    <main className="flex min-h-screen flex-col bg-canvas">
+      {/* Header */}
+      <div className="flex items-center justify-center px-6 pt-16 pb-8">
+        <div className="text-center">
+          <div
+            className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl shadow-md"
+            style={{ background: 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)' }}
+          >
+            <svg width="28" height="28" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+              <path d="M8 14c0-1.1.9-2 2-2h20a2 2 0 0 1 2 2v2a12 12 0 0 1-24 0v-2Z" fill="white" fillOpacity=".9"/>
+              <path d="M15 12V9a5 5 0 0 1 10 0v3" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+              <path d="M20 28v5M16 33h8" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+            </svg>
+          </div>
+          <h1 className="text-xl font-bold text-ink">新規登録</h1>
+        </div>
       </div>
 
-      <section className="w-full max-w-md rounded-2xl border border-edge bg-surface p-8 shadow-sm">
-        <h1 className="mb-6 text-2xl font-bold text-ink">新規登録</h1>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <InputField
-            id="name"
-            label="ユーザー名"
-            type="text"
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-
-          <div>
+      {/* Form */}
+      <div className="flex-1 px-6 pb-16">
+        <div className="mx-auto w-full max-w-sm">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <InputField
-              id="username"
-              label="ユーザーID"
+              id="name"
+              label="ユーザー名"
               type="text"
               required
-              value={username}
-              onChange={(e) => setUsername(e.target.value.trim())}
-              error={usernameError ?? undefined}
-              maxLength={USERNAME_MAX}
-              placeholder="ayabe"
-              autoComplete="username"
-              autoCapitalize="none"
-              spellCheck={false}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
             />
-            {!usernameError && (
-              <p
-                className={`mt-1 text-xs ${usernameAvailable ? 'text-green-700' : 'text-ink-sub'}`}
-                aria-live="polite"
-              >
-                {usernameChecking
-                  ? '確認中...'
-                  : usernameAvailable
-                    ? 'このユーザーIDは使えます'
-                    : '半角英数字と _ . - が使えます。後から変更できます'}
-              </p>
-            )}
-          </div>
 
-          <InputField
-            id="email"
-            label="メールアドレス"
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <InputField
-            id="password"
-            label="パスワード"
-            type="password"
-            required
-            minLength={6}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+            <div>
+              <InputField
+                id="username"
+                label="ユーザーID"
+                type="text"
+                required
+                value={username}
+                onChange={(e) => setUsername(e.target.value.trim())}
+                error={usernameError ?? undefined}
+                maxLength={USERNAME_MAX}
+                placeholder="ayabe"
+                autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
+              />
+              {!usernameError && (
+                <p
+                  className={`mt-1 text-xs ${usernameAvailable ? 'text-green-700' : 'text-ink-sub'}`}
+                  aria-live="polite"
+                >
+                  {usernameChecking
+                    ? '確認中...'
+                    : usernameAvailable
+                      ? 'このユーザーIDは使えます'
+                      : '半角英数字と _ . - が使えます。後から変更できます'}
+                </p>
+              )}
+            </div>
 
-          {error && <ErrorMessage message={error} />}
+            <InputField
+              id="email"
+              label="メールアドレス"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <InputField
+              id="password"
+              label="パスワード"
+              type="password"
+              required
+              minLength={6}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
 
-          <Button type="submit" loading={loading} disabled={!usernameAvailable}>
-            {loading ? '登録中...' : '登録する'}
-          </Button>
-        </form>
+            {error && <ErrorMessage message={error} />}
 
-        <p className="mt-5 text-center text-sm text-ink-sub">
-          すでにアカウントをお持ちの方は{' '}
-          <Link href="/login" className="font-medium text-terra transition-colors duration-150 hover:text-terra-deep underline">
-            ログイン
-          </Link>
-        </p>
-      </section>
+            <Button type="submit" loading={loading} disabled={!usernameAvailable}>
+              {loading ? '登録中...' : 'アカウントを作成'}
+            </Button>
+          </form>
+
+          <p className="mt-6 text-center text-sm text-ink-sub">
+            すでにアカウントをお持ちの方は{' '}
+            <Link href="/login" className="font-semibold text-terra transition-colors hover:text-terra-deep">
+              ログイン
+            </Link>
+          </p>
+        </div>
+      </div>
     </main>
   )
 }

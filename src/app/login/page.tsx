@@ -50,58 +50,71 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-canvas px-6 py-16">
-      <div className="mb-6 text-center">
-        <span className="text-3xl" aria-hidden="true">🍽️</span>
-        <p className="mt-1 text-sm font-medium text-ink-sub">FoodKit</p>
+    <main className="flex min-h-screen flex-col bg-canvas">
+      {/* Header */}
+      <div className="flex items-center justify-center px-6 pt-16 pb-8">
+        <div className="text-center">
+          <div
+            className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl shadow-md"
+            style={{ background: 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)' }}
+          >
+            <svg width="28" height="28" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+              <path d="M8 14c0-1.1.9-2 2-2h20a2 2 0 0 1 2 2v2a12 12 0 0 1-24 0v-2Z" fill="white" fillOpacity=".9"/>
+              <path d="M15 12V9a5 5 0 0 1 10 0v3" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+              <path d="M20 28v5M16 33h8" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+            </svg>
+          </div>
+          <h1 className="text-xl font-bold text-ink">ログイン</h1>
+        </div>
       </div>
 
-      <section className="w-full max-w-md rounded-2xl border border-edge bg-surface p-8 shadow-sm">
-        <h1 className="mb-6 text-2xl font-bold text-ink">ログイン</h1>
+      {/* Form */}
+      <div className="flex-1 px-6">
+        <div className="mx-auto w-full max-w-sm">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <InputField
+              id="email"
+              label="メールアドレス"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+            />
+            <InputField
+              id="password"
+              label="パスワード"
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+            />
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <InputField
-            id="email"
-            label="メールアドレス"
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
-          />
-          <InputField
-            id="password"
-            label="パスワード"
-            type="password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-          />
+            {error && <ErrorMessage message={error} />}
 
-          {error && <ErrorMessage message={error} />}
+            <Button type="submit" loading={loading}>
+              {loading ? 'ログイン中...' : 'ログイン'}
+            </Button>
+          </form>
 
-          <Button type="submit" loading={loading}>
-            {loading ? 'ログイン中...' : 'ログイン'}
-          </Button>
-        </form>
+          <div className="mt-5 text-center">
+            <Link
+              href="/forgot-password"
+              className="text-sm text-terra transition-colors hover:text-terra-deep"
+            >
+              パスワードを忘れた方
+            </Link>
+          </div>
 
-        <div className="mt-4 text-center">
-          <Link
-            href="/forgot-password"
-            className="text-sm text-terra transition-colors hover:text-terra-deep"
-          >
-            パスワードを忘れた方
-          </Link>
+          <p className="mt-6 text-center text-sm text-ink-sub">
+            アカウントをお持ちでない方は{' '}
+            <Link href="/signup" className="font-semibold text-terra transition-colors hover:text-terra-deep">
+              新規登録
+            </Link>
+          </p>
         </div>
-
-        <p className="mt-4 text-center text-sm text-ink-sub">
-          アカウントをお持ちでない方は{' '}
-          <Link href="/signup" className="font-medium text-terra transition-colors duration-150 hover:text-terra-deep underline">
-            新規登録
-          </Link>
-        </p>
-      </section>
+      </div>
     </main>
   )
 }

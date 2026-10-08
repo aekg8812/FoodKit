@@ -139,7 +139,7 @@ export default async function HomePage() {
     <main className="min-h-screen bg-canvas pb-24">
 
       {/* ── Header ───────────────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between px-5 pb-4 pt-10">
+      <div className="flex items-start justify-between px-5 pb-4 pt-12">
         <div>
           <p className="text-xl font-bold text-ink">
             {userName ? `こんにちは、${userName}さん` : 'こんにちは'}
@@ -151,7 +151,10 @@ export default async function HomePage() {
           aria-label={`通知${unreadCount > 0 ? `（未読${unreadCount}件）` : ''}`}
           className="relative mt-1 flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-surface"
         >
-          <span className="text-xl" aria-hidden="true">🔔</span>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
           {unreadCount > 0 && (
             <span className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-terra text-[9px] font-bold text-white">
               {unreadCount > 9 ? '9+' : unreadCount}
@@ -164,7 +167,10 @@ export default async function HomePage() {
       <div className="mb-5 px-5">
         <form action="/search/results" method="get">
           <label className="flex items-center gap-3 rounded-full border border-edge bg-surface px-4 py-3 shadow-sm transition-shadow focus-within:shadow-md focus-within:ring-1 focus-within:ring-terra">
-            <span className="text-sm text-ink-sub" aria-hidden="true">🔍</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-ink-sub" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <path d="M21 21l-4.35-4.35" />
+            </svg>
             <input
               type="text"
               name="q"
@@ -180,13 +186,20 @@ export default async function HomePage() {
       <div className="mb-6 px-5">
         <Link
           href="/search/today"
-          className="flex items-center justify-between rounded-2xl border border-edge bg-surface p-4 shadow-sm transition-colors hover:bg-canvas"
+          className="flex items-center gap-4 overflow-hidden rounded-2xl p-4 shadow-sm transition-all hover:opacity-90 active:scale-[0.98]"
+          style={{ background: 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)' }}
         >
-          <div>
-            <p className="text-sm font-semibold text-ink">今日のお店を探す</p>
-            <p className="mt-0.5 text-xs text-ink-sub">予算・移動手段・エリアで絞り込む</p>
+          <div className="flex-1">
+            <p className="font-semibold text-white">今日のお店を探す</p>
+            <p className="mt-0.5 text-xs text-white/80">予算・移動手段・雰囲気で絞り込む</p>
           </div>
-          <span className="text-xl" aria-hidden="true">🍽️</span>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M18 8h1a4 4 0 0 1 0 8h-1"/>
+            <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/>
+            <line x1="6" y1="1" x2="6" y2="4"/>
+            <line x1="10" y1="1" x2="10" y2="4"/>
+            <line x1="14" y1="1" x2="14" y2="4"/>
+          </svg>
         </Link>
       </div>
 

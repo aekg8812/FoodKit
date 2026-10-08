@@ -81,17 +81,25 @@ export default function SettingsPasswordForm({ userEmail }: Props) {
   }
 
   return (
-    <main className="min-h-screen bg-canvas px-6 py-10">
-      <div className="mx-auto w-full max-w-md space-y-6">
+    <main className="min-h-screen bg-canvas pb-10">
+      {/* Page header */}
+      <div className="flex items-center justify-between px-5 pt-14 pb-6">
         <Link
           href="/settings"
-          className="inline-flex min-h-[44px] items-center text-sm font-medium text-ink-sub transition-colors hover:text-ink"
+          className="flex h-10 w-10 items-center justify-center rounded-full text-ink-sub transition-colors hover:bg-surface"
+          aria-label="設定に戻る"
         >
-          ← 設定に戻る
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
         </Link>
+        <h1 className="text-base font-bold text-ink">パスワードを変更</h1>
+        <div className="w-10" />
+      </div>
 
-        <section className="space-y-6 rounded-3xl border border-edge bg-surface p-6">
-          <h1 className="text-2xl font-bold text-ink">パスワード変更</h1>
+      <div className="px-5">
+        <div className="mx-auto w-full max-w-sm space-y-5">
+          <p className="text-sm text-ink-sub">現在のパスワードを入力して、新しいパスワードに変更します</p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <InputField
@@ -107,20 +115,25 @@ export default function SettingsPasswordForm({ userEmail }: Props) {
               autoComplete="current-password"
             />
 
-            <InputField
-              id="new-password"
-              label="新しいパスワード"
-              type="password"
-              required
-              minLength={PASSWORD_MIN}
-              value={newPassword}
-              onChange={(e) => {
-                setNewPassword(e.target.value)
-                setSuccess(false)
-              }}
-              error={newTooShort ? `${PASSWORD_MIN}文字以上で入力してください` : undefined}
-              autoComplete="new-password"
-            />
+            <div>
+              <InputField
+                id="new-password"
+                label="新しいパスワード"
+                type="password"
+                required
+                minLength={PASSWORD_MIN}
+                value={newPassword}
+                onChange={(e) => {
+                  setNewPassword(e.target.value)
+                  setSuccess(false)
+                }}
+                error={newTooShort ? `${PASSWORD_MIN}文字以上で入力してください` : undefined}
+                autoComplete="new-password"
+              />
+              {!newTooShort && (
+                <p className="mt-1 text-xs text-ink-sub">8文字以上の半角英数字で設定してください</p>
+              )}
+            </div>
 
             <InputField
               id="confirm-password"
@@ -136,18 +149,28 @@ export default function SettingsPasswordForm({ userEmail }: Props) {
               autoComplete="new-password"
             />
 
+            {/* Info note */}
+            <div className="flex gap-2 rounded-xl border border-terra/20 bg-terra/5 px-4 py-3">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              <p className="text-xs leading-relaxed text-terra">変更後は、新しいパスワードでログインしてください</p>
+            </div>
+
             {error && <ErrorMessage message={error} />}
             {success && (
-              <p role="status" className="rounded-md bg-green-50 p-3 text-sm text-green-700">
+              <p role="status" className="rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">
                 パスワードを変更しました
               </p>
             )}
 
             <Button type="submit" loading={loading} disabled={!canSubmit}>
-              {loading ? '変更中...' : '変更する'}
+              {loading ? '変更中...' : '変更を保存'}
             </Button>
           </form>
-        </section>
+        </div>
       </div>
     </main>
   )

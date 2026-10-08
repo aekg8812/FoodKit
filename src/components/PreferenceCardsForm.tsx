@@ -23,26 +23,6 @@ type Props = {
 
 const MIN_CARDS = 5
 
-function CardPlaceholderIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className="text-ink-sub"
-    >
-      <path d="M3 11l19-9-9 19-2-8-8-2z" />
-    </svg>
-  )
-}
-
 export default function PreferenceCardsForm({ cards, initialKeys, mode }: Props) {
   const router = useRouter()
   const supabase = createClient()
@@ -89,23 +69,35 @@ export default function PreferenceCardsForm({ cards, initialKeys, mode }: Props)
     }
   }
 
-  const ctaLabel = mode === 'initial' ? 'FoodKitをはじめる' : '保存する'
+  const ctaLabel = mode === 'initial' ? 'FoodKitをはじめる' : '変更を保存'
 
   return (
-    <main className="min-h-screen bg-canvas px-6 pt-8 pb-32">
-      <div className="mx-auto w-full max-w-md">
-        <h1 className="text-2xl font-bold leading-snug text-ink">
-          あなたの食の好みを<br />教えてください
-        </h1>
-        <p className="mt-2 text-sm leading-relaxed text-ink-sub">
-          気になるカードを{MIN_CARDS}つ以上選んでください。あとからいつでも変更できます。
-        </p>
+    <main className="min-h-screen bg-canvas pb-32">
+      {/* Header */}
+      <div className="px-5 pt-10 pb-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold leading-snug text-ink">
+              あなたの食の好みを<br />選んでください
+            </h1>
+            <p className="mt-1 text-sm text-ink-sub">
+              気になるカードを{MIN_CARDS}つ以上選んでください
+            </p>
+          </div>
+          {count > 0 && (
+            <div className="shrink-0 flex items-center gap-1 rounded-full bg-terra/10 px-3 py-1.5">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              <span className="text-xs font-semibold text-terra">{count}個選択中</span>
+            </div>
+          )}
+        </div>
+      </div>
 
-        <p className="mt-4 text-sm font-medium text-terra" aria-live="polite">
-          {count > 0 ? `${count}個選択しました` : `${MIN_CARDS}個以上選んでください`}
-        </p>
-
-        <div className="mt-4 grid grid-cols-2 gap-3">
+      {/* Card grid */}
+      <div className="px-5">
+        <div className="grid grid-cols-2 gap-3">
           {cards.map((card) => {
             const isSelected = selected.has(card.key)
             return (
@@ -115,19 +107,37 @@ export default function PreferenceCardsForm({ cards, initialKeys, mode }: Props)
                 onClick={() => toggle(card.key)}
                 aria-pressed={isSelected}
                 className={[
-                  'relative rounded-2xl border-2 p-4 text-left transition-all duration-150',
-                  'motion-safe:active:scale-[0.97]',
+                  'relative overflow-hidden rounded-2xl text-left transition-all duration-150 active:scale-[0.97]',
                   isSelected
-                    ? 'border-terra bg-cream'
-                    : 'border-edge bg-surface hover:border-terra/50',
+                    ? 'ring-2 ring-terra ring-offset-1'
+                    : 'ring-1 ring-edge',
                 ].join(' ')}
+                style={{ aspectRatio: '1 / 1' }}
               >
+                {/* Background image or gradient placeholder */}
+                {card.image_path ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={card.image_path}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                ) : (
+                  <div
+                    className="absolute inset-0"
+                    style={{ background: 'linear-gradient(135deg, #FFF3E6 0%, #FFE4CC 100%)' }}
+                  />
+                )}
+
+                {/* Gradient overlay for text readability */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+
+                {/* Selected checkmark */}
                 {isSelected && (
-                  <span className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-terra">
+                  <span className="absolute right-2.5 top-2.5 flex h-6 w-6 items-center justify-center rounded-full bg-terra shadow-md">
                     <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="12"
-                      height="12"
+                      width="13"
+                      height="13"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="white"
@@ -141,40 +151,30 @@ export default function PreferenceCardsForm({ cards, initialKeys, mode }: Props)
                   </span>
                 )}
 
-                {card.image_path ? (
-                  <div className="mb-3 h-16 w-full overflow-hidden rounded-lg">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={card.image_path}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  </div>
-                ) : (
-                  <div className="mb-3 flex h-16 w-full items-center justify-center rounded-lg bg-canvas">
-                    <CardPlaceholderIcon />
-                  </div>
-                )}
-
-                <p className="text-sm font-semibold leading-snug text-ink">{card.label}</p>
-                {card.description && (
-                  <p className="mt-1 text-xs leading-relaxed text-ink-sub">{card.description}</p>
-                )}
+                {/* Text overlay at bottom */}
+                <div className="absolute bottom-0 left-0 right-0 p-3">
+                  <p className="text-sm font-bold leading-snug text-white drop-shadow-sm">{card.label}</p>
+                  {card.description && (
+                    <p className="mt-0.5 text-[11px] leading-snug text-white/80 line-clamp-2">
+                      {card.description}
+                    </p>
+                  )}
+                </div>
               </button>
             )
           })}
         </div>
-
-        {error && (
-          <div className="mt-6">
-            <ErrorMessage message={error} />
-          </div>
-        )}
       </div>
 
+      {error && (
+        <div className="px-5 mt-6">
+          <ErrorMessage message={error} />
+        </div>
+      )}
+
       {/* Sticky CTA */}
-      <div className="fixed inset-x-0 bottom-0 bg-canvas/95 px-6 pb-8 pt-4 backdrop-blur-sm">
-        <div className="mx-auto w-full max-w-md">
+      <div className="fixed inset-x-0 bottom-0 bg-canvas/95 px-5 pb-8 pt-4 backdrop-blur-sm">
+        <div className="mx-auto w-full max-w-sm">
           <Button
             type="button"
             onClick={handleSave}
@@ -183,6 +183,11 @@ export default function PreferenceCardsForm({ cards, initialKeys, mode }: Props)
           >
             {loading ? '保存中...' : ctaLabel}
           </Button>
+          {!canSave && (
+            <p className="mt-2 text-center text-xs text-ink-sub">
+              あと{MIN_CARDS - count}個選んでください
+            </p>
+          )}
         </div>
       </div>
     </main>

@@ -103,54 +103,69 @@ export default async function MypagePage() {
   return (
     <main className="min-h-screen bg-canvas pb-24">
       {/* Profile header */}
-      <div className="bg-surface px-6 pt-10 pb-6 border-b border-edge">
+      <div className="bg-surface px-5 pt-12 pb-6 border-b border-edge">
         <div className="mx-auto max-w-md">
-          <div className="flex items-center gap-4">
-            {avatarUrl ? (
-              <Image
-                src={avatarUrl}
-                alt={profile.name ?? profile.username ?? ''}
-                width={64}
-                height={64}
-                className="h-16 w-16 rounded-full object-cover shrink-0"
-                unoptimized
-              />
-            ) : (
-              <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-cream text-2xl font-bold text-amber-800">
-                {initial}
-              </span>
-            )}
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-bold text-lg text-ink">{profile.name ?? profile.username}</p>
-              {profile.username && (
-                <p className="truncate text-sm text-ink-sub">@{profile.username}</p>
+          {/* Top row: avatar + name + settings icon */}
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-4">
+              {avatarUrl ? (
+                <Image
+                  src={avatarUrl}
+                  alt={profile.name ?? profile.username ?? ''}
+                  width={72}
+                  height={72}
+                  className="h-[72px] w-[72px] rounded-full object-cover shrink-0 border-2 border-edge"
+                  unoptimized
+                />
+              ) : (
+                <span className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-full bg-cream text-2xl font-bold text-amber-800 border-2 border-edge">
+                  {initial}
+                </span>
               )}
-              <p className="mt-1 text-sm text-ink-sub">
-                記録 <span className="font-semibold text-ink tabular-nums">{reviewCount}</span>件
-              </p>
+              <div className="min-w-0">
+                <p className="truncate font-bold text-lg text-ink">{profile.name ?? profile.username}</p>
+                {profile.username && (
+                  <p className="truncate text-sm text-ink-sub">@{profile.username}</p>
+                )}
+              </div>
             </div>
+            <Link
+              href="/settings"
+              aria-label="設定"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-ink-sub transition-colors hover:bg-canvas"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>
+              </svg>
+            </Link>
           </div>
 
+          {/* Stats row */}
+          <div className="mt-4 flex gap-5 text-sm">
+            <div className="text-center">
+              <p className="font-bold text-ink tabular-nums">{reviewCount}</p>
+              <p className="text-xs text-ink-sub">記録</p>
+            </div>
+            <Link href="/mypage/follows" className="text-center hover:opacity-80">
+              <p className="font-bold text-ink tabular-nums">{Number(followCounts.following_count)}</p>
+              <p className="text-xs text-ink-sub">フォロー</p>
+            </Link>
+            <Link href="/mypage/follows" className="text-center hover:opacity-80">
+              <p className="font-bold text-ink tabular-nums">{Number(followCounts.follower_count)}</p>
+              <p className="text-xs text-ink-sub">フォロワー</p>
+            </Link>
+          </div>
+
+          {/* Edit profile button */}
           <div className="mt-4">
             <Link
               href="/mypage/profile/edit"
-              className="inline-flex min-h-[40px] items-center rounded-full border border-edge bg-canvas px-5 text-sm font-medium text-ink transition-colors hover:bg-surface"
+              className="inline-flex min-h-[38px] items-center rounded-full border border-edge bg-canvas px-5 text-sm font-medium text-ink transition-colors hover:bg-surface"
             >
               プロフィールを編集
             </Link>
           </div>
-
-          <div className="mt-4 flex gap-4 text-sm">
-            <Link href="/mypage/follows" className="hover:underline">
-              <span className="font-semibold text-ink tabular-nums">{Number(followCounts.following_count)}</span>
-              <span className="ml-1 text-ink-sub">フォロー中</span>
-            </Link>
-            <Link href="/mypage/follows" className="hover:underline">
-              <span className="font-semibold text-ink tabular-nums">{Number(followCounts.follower_count)}</span>
-              <span className="ml-1 text-ink-sub">フォロワー</span>
-            </Link>
-          </div>
-
         </div>
       </div>
 
@@ -301,13 +316,19 @@ export default async function MypagePage() {
           </Link>
         </section>
 
-        {/* Settings */}
+        {/* Settings link row */}
         <section>
           <Link
             href="/settings"
             className="flex items-center justify-between rounded-2xl border border-edge bg-surface px-4 py-4 transition-colors hover:bg-canvas"
           >
-            <p className="font-semibold text-ink">設定</p>
+            <div className="flex items-center gap-3">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-ink-sub" aria-hidden="true">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>
+              </svg>
+              <p className="font-semibold text-ink">設定</p>
+            </div>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0 text-ink-sub">
               <path fillRule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
             </svg>
