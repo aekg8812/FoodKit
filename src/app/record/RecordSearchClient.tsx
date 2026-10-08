@@ -116,7 +116,7 @@ export default function RecordSearchClient({ recentRestaurants }: Props) {
               >
                 <RestaurantPlaceholder />
                 <div className="min-w-0 flex-1">
-                  <p className="font-bold text-terra">{restaurant.name}</p>
+                  <p className="font-bold text-ink">{restaurant.name}</p>
                   {(restaurant.genre || restaurant.area) && (
                     <p className="text-xs text-ink-sub">
                       {[restaurant.genre, restaurant.area].filter(Boolean).join('・')}
