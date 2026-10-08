@@ -1,7 +1,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import BottomNav from '@/components/BottomNav'
-import RatingBadge from '@/components/RatingBadge'
 import { getUserState } from '@/lib/auth/getUserState'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
@@ -19,6 +18,19 @@ type PreferenceCardRow = {
   preference_cards: { label: string; sort_order: number } | null
 }
 
+const RATING_CHIP: Record<number, { label: string; bg: string; text: string }> = {
+  4: { label: '常連になりたい', bg: 'bg-[#FFF3EC]', text: 'text-terra' },
+  3: { label: 'また行きたい', bg: 'bg-[#FFF0F3]', text: 'text-[#E05C7A]' },
+  2: { label: '一度で十分', bg: 'bg-[#EFF6FF]', text: 'text-sky-600' },
+  1: { label: '二度と行かない', bg: 'bg-[#F3F4F6]', text: 'text-zinc-600' },
+}
+
+function formatDate(visitDate: string | null): string {
+  if (!visitDate) return ''
+  const d = new Date(visitDate)
+  return `${d.getMonth() + 1}月${d.getDate()}日`
+}
+
 export default async function MypagePage() {
   const supabase = await createClient()
 
@@ -30,37 +42,50 @@ export default async function MypagePage() {
   const state = await getUserState(supabase, user)
   if (state === 'no_onboarding') redirect('/onboarding')
 
-  const [profileResult, reviewCountResult, recentReviewsResult, preferenceCardsResult, followCountsResult] =
-    await Promise.all([
-      supabase
-        .from('user_public_profiles')
-        .select('id, username, name, avatar_path, updated_at')
-        .eq('id', user.id)
-        .single(),
-      supabase
-        .from('reviews')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id),
-      supabase
-        .from('reviews')
-        .select('id, rating, comment, visit_date, image_path, restaurants(id, name)')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .order('id', { ascending: false })
-        .limit(3),
-      supabase
-        .from('user_preference_cards')
-        .select('preference_cards(label, sort_order)')
-        .eq('user_id', user.id),
-      supabase.rpc('get_user_follow_counts', { p_user_id: user.id }),
-    ])
+  const [
+    profileResult,
+    reviewsForStatsResult,
+    recentReviewsResult,
+    preferenceCardsResult,
+    followCountsResult,
+  ] = await Promise.all([
+    supabase
+      .from('user_public_profiles')
+      .select('id, username, name, avatar_path, updated_at')
+      .eq('id', user.id)
+      .single(),
+    supabase
+      .from('reviews')
+      .select('id, rating, restaurant_id')
+      .eq('user_id', user.id),
+    supabase
+      .from('reviews')
+      .select('id, rating, comment, visit_date, image_path, restaurants(id, name)')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(3),
+    supabase
+      .from('user_preference_cards')
+      .select('preference_cards(label, sort_order)')
+      .eq('user_id', user.id),
+    supabase.rpc('get_user_follow_counts', { p_user_id: user.id }),
+  ])
 
   if (profileResult.error) {
     throw new Error(`MypagePage: failed to load profile: ${profileResult.error.message}`)
   }
 
   const profile = profileResult.data
-  const reviewCount = reviewCountResult.count ?? 0
+  const allReviews = reviewsForStatsResult.data ?? []
+  const reviewCount = allReviews.length
+  const restaurantCount = new Set(allReviews.map((r) => r.restaurant_id)).size
+
+  const ratingCounts: Record<number, number> = { 4: 0, 3: 0, 2: 0, 1: 0 }
+  for (const r of allReviews) {
+    if (r.rating >= 1 && r.rating <= 4) ratingCounts[r.rating]++
+  }
+
   const recentRows = (recentReviewsResult.data ?? []) as unknown as RecentReviewRow[]
   const followCounts = followCountsResult.data?.[0] ?? { following_count: 0, follower_count: 0 }
 
@@ -102,184 +127,89 @@ export default async function MypagePage() {
 
   return (
     <main className="min-h-screen bg-canvas pb-24">
-      {/* Profile header */}
-      <div className="bg-surface px-5 pt-12 pb-6 border-b border-edge">
-        <div className="mx-auto max-w-md">
-          {/* Top row: avatar + name + settings icon */}
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-4">
-              {avatarUrl ? (
-                <Image
-                  src={avatarUrl}
-                  alt={profile.name ?? profile.username ?? ''}
-                  width={72}
-                  height={72}
-                  className="h-[72px] w-[72px] rounded-full object-cover shrink-0 border-2 border-edge"
-                  unoptimized
-                />
-              ) : (
-                <span className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-full bg-cream text-2xl font-bold text-amber-800 border-2 border-edge">
-                  {initial}
-                </span>
+      {/* Page header */}
+      <div className="flex items-center px-4 pt-14 pb-3">
+        <div className="w-10" />
+        <h1 className="flex-1 text-center text-base font-bold text-ink">マイページ</h1>
+        <Link
+          href="/settings"
+          aria-label="設定"
+          className="flex h-10 w-10 items-center justify-center text-ink-sub"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+          </svg>
+        </Link>
+      </div>
+
+      <div className="px-4 space-y-5">
+        {/* Profile card */}
+        <section className="rounded-2xl bg-surface p-4">
+          <div className="flex items-center gap-4">
+            {avatarUrl ? (
+              <Image
+                src={avatarUrl}
+                alt={profile.name ?? profile.username ?? ''}
+                width={72}
+                height={72}
+                className="h-[72px] w-[72px] shrink-0 rounded-full object-cover"
+                unoptimized
+              />
+            ) : (
+              <span className="flex h-[72px] w-[72px] shrink-0 items-center justify-center rounded-full bg-edge text-2xl font-bold text-ink-sub">
+                {initial}
+              </span>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-lg font-black text-ink">{profile.name ?? profile.username}</p>
+              {profile.username && (
+                <p className="truncate text-sm text-ink-sub">@{profile.username}</p>
               )}
-              <div className="min-w-0">
-                <p className="truncate font-bold text-lg text-ink">{profile.name ?? profile.username}</p>
-                {profile.username && (
-                  <p className="truncate text-sm text-ink-sub">@{profile.username}</p>
-                )}
-              </div>
             </div>
-            <Link
-              href="/settings"
-              aria-label="設定"
-              className="flex h-10 w-10 items-center justify-center rounded-full text-ink-sub transition-colors hover:bg-canvas"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>
-              </svg>
-            </Link>
-          </div>
-
-          {/* Stats row */}
-          <div className="mt-4 flex gap-5 text-sm">
-            <div className="text-center">
-              <p className="font-bold text-ink tabular-nums">{reviewCount}</p>
-              <p className="text-xs text-ink-sub">記録</p>
-            </div>
-            <Link href="/mypage/follows" className="text-center hover:opacity-80">
-              <p className="font-bold text-ink tabular-nums">{Number(followCounts.following_count)}</p>
-              <p className="text-xs text-ink-sub">フォロー</p>
-            </Link>
-            <Link href="/mypage/follows" className="text-center hover:opacity-80">
-              <p className="font-bold text-ink tabular-nums">{Number(followCounts.follower_count)}</p>
-              <p className="text-xs text-ink-sub">フォロワー</p>
-            </Link>
-          </div>
-
-          {/* Edit profile button */}
-          <div className="mt-4">
             <Link
               href="/mypage/profile/edit"
-              className="inline-flex min-h-[38px] items-center rounded-full border border-edge bg-canvas px-5 text-sm font-medium text-ink transition-colors hover:bg-surface"
+              className="shrink-0 rounded-full border border-terra px-4 py-1.5 text-sm font-bold text-terra"
             >
               プロフィールを編集
             </Link>
           </div>
-        </div>
-      </div>
 
-      <div className="mx-auto max-w-md px-4 pt-5 space-y-6">
-        {/* Recent records */}
-        <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-ink">最近の記録</h2>
-            <Link
-              href="/mypage/records"
-              className="text-sm text-terra hover:text-terra-deep font-medium"
-            >
-              すべて見る
+          {/* Stats row */}
+          <div className="mt-4 flex divide-x divide-edge border-t border-edge pt-4">
+            <div className="flex-1 text-center">
+              <p className="text-xl font-black tabular-nums text-ink">{reviewCount}</p>
+              <p className="text-xs text-ink-sub">記録</p>
+            </div>
+            <Link href="/mypage/follows?tab=following" className="flex-1 text-center">
+              <p className="text-xl font-black tabular-nums text-ink">{Number(followCounts.following_count)}</p>
+              <p className="text-xs text-ink-sub">フォロー</p>
+            </Link>
+            <Link href="/mypage/follows?tab=followers" className="flex-1 text-center">
+              <p className="text-xl font-black tabular-nums text-ink">{Number(followCounts.follower_count)}</p>
+              <p className="text-xs text-ink-sub">フォロワー</p>
             </Link>
           </div>
-
-          {recentRows.length === 0 ? (
-            <div className="rounded-2xl border border-edge bg-surface p-6 text-center">
-              <p className="text-sm text-ink-sub">まだ記録がありません</p>
-              <Link
-                href="/record"
-                className="mt-3 inline-flex min-h-[40px] items-center rounded-full bg-terra px-5 text-sm font-medium text-white transition-colors hover:bg-terra-deep"
-              >
-                記録する
-              </Link>
-            </div>
-          ) : (
-            <ul className="space-y-3">
-              {recentRows.map((review) => {
-                const imgUrl = review.image_path
-                  ? signedImageUrls.get(review.image_path) ?? null
-                  : null
-                return (
-                  <li key={review.id}>
-                    <div className="rounded-2xl border border-edge bg-surface overflow-hidden">
-                      {/* Restaurant name → restaurant detail */}
-                      {review.restaurants ? (
-                        <div className="border-b border-edge px-4 pt-3 pb-2">
-                          <Link
-                            href={`/restaurants/${review.restaurants.id}`}
-                            className="inline-flex min-h-[28px] items-center gap-1 text-sm font-semibold text-terra hover:text-terra-deep"
-                          >
-                            {review.restaurants.name}
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5 shrink-0">
-                              <path fillRule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-                            </svg>
-                          </Link>
-                        </div>
-                      ) : (
-                        <div className="border-b border-edge px-4 pt-3 pb-2">
-                          <p className="text-sm font-semibold text-ink-sub">店舗情報なし</p>
-                        </div>
-                      )}
-
-                      {/* Record body → record detail */}
-                      <Link
-                        href={`/records/${review.id}`}
-                        className="flex items-center gap-3 p-4 transition-colors hover:bg-canvas"
-                      >
-                        {imgUrl ? (
-                          <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-canvas">
-                            <Image
-                              src={imgUrl}
-                              alt={review.restaurants?.name ?? ''}
-                              fill
-                              sizes="56px"
-                              className="object-cover"
-                              unoptimized
-                            />
-                          </div>
-                        ) : (
-                          <div className="h-14 w-14 shrink-0 rounded-lg bg-canvas" />
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <RatingBadge rating={review.rating} />
-                          </div>
-                          {review.comment && (
-                            <p className="mt-1 line-clamp-1 text-xs text-ink-sub">{review.comment}</p>
-                          )}
-                          {review.visit_date && (
-                            <p className="mt-0.5 text-xs text-ink-sub">{review.visit_date}</p>
-                          )}
-                        </div>
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0 text-ink-sub">
-                          <path fillRule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-                        </svg>
-                      </Link>
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
         </section>
 
-        {/* Preference cards preview */}
+        {/* あなたの好み */}
         <section>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-ink">あなたの好み</h2>
-            <Link
-              href="/mypage/food-preferences"
-              className="text-sm text-terra hover:text-terra-deep font-medium"
-            >
-              {preferenceCards.length > 0 ? 'すべて見る / 編集' : '設定する'}
+          <div className="mb-2 flex items-center justify-between">
+            <div>
+              <h2 className="font-bold text-ink">あなたの好み</h2>
+              <p className="text-xs text-ink-sub">店選びで大切にしていること</p>
+            </div>
+            <Link href="/mypage/food-preferences" className="text-sm font-medium text-terra">
+              編集 ›
             </Link>
           </div>
 
           {preferenceCards.length === 0 ? (
-            <div className="rounded-2xl border border-edge bg-surface p-6 text-center">
+            <div className="rounded-2xl border border-edge bg-surface p-5 text-center">
               <p className="text-sm text-ink-sub">まだ好みが設定されていません</p>
               <Link
                 href="/mypage/food-preferences/edit"
-                className="mt-3 inline-flex min-h-[40px] items-center rounded-full bg-terra px-5 text-sm font-medium text-white transition-colors hover:bg-terra-deep"
+                className="mt-3 inline-flex h-[40px] items-center rounded-full bg-terra px-5 text-sm font-medium text-white"
               >
                 好みを設定する
               </Link>
@@ -298,41 +228,155 @@ export default async function MypagePage() {
           )}
         </section>
 
-        {/* Follow / Follower */}
-        <section>
-          <Link
-            href="/mypage/follows"
-            className="flex items-center justify-between rounded-2xl border border-edge bg-surface px-4 py-4 transition-colors hover:bg-canvas"
-          >
-            <div>
-              <p className="font-semibold text-ink">フォロー・フォロワー</p>
-              <p className="mt-0.5 text-xs text-ink-sub">
-                フォロー中 {Number(followCounts.following_count)}人 · フォロワー {Number(followCounts.follower_count)}人
-              </p>
+        {/* これまでの記録 */}
+        {reviewCount > 0 && (
+          <section>
+            <h2 className="mb-2 font-bold text-ink">これまでの記録</h2>
+            <div className="overflow-hidden rounded-2xl bg-surface">
+              <div className="flex items-center gap-3 border-b border-edge p-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-terra/10">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                    <polyline points="9 22 9 12 15 12 15 22" />
+                  </svg>
+                </div>
+                <span className="text-base font-black text-ink">{restaurantCount}店舗を記録</span>
+              </div>
+              <div className="grid grid-cols-4 divide-x divide-edge px-0 py-3">
+                {([4, 3, 2, 1] as const).map((rating) => (
+                  <div key={rating} className="flex flex-col items-center py-1">
+                    <p className={`text-lg font-black tabular-nums ${rating === 3 ? 'text-terra' : 'text-ink'}`}>
+                      {ratingCounts[rating]}
+                    </p>
+                    <p className="mt-0.5 text-center text-[10px] leading-tight text-ink-sub">
+                      {rating === 4 ? '常連に\nなりたい' : rating === 3 ? 'また\n行きたい' : rating === 2 ? '一度で\n十分' : '二度と\n行かない'}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0 text-ink-sub">
-              <path fillRule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-            </svg>
-          </Link>
+          </section>
+        )}
+
+        {/* 最近の記録 */}
+        <section>
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="font-bold text-ink">最近の記録</h2>
+            <Link href="/mypage/records" className="text-sm font-medium text-terra">
+              すべて見る ›
+            </Link>
+          </div>
+
+          {recentRows.length === 0 ? (
+            <div className="rounded-2xl border border-edge bg-surface p-6 text-center">
+              <p className="text-sm text-ink-sub">まだ記録がありません</p>
+              <Link
+                href="/record"
+                className="mt-3 inline-flex h-[40px] items-center rounded-full bg-terra px-5 text-sm font-medium text-white"
+              >
+                記録する
+              </Link>
+            </div>
+          ) : (
+            <div className="divide-y divide-edge overflow-hidden rounded-2xl border border-edge bg-surface">
+              {recentRows.map((review) => {
+                const imgUrl = review.image_path
+                  ? signedImageUrls.get(review.image_path) ?? null
+                  : null
+                const chip = RATING_CHIP[review.rating]
+                return (
+                  <Link
+                    key={review.id}
+                    href={`/records/${review.id}`}
+                    className="flex items-center gap-3 p-3 hover:bg-canvas"
+                  >
+                    {/* Thumbnail */}
+                    <div className="relative h-[60px] w-[60px] shrink-0 overflow-hidden rounded-xl bg-[#F3E5D8]">
+                      {imgUrl ? (
+                        <Image
+                          src={imgUrl}
+                          alt={review.restaurants?.name ?? ''}
+                          fill
+                          sizes="60px"
+                          className="object-cover"
+                          unoptimized
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C9A98A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
+                            <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
+                            <line x1="6" y1="1" x2="6" y2="4" />
+                            <line x1="10" y1="1" x2="10" y2="4" />
+                            <line x1="14" y1="1" x2="14" y2="4" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Info */}
+                    <div className="min-w-0 flex-1">
+                      {review.restaurants && (
+                        <p className="truncate text-sm font-bold text-terra">{review.restaurants.name}</p>
+                      )}
+                      <div className="mt-0.5 flex items-center gap-2">
+                        {chip && (
+                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${chip.bg} ${chip.text}`}>
+                            {chip.label}
+                          </span>
+                        )}
+                        {review.visit_date && (
+                          <span className="text-[11px] text-ink-sub">{formatDate(review.visit_date)}</span>
+                        )}
+                      </div>
+                      {review.comment && (
+                        <p className="mt-0.5 line-clamp-1 text-xs text-ink-sub">{review.comment}</p>
+                      )}
+                    </div>
+                    <svg width="8" height="14" viewBox="0 0 8 14" fill="none" className="shrink-0 text-ink-sub" aria-hidden="true">
+                      <path d="M1 1l6 6-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </Link>
+                )
+              })}
+            </div>
+          )}
         </section>
 
-        {/* Settings link row */}
+        {/* Bottom menu links */}
         <section>
-          <Link
-            href="/settings"
-            className="flex items-center justify-between rounded-2xl border border-edge bg-surface px-4 py-4 transition-colors hover:bg-canvas"
-          >
-            <div className="flex items-center gap-3">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-ink-sub" aria-hidden="true">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>
+          <div className="divide-y divide-edge overflow-hidden rounded-2xl border border-edge bg-surface">
+            <Link href="/mypage/follows" className="flex items-center gap-3 px-4 py-4 hover:bg-canvas">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-ink-sub" aria-hidden="true">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
               </svg>
-              <p className="font-semibold text-ink">設定</p>
-            </div>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 shrink-0 text-ink-sub">
-              <path fillRule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-            </svg>
-          </Link>
+              <span className="flex-1 font-medium text-ink">フォロー・フォロワー</span>
+              <svg width="8" height="14" viewBox="0 0 8 14" fill="none" className="shrink-0 text-ink-sub" aria-hidden="true">
+                <path d="M1 1l6 6-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </Link>
+            <Link href="/mypage/food-preferences/edit" className="flex items-center gap-3 px-4 py-4 hover:bg-canvas">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-ink-sub" aria-hidden="true">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+              </svg>
+              <span className="flex-1 font-medium text-ink">好みカードを編集</span>
+              <svg width="8" height="14" viewBox="0 0 8 14" fill="none" className="shrink-0 text-ink-sub" aria-hidden="true">
+                <path d="M1 1l6 6-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </Link>
+            <Link href="/settings" className="flex items-center gap-3 px-4 py-4 hover:bg-canvas">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-ink-sub" aria-hidden="true">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+              </svg>
+              <span className="flex-1 font-medium text-ink">設定</span>
+              <svg width="8" height="14" viewBox="0 0 8 14" fill="none" className="shrink-0 text-ink-sub" aria-hidden="true">
+                <path d="M1 1l6 6-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </Link>
+          </div>
         </section>
       </div>
 
