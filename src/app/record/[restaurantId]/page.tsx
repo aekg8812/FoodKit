@@ -94,15 +94,15 @@ export default async function RecordPage({ params }: RecordPageProps) {
     : null
 
   return (
-    <main className="min-h-screen bg-canvas px-6 pt-6 pb-24">
-      <div className="mx-auto w-full max-w-md">
+    <main className="min-h-screen bg-canvas pb-24">
+      <div className="mx-auto w-full max-w-md px-5 pt-14">
         <PageHeader
           title="記録する"
           back={{ href: `/restaurants/${restaurantId}` }}
         />
 
         {/* 対象店舗 */}
-        <div className="mt-4 rounded-2xl border border-edge bg-surface px-5 py-4 shadow-sm">
+        <div className="mt-4 rounded-2xl border border-edge bg-surface px-5 py-4">
           <p className="text-xs font-medium text-ink-sub">対象店舗</p>
           <p className="mt-1 font-bold text-ink">{restaurant.name}</p>
           {(restaurant.area || restaurant.genre) && (
