@@ -158,7 +158,7 @@ export default function RecordsClient({ restaurantId, userId, initialTab, initia
   }
 
   return (
-    <main className="min-h-screen bg-canvas pb-20">
+    <main className="min-h-screen bg-canvas pb-24">
       {/* Header */}
       <div className="sticky top-0 z-10 border-b border-edge bg-surface px-4 py-3">
         <div className="mx-auto flex max-w-md items-center gap-3">

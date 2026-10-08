@@ -49,7 +49,6 @@ export default async function GroupMembersPage({ params }: GroupMembersPageProps
   if (!groupResult.data) notFound()
   if (membersResult.error) throw new Error('メンバー情報を読み込めませんでした。')
 
-  const group = groupResult.data as { id: string; name: string }
   const memberIdRows = (membersResult.data ?? []) as MemberIdRow[]
   const memberUserIds = memberIdRows.map((m) => m.user_id)
 
@@ -71,19 +70,17 @@ export default async function GroupMembersPage({ params }: GroupMembersPageProps
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 
   return (
-    <main className="min-h-screen bg-canvas px-4 py-6 pb-20">
-      <div className="mx-auto max-w-md space-y-4">
+    <main className="min-h-screen bg-canvas pb-24">
+      {/* Page header */}
+      <div className="flex items-center justify-between px-5 pt-14 pb-4">
         <Suspense>
-          <BackButton fallbackHref={`/groups/${groupId}`} label="← グループに戻る" />
+          <BackButton fallbackHref={`/groups/${groupId}`} label="" />
         </Suspense>
+        <h1 className="text-base font-bold text-ink">メンバー ({memberIdRows.length}人)</h1>
+        <div className="w-10" />
+      </div>
 
-        <div>
-          <p className="text-xs text-ink-sub">{group.name}</p>
-          <h1 className="text-xl font-bold text-ink">
-            メンバー{' '}
-            <span className="text-base font-normal text-ink-sub">({memberIdRows.length}人)</span>
-          </h1>
-        </div>
+      <div className="mx-auto max-w-md px-4 space-y-4">
 
         {memberIdRows.length === 0 ? (
           <p className="rounded-2xl border border-edge bg-surface px-5 py-8 text-center text-sm text-ink-sub">

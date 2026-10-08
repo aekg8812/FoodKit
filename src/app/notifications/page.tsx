@@ -18,14 +18,17 @@ export default async function NotificationsPage() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 
   return (
-    <main className="min-h-screen bg-canvas px-4 py-6 pb-24">
-      <div className="mx-auto max-w-md space-y-4">
+    <main className="min-h-screen bg-canvas pb-24">
+      {/* Page header */}
+      <div className="flex items-center justify-between px-5 pt-14 pb-4">
         <Suspense>
-          <BackButton fallbackHref="/home" label="← ホームに戻る" />
+          <BackButton fallbackHref="/home" label="" />
         </Suspense>
+        <h1 className="text-base font-bold text-ink">通知</h1>
+        <div className="w-10" />
+      </div>
 
-        <h1 className="text-xl font-bold text-ink">通知</h1>
-
+      <div className="mx-auto max-w-md px-4">
         <Suspense>
           <NotificationsClient supabaseUrl={supabaseUrl} />
         </Suspense>

@@ -34,16 +34,17 @@ export default async function GroupInvitePage({ params }: GroupInvitePageProps) 
   const group = data as { id: string; name: string; invite_code: string }
 
   return (
-    <main className="min-h-screen bg-canvas px-4 py-6 pb-20">
-      <div className="mx-auto max-w-md space-y-4">
+    <main className="min-h-screen bg-canvas pb-24">
+      {/* Page header */}
+      <div className="flex items-center justify-between px-5 pt-14 pb-4">
         <Suspense>
-          <BackButton fallbackHref={`/groups/${groupId}`} label="← グループに戻る" />
+          <BackButton fallbackHref={`/groups/${groupId}`} label="" />
         </Suspense>
+        <h1 className="text-base font-bold text-ink">グループに招待</h1>
+        <div className="w-10" />
+      </div>
 
-        <div>
-          <p className="text-xs text-ink-sub">{group.name}</p>
-          <h1 className="text-xl font-bold text-ink">グループに招待</h1>
-        </div>
+      <div className="mx-auto max-w-md px-4 space-y-4">
 
         <div className="rounded-2xl border border-edge bg-surface p-5 shadow-sm space-y-4">
           <div>
@@ -69,3 +70,4 @@ export default async function GroupInvitePage({ params }: GroupInvitePageProps) 
     </main>
   )
 }
+

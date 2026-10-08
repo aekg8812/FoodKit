@@ -109,22 +109,31 @@ export default async function FollowsPage({ searchParams }: PageProps) {
     .filter((x): x is FollowUserRow => x !== null)
 
   return (
-    <main className="min-h-screen bg-canvas px-4 py-6 pb-20">
-      <div className="mx-auto max-w-md space-y-4">
-        <div className="flex items-center justify-between">
-          <Suspense>
-            <BackButton fallbackHref="/mypage" label="← 戻る" />
-          </Suspense>
-          <Link
-            href={`/mypage/follows/search?tab=${tab}`}
-            className="rounded-full border border-edge bg-surface px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-canvas"
-          >
-            ユーザーを探す
-          </Link>
-        </div>
+    <main className="min-h-screen bg-canvas pb-24">
+      {/* Page header */}
+      <div className="flex items-center justify-between px-5 pt-14 pb-4">
+        <Suspense>
+          <BackButton fallbackHref="/mypage" label="" />
+        </Suspense>
+        <h1 className="text-base font-bold text-ink">フォロー・フォロワー</h1>
+        <div className="w-10" />
+      </div>
 
-        <h1 className="text-base font-bold text-ink">フォロー / フォロワー</h1>
+      {/* User search bar */}
+      <div className="px-5 mb-4">
+        <Link
+          href={`/mypage/follows/search?tab=${tab}`}
+          className="flex items-center gap-3 rounded-full border border-edge bg-surface px-4 py-3 shadow-sm"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-ink-sub" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" />
+            <path d="M21 21l-4.35-4.35" />
+          </svg>
+          <span className="text-sm text-ink-sub">ユーザーIDで検索</span>
+        </Link>
+      </div>
 
+      <div className="mx-auto max-w-md px-5">
         <Suspense>
           <FollowsClient
             viewerId={user.id}

@@ -76,19 +76,22 @@ export default async function RecordEditPage({ params }: PageProps) {
   const restaurant = review.restaurants
 
   return (
-    <main className="min-h-screen bg-canvas px-4 py-6 pb-24">
-      <div className="mx-auto max-w-md space-y-5">
+    <main className="min-h-screen bg-canvas pb-24">
+      {/* Page header */}
+      <div className="flex items-center justify-between px-5 pt-14 pb-4">
         <Suspense>
-          <BackButton fallbackHref={`/records/${reviewId}`} />
+          <BackButton fallbackHref={`/records/${reviewId}`} label="" />
         </Suspense>
-
-        <div>
-          <h1 className="text-2xl font-bold text-ink">記録を編集</h1>
+        <div className="text-center">
+          <h1 className="text-base font-bold text-ink">記録を編集</h1>
           {restaurant && (
-            <p className="mt-1 text-sm text-ink-sub">{restaurant.name}</p>
+            <p className="text-xs text-ink-sub">{restaurant.name}</p>
           )}
         </div>
+        <div className="w-10" />
+      </div>
 
+      <div className="mx-auto max-w-md px-4 space-y-5">
         <ReviewForm
           restaurantId={review.restaurant_id}
           existingReview={existingReview}

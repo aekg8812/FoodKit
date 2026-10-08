@@ -38,8 +38,8 @@ export default async function SearchTodayPage({ searchParams }: SearchTodayPageP
   }
 
   return (
-    <main className="min-h-screen bg-canvas px-6 pt-6 pb-24">
-      <div className="mx-auto w-full max-w-md">
+    <main className="min-h-screen bg-canvas pb-24">
+      <div className="mx-auto w-full max-w-md px-5 pt-14">
         <PageHeader title="今日のお店を探す" back={{ href: backHref }} />
         <div className="mt-8">
           <TodaySearchForm initialValues={parsed} />

@@ -168,59 +168,63 @@ export default async function UserProfilePage({
   const initial = Array.from((profile.name ?? profile.username ?? '?').trim())[0] ?? '?'
 
   return (
-    <main className="min-h-screen bg-canvas px-4 py-6 pb-20">
-      <div className="mx-auto max-w-md space-y-4">
+    <main className="min-h-screen bg-canvas pb-24">
+      {/* Page header */}
+      <div className="flex items-center justify-between px-5 pt-14 pb-2">
         <Suspense>
-          <BackButton fallbackHref="/restaurants" label="← 戻る" />
+          <BackButton fallbackHref="/home" label="" />
         </Suspense>
+        <div className="w-10" />
+      </div>
 
-        {/* Profile header */}
-        <section className="rounded-2xl border border-edge bg-surface p-5 shadow-sm">
-          <div className="flex items-start gap-4">
-            {avatarUrl ? (
-              <Image
-                src={avatarUrl}
-                alt={profile.name ?? profile.username}
-                width={64}
-                height={64}
-                className="h-16 w-16 shrink-0 rounded-full object-cover"
-                unoptimized
-              />
-            ) : (
-              <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-cream text-xl font-semibold text-amber-800">
-                {initial}
-              </span>
-            )}
-
-            <div className="min-w-0 flex-1">
-              <h1 className="break-words text-lg font-bold text-ink">
-                {profile.name ?? profile.username}
-              </h1>
-              <p className="text-sm text-ink-sub">@{profile.username}</p>
-
-              <div className="mt-2 flex gap-4 text-sm text-ink">
-                <span>
-                  フォロー <span className="font-semibold">{followingCount}</span>
-                </span>
-                <span>
-                  フォロワー <span className="font-semibold">{followerCount}</span>
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4">
-            <ProfileActions
-              viewerId={viewer.id}
-              profileUserId={profile.id}
-              initialRelationship={relationship}
+      <div className="mx-auto max-w-md">
+        {/* Profile hero — centered */}
+        <section className="flex flex-col items-center px-5 pt-2 pb-5">
+          {avatarUrl ? (
+            <Image
+              src={avatarUrl}
+              alt={profile.name ?? profile.username}
+              width={80}
+              height={80}
+              className="h-20 w-20 shrink-0 rounded-full object-cover ring-2 ring-edge"
+              unoptimized
             />
+          ) : (
+            <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-cream text-2xl font-semibold text-amber-800 ring-2 ring-edge">
+              {initial}
+            </span>
+          )}
+
+          <h1 className="mt-3 text-lg font-bold text-ink">{profile.name ?? profile.username}</h1>
+          <p className="text-sm text-ink-sub">@{profile.username}</p>
+
+          {/* Follow counts */}
+          <div className="mt-3 flex gap-6 text-sm">
+            <span className="flex flex-col items-center">
+              <span className="font-bold text-ink">{followingCount}</span>
+              <span className="text-xs text-ink-sub">フォロー</span>
+            </span>
+            <span className="flex flex-col items-center">
+              <span className="font-bold text-ink">{followerCount}</span>
+              <span className="text-xs text-ink-sub">フォロワー</span>
+            </span>
           </div>
+
+          {/* Follow / unfollow button */}
+          {!isSelf && (
+            <div className="mt-4 w-full max-w-[240px]">
+              <ProfileActions
+                viewerId={viewer.id}
+                profileUserId={profile.id}
+                initialRelationship={relationship}
+              />
+            </div>
+          )}
         </section>
 
-        {/* Preference cards — always shown, empty state when 0 */}
-        <section className="rounded-2xl border border-edge bg-surface p-5 shadow-sm">
-          <div className="flex items-center justify-between">
+        {/* Preference cards */}
+        <section className="mx-4 mb-4 rounded-2xl border border-edge bg-surface p-4">
+          <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-ink">食の好み</h2>
             {prefCards.length > 0 && (
               <Link
@@ -232,13 +236,13 @@ export default async function UserProfilePage({
             )}
           </div>
           {prefCards.length === 0 ? (
-            <p className="mt-3 text-sm text-ink-sub">まだ好みが設定されていません</p>
+            <p className="text-sm text-ink-sub">まだ好みが設定されていません</p>
           ) : (
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2">
               {prefCards.slice(0, 5).map((card) => (
                 <span
                   key={card.sort_order}
-                  className="rounded-full bg-cream px-3 py-1 text-xs font-medium text-amber-800"
+                  className="rounded-full bg-terra/10 px-3 py-1 text-xs font-medium text-terra"
                 >
                   {card.label}
                 </span>
@@ -248,8 +252,8 @@ export default async function UserProfilePage({
         </section>
 
         {/* Recent records */}
-        <section className="rounded-2xl border border-edge bg-surface shadow-sm">
-          <div className="flex items-center justify-between px-5 pt-5">
+        <section className="mx-4 rounded-2xl border border-edge bg-surface">
+          <div className="flex items-center justify-between px-4 pt-4 pb-2">
             <h2 className="text-sm font-semibold text-ink">最近の記録</h2>
             {reviews.length > 0 && (
               <Link
@@ -260,7 +264,7 @@ export default async function UserProfilePage({
               </Link>
             )}
           </div>
-          <div className="space-y-3 p-5">
+          <div className="space-y-3 px-4 pb-4">
             {reviews.length === 0 ? (
               <p className="py-4 text-center text-sm text-ink-sub">まだ記録がありません</p>
             ) : (

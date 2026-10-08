@@ -76,7 +76,7 @@ function FollowerItem({
   if (removed) return null
 
   return (
-    <li className="flex items-center gap-3 rounded-2xl border border-edge bg-surface px-4 py-3 shadow-sm">
+    <li className="flex items-center gap-3 bg-surface px-4 py-3">
       <Link href={`/users/${user.username}`} className="shrink-0">
         {user.avatar_url ? (
           <Image
@@ -237,7 +237,7 @@ function FollowingItem({
   }
 
   return (
-    <li className="flex items-center gap-3 rounded-2xl border border-edge bg-surface px-4 py-3 shadow-sm">
+    <li className="flex items-center gap-3 bg-surface px-4 py-3">
       <Link href={`/users/${user.username}`} className="shrink-0">
         {user.avatar_url ? (
           <Image
@@ -266,7 +266,7 @@ function FollowingItem({
         disabled={loading}
         className="shrink-0 rounded-full border border-edge bg-surface px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-canvas disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {loading ? '…' : 'フォロー解除'}
+        {loading ? '…' : 'フォロー中'}
       </button>
     </li>
   )
@@ -282,33 +282,37 @@ export default function FollowsClient({ viewerId, tab, followingList, followersL
   const list = tab === 'following' ? followingList : followersList
 
   return (
-    <div className="space-y-2">
-      {/* Tab switcher */}
-      <div className="flex gap-1 rounded-xl bg-canvas p-1">
+    <div>
+      {/* Tab switcher — underline style */}
+      <div className="flex border-b border-edge">
         <Link
           href="?tab=following"
-          className={`flex-1 rounded-lg py-2 text-center text-sm font-medium transition-colors ${
-            tab === 'following' ? 'bg-surface text-ink shadow-sm' : 'text-ink-sub hover:text-ink'
+          className={`flex flex-1 items-center justify-center py-3 text-sm font-semibold transition-colors ${
+            tab === 'following'
+              ? 'border-b-2 border-terra text-terra'
+              : 'text-ink-sub hover:text-ink'
           }`}
         >
-          フォロー中
+          フォロー {followingList.length}
         </Link>
         <Link
           href="?tab=followers"
-          className={`flex-1 rounded-lg py-2 text-center text-sm font-medium transition-colors ${
-            tab === 'followers' ? 'bg-surface text-ink shadow-sm' : 'text-ink-sub hover:text-ink'
+          className={`flex flex-1 items-center justify-center py-3 text-sm font-semibold transition-colors ${
+            tab === 'followers'
+              ? 'border-b-2 border-terra text-terra'
+              : 'text-ink-sub hover:text-ink'
           }`}
         >
-          フォロワー
+          フォロワー {followersList.length}
         </Link>
       </div>
 
       {list.length === 0 ? (
-        <p className="py-6 text-center text-sm text-ink-sub">
+        <p className="py-10 text-center text-sm text-ink-sub">
           {tab === 'following' ? 'まだフォローしている人はいません' : 'まだフォロワーはいません'}
         </p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="divide-y divide-edge">
           {tab === 'followers'
             ? followersList.map((user) => (
                 <FollowerItem key={user.id} user={user} viewerId={viewerId} onMutate={refresh} />

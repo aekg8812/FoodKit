@@ -36,14 +36,17 @@ export default async function UserSearchPage({ searchParams }: PageProps) {
   const followingIds = (followingData ?? []).map((f) => f.followee_id as string)
 
   return (
-    <main className="min-h-screen bg-canvas px-4 py-6 pb-20">
-      <div className="mx-auto max-w-md space-y-4">
+    <main className="min-h-screen bg-canvas pb-24">
+      {/* Page header */}
+      <div className="flex items-center justify-between px-5 pt-14 pb-4">
         <Suspense>
-          <BackButton fallbackHref={`/mypage/follows?tab=${returnTab}`} label="← 戻る" />
+          <BackButton fallbackHref={`/mypage/follows?tab=${returnTab}`} label="" />
         </Suspense>
+        <h1 className="text-base font-bold text-ink">ユーザーIDで検索</h1>
+        <div className="w-10" />
+      </div>
 
-        <h1 className="text-base font-bold text-ink">ユーザーを探す</h1>
-
+      <div className="mx-auto max-w-md px-5">
         <Suspense>
           <UserSearchClient
             viewerId={user.id}

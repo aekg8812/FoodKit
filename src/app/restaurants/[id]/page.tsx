@@ -158,16 +158,20 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
   }
 
   return (
-    <main className="min-h-screen bg-canvas px-4 py-6 pb-20">
-      <div className="mx-auto max-w-md space-y-4">
-        {/* Back */}
+    <main className="min-h-screen bg-canvas pb-24">
+      {/* Page header */}
+      <div className="flex items-center justify-between px-5 pt-14 pb-4">
         <Suspense>
-          <BackButton fallbackHref="/restaurants" label="← 戻る" />
+          <BackButton fallbackHref="/home" label="" />
         </Suspense>
+        <h1 className="text-base font-bold text-ink truncate max-w-[200px]">{r.name}</h1>
+        <div className="w-10" />
+      </div>
 
+      <div className="mx-auto max-w-md px-4 space-y-4">
         {/* Restaurant info */}
-        <section className="rounded-2xl border border-edge bg-surface p-5 shadow-sm">
-          <h1 className="mb-3 text-xl font-bold text-ink">{r.name}</h1>
+        <section className="rounded-2xl border border-edge bg-surface p-4">
+          <h2 className="mb-3 text-xl font-bold text-ink">{r.name}</h2>
 
           {(r.area || r.genre || r.address || r.memo) && (
             <dl className="space-y-2 text-sm">
@@ -279,6 +283,7 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
           </div>
         </section>
       </div>
+
       <BottomNav />
     </main>
   )

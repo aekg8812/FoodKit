@@ -113,27 +113,24 @@ export default async function GroupDetailPage({ params }: GroupDetailPageProps) 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 
   return (
-    <main className="min-h-screen bg-canvas px-4 py-6 pb-20">
-      <div className="mx-auto max-w-md space-y-4">
+    <main className="min-h-screen bg-canvas pb-24">
+      {/* Page header */}
+      <div className="flex items-center justify-between px-5 pt-14 pb-4">
         <Suspense>
-          <BackButton fallbackHref="/groups" label="← グループ一覧" />
+          <BackButton fallbackHref="/groups" label="" />
         </Suspense>
+        <h1 className="text-base font-bold text-ink truncate max-w-[200px]">{group.name}</h1>
+        <GroupMenu
+          groupId={group.id}
+          groupName={group.name}
+          inviteCode={group.invite_code}
+          currentUserId={user.id}
+          members={members}
+          isCurrentMember={isCurrentMember}
+        />
+      </div>
 
-        {/* Group header */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-ink-sub">グループ</p>
-            <h1 className="break-words text-xl font-bold text-ink">{group.name}</h1>
-          </div>
-          <GroupMenu
-            groupId={group.id}
-            groupName={group.name}
-            inviteCode={group.invite_code}
-            currentUserId={user.id}
-            members={members}
-            isCurrentMember={isCurrentMember}
-          />
-        </div>
+      <div className="mx-auto max-w-md px-4 space-y-4">
 
         {/* Members card */}
         <section className="rounded-2xl border border-edge bg-surface p-5 shadow-sm">
@@ -261,3 +258,4 @@ export default async function GroupDetailPage({ params }: GroupDetailPageProps) 
     </main>
   )
 }
+

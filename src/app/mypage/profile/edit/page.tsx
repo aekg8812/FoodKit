@@ -1,5 +1,5 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import BottomNav from '@/components/BottomNav'
 import { getUserState } from '@/lib/auth/getUserState'
 import { createClient } from '@/lib/supabase/server'
@@ -41,16 +41,22 @@ export default async function ProfileEditPage() {
 
   return (
     <main className="min-h-screen bg-canvas pb-24">
-      <div className="mx-auto w-full max-w-md px-4 pt-6 space-y-6">
+      {/* Page header */}
+      <div className="flex items-center justify-between px-5 pt-14 pb-4">
         <Link
           href="/mypage"
-          className="inline-flex min-h-[44px] items-center text-sm font-medium text-ink-sub transition-colors hover:text-ink"
+          className="flex h-10 w-10 items-center justify-center rounded-full text-ink-sub transition-colors hover:bg-surface"
+          aria-label="マイページに戻る"
         >
-          ← マイページに戻る
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
         </Link>
+        <h1 className="text-base font-bold text-ink">プロフィールを編集</h1>
+        <div className="w-10" />
+      </div>
 
-        <h1 className="text-2xl font-bold text-ink">プロフィールを編集</h1>
-
+      <div className="mx-auto w-full max-w-md px-5 space-y-4">
         {/* Avatar */}
         <section className="rounded-2xl border border-edge bg-surface overflow-hidden">
           <AvatarUploadForm userId={user.id} currentAvatarUrl={avatarUrl} />
@@ -58,14 +64,14 @@ export default async function ProfileEditPage() {
 
         {/* Name */}
         <section className="rounded-2xl border border-edge bg-surface p-5">
-          <h2 className="mb-4 font-semibold text-ink">名前</h2>
+          <h2 className="mb-4 text-sm font-semibold text-ink-sub uppercase tracking-wide">名前</h2>
           <ProfileNameForm userId={user.id} currentName={profile.name} />
         </section>
 
         {/* Username — display only, link to settings */}
         <section className="rounded-2xl border border-edge bg-surface p-5">
-          <h2 className="mb-1 font-semibold text-ink">ユーザーID</h2>
-          <p className="mb-3 text-sm text-ink-sub">@{profile.username}</p>
+          <h2 className="mb-1 text-sm font-semibold text-ink-sub uppercase tracking-wide">ユーザーID</h2>
+          <p className="mb-3 text-sm text-ink">@{profile.username}</p>
           <Link
             href="/settings/username"
             className="inline-flex min-h-[40px] items-center rounded-full border border-edge bg-canvas px-5 text-sm font-medium text-ink transition-colors hover:bg-surface"

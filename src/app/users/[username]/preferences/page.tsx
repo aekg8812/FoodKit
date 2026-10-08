@@ -59,16 +59,23 @@ export default async function UserPreferencesPage({
   const isSelf = viewer.id === profile.id
 
   return (
-    <main className="min-h-screen bg-canvas px-4 py-6 pb-20">
-      <div className="mx-auto max-w-md space-y-4">
+    <main className="min-h-screen bg-canvas pb-24">
+      {/* Page header */}
+      <div className="flex items-center justify-between px-5 pt-14 pb-4">
         <Suspense>
-          <BackButton fallbackHref={`/users/${profile.username}`} label="← 戻る" />
+          <BackButton fallbackHref={`/users/${profile.username}`} label="" />
         </Suspense>
+        <h1 className="text-base font-bold text-ink">
+          {isSelf ? 'あなたの食の好み' : `${displayName}の食の好み`}
+        </h1>
+        <div className="w-10" />
+      </div>
 
-        <section className="rounded-2xl border border-edge bg-surface p-5 shadow-sm">
-          <h1 className="text-base font-bold text-ink">
+      <div className="mx-auto max-w-md px-4 space-y-4">
+        <section className="rounded-2xl border border-edge bg-surface p-5">
+          <p className="text-sm font-bold text-ink">
             {isSelf ? 'あなたの食の好み' : `${displayName}の食の好み`}
-          </h1>
+          </p>
           {isSelf && (
             <p className="mt-1 text-xs text-ink-sub">
               好みを変更するには

@@ -32,15 +32,22 @@ export default async function SettingsPage() {
 
   return (
     <main className="min-h-screen bg-canvas pb-24">
-      <div className="mx-auto w-full max-w-md px-4 pt-6 space-y-5">
+      {/* Page header */}
+      <div className="flex items-center justify-between px-5 pt-14 pb-4">
         <Link
           href="/mypage"
-          className="inline-flex min-h-[44px] items-center text-sm font-medium text-ink-sub transition-colors hover:text-ink"
+          className="flex h-10 w-10 items-center justify-center rounded-full text-ink-sub transition-colors hover:bg-surface"
+          aria-label="マイページに戻る"
         >
-          ← マイページに戻る
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
         </Link>
+        <h1 className="text-base font-bold text-ink">設定</h1>
+        <div className="w-10" />
+      </div>
 
-        <h1 className="text-2xl font-bold text-ink">設定</h1>
+      <div className="mx-auto w-full max-w-md px-4 space-y-5">
 
         {/* Account */}
         <section>
@@ -100,3 +107,4 @@ export default async function SettingsPage() {
     </main>
   )
 }
+

@@ -81,15 +81,19 @@ export default async function UserRecordsPage({
   const isSelf = viewer.id === profile.id
 
   return (
-    <main className="min-h-screen bg-canvas px-4 py-6 pb-20">
-      <div className="mx-auto max-w-md space-y-4">
+    <main className="min-h-screen bg-canvas pb-24">
+      {/* Page header */}
+      <div className="flex items-center justify-between px-5 pt-14 pb-4">
         <Suspense>
-          <BackButton fallbackHref={`/users/${profile.username}`} label="← 戻る" />
+          <BackButton fallbackHref={`/users/${profile.username}`} label="" />
         </Suspense>
-
         <h1 className="text-base font-bold text-ink">
           {isSelf ? 'あなたの記録' : `${displayName}の記録`}
         </h1>
+        <div className="w-10" />
+      </div>
+
+      <div className="mx-auto max-w-md px-4 space-y-4">
 
         {reviewRows.length === 0 ? (
           <div className="rounded-2xl border border-edge bg-surface p-6 text-center">

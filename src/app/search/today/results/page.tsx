@@ -33,8 +33,8 @@ export default async function SearchTodayResultsPage({ searchParams }: SearchTod
   const changeHref = `/search/today${conditionQs ? `?${conditionQs}&from=results` : '?from=results'}`
 
   return (
-    <main className="min-h-screen bg-canvas px-6 pt-6 pb-24">
-      <div className="mx-auto w-full max-w-md">
+    <main className="min-h-screen bg-canvas pb-24">
+      <div className="mx-auto w-full max-w-md px-5 pt-14">
         <PageHeader title="おすすめのお店" back={{ href: changeHref }} />
         <TodayResultsClient params={parsed} changeHref={changeHref} />
       </div>

@@ -123,42 +123,25 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
 
   return (
     <main className="min-h-screen bg-canvas pb-24">
-      <div className="mx-auto max-w-md px-4 pt-6 space-y-5">
+      {/* Page header */}
+      <div className="flex items-center justify-between px-5 pt-14 pb-4">
         <Suspense>
-          <BackButton fallbackHref="/mypage" />
+          <BackButton fallbackHref="/mypage" label="" />
         </Suspense>
+        <h1 className="text-base font-bold text-ink">自分の記録</h1>
+        <div className="w-10" />
+      </div>
 
-        <div>
-          <h1 className="text-2xl font-bold text-ink">自分の記録</h1>
-        </div>
-
-        {/* Rating filter */}
-        <div className="grid grid-cols-5 gap-1 rounded-xl border border-edge bg-surface p-1">
-          {RATING_OPTIONS.map((opt) => (
-            <Link
-              key={String(opt.value)}
-              href={ratingHref(opt.value)}
-              replace
-              className={`flex min-h-[40px] items-center justify-center rounded-lg text-sm font-medium transition-colors ${
-                ratingFilter === opt.value
-                  ? 'bg-terra text-white'
-                  : 'text-ink-sub hover:text-ink'
-              }`}
-            >
-              {opt.label}
-            </Link>
-          ))}
-        </div>
-
-        {/* Sort */}
-        <div className="grid grid-cols-2 rounded-xl border border-edge bg-surface p-1">
+      <div className="mx-auto max-w-md px-4 space-y-4">
+        {/* Sort tabs — underline style */}
+        <div className="flex border-b border-edge">
           {(['newest', 'oldest'] as const).map((s) => (
             <Link
               key={s}
               href={sortHref(s)}
               replace
-              className={`flex min-h-[40px] items-center justify-center rounded-lg text-sm font-medium transition-colors ${
-                sort === s ? 'bg-terra text-white' : 'text-ink-sub hover:text-ink'
+              className={`flex flex-1 items-center justify-center py-3 text-sm font-semibold transition-colors ${
+                sort === s ? 'border-b-2 border-terra text-terra' : 'text-ink-sub hover:text-ink'
               }`}
             >
               {s === 'newest' ? '新しい順' : '古い順'}
@@ -166,7 +149,25 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
           ))}
         </div>
 
-        <p className="text-sm text-ink-sub tabular-nums">{reviews.length}件</p>
+        {/* Rating filter chips */}
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {RATING_OPTIONS.map((opt) => (
+            <Link
+              key={String(opt.value)}
+              href={ratingHref(opt.value)}
+              replace
+              className={`shrink-0 flex min-h-[32px] items-center rounded-full px-4 text-sm font-medium transition-colors ${
+                ratingFilter === opt.value
+                  ? 'bg-terra text-white'
+                  : 'border border-edge bg-surface text-ink-sub hover:text-ink'
+              }`}
+            >
+              {opt.label}
+            </Link>
+          ))}
+        </div>
+
+        <p className="text-xs text-ink-sub tabular-nums">{reviews.length}件</p>
 
         {/* Empty state */}
         {reviews.length === 0 && (
@@ -272,3 +273,4 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
     </main>
   )
 }
+

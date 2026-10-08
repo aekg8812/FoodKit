@@ -64,7 +64,6 @@ export default function RestaurantNewForm({
   }
 
   const backHref = successDestination === 'record' ? '/record' : '/restaurants/search'
-  const backLabel = successDestination === 'record' ? '← 店舗選択に戻る' : '← 店舗検索に戻る'
 
   const [step, setStep] = useState<FormStep>({ kind: 'form' })
   const [name, setName] = useState(initialName)
@@ -193,22 +192,20 @@ export default function RestaurantNewForm({
   // ── Step 2 retry screen ───────────────────────────────────────────────────
   if (step.kind === 'access_failed') {
     return (
-      <main className="min-h-screen bg-canvas px-6 py-10 pb-20">
-        <section className="mx-auto w-full max-w-md rounded-lg border border-edge bg-surface p-8 shadow-sm">
-          <h1 className="mb-4 text-xl font-semibold text-ink">
+      <main className="min-h-screen bg-canvas pb-20">
+        <div className="mx-auto w-full max-w-md px-5 pt-14 space-y-4">
+          <h1 className="text-base font-bold text-ink">
             店舗の登録に問題が発生しました
           </h1>
           {error && <ErrorMessage message={error} />}
-          <div className="mt-6">
-            <Button
-              type="button"
-              onClick={handleRetryAccess}
-              disabled={submitting}
-            >
-              {submitting ? '再試行中...' : 'アクセス情報の保存を再試行'}
-            </Button>
-          </div>
-        </section>
+          <Button
+            type="button"
+            onClick={handleRetryAccess}
+            disabled={submitting}
+          >
+            {submitting ? '再試行中...' : 'アクセス情報の保存を再試行'}
+          </Button>
+        </div>
         <BottomNav />
       </main>
     )
@@ -283,18 +280,23 @@ export default function RestaurantNewForm({
 
   // ── Normal form ───────────────────────────────────────────────────────────
   return (
-    <main className="min-h-screen bg-canvas px-6 py-10 pb-20">
-      <section className="mx-auto w-full max-w-md rounded-lg border border-edge bg-surface p-8 shadow-sm">
-        <h1 className="mb-6 text-2xl font-semibold text-ink">店舗を登録</h1>
+    <main className="min-h-screen bg-canvas pb-20">
+      {/* Page header */}
+      <div className="flex items-center justify-between px-5 pt-14 pb-4">
+        <Link
+          href={backHref}
+          className="flex h-10 w-10 items-center justify-center rounded-full text-ink-sub transition-colors hover:bg-surface"
+          aria-label="戻る"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </Link>
+        <h1 className="text-base font-bold text-ink">店舗を登録</h1>
+        <div className="w-10" />
+      </div>
 
-        <div className="mb-6 rounded-lg border border-edge bg-canvas px-4 py-3">
-          <p className="text-xs font-medium text-ink-sub">保存先</p>
-          <p className="mt-1 text-sm font-medium text-ink">あなたの記録</p>
-          <p className="mt-1 text-xs leading-relaxed text-ink-sub">
-            登録した店舗は自分の記録として保存されます。
-          </p>
-        </div>
-
+      <div className="mx-auto w-full max-w-md px-5 space-y-5">
         <form onSubmit={handleSubmit} className="space-y-4">
           <InputField
             id="name"
@@ -371,13 +373,7 @@ export default function RestaurantNewForm({
             {submitting ? '登録中...' : '店舗を登録'}
           </Button>
         </form>
-
-        <div className="mt-4">
-          <Link href={backHref} className="text-sm text-ink-sub hover:text-ink">
-            {backLabel}
-          </Link>
-        </div>
-      </section>
+      </div>
       <BottomNav />
     </main>
   )

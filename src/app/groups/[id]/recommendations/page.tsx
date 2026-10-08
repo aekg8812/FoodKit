@@ -58,7 +58,6 @@ export default async function GroupRecommendationsPage({ params }: GroupRecommen
   if (groupResult.error) throw new Error('グループ情報を読み込めませんでした。')
   if (!groupResult.data) notFound()
 
-  const group = groupResult.data as { id: string; name: string }
   const memberCount = (membersResult.data ?? []).length
   const partyTag = memberCountToPartyTag(memberCount)
 
@@ -79,25 +78,22 @@ export default async function GroupRecommendationsPage({ params }: GroupRecommen
   const recommendations = (recData ?? []) as RecommendationRow[]
 
   return (
-    <main className="min-h-screen bg-canvas px-4 py-6 pb-20">
-      <div className="mx-auto max-w-md space-y-4">
+    <main className="min-h-screen bg-canvas pb-24">
+      {/* Page header */}
+      <div className="flex items-center justify-between px-5 pt-14 pb-4">
         <Suspense>
-          <BackButton fallbackHref={`/groups/${groupId}`} label="← グループに戻る" />
+          <BackButton fallbackHref={`/groups/${groupId}`} label="" />
         </Suspense>
+        <h1 className="text-base font-bold text-ink">グループのおすすめ</h1>
+        <Link
+          href={`/groups/${groupId}/recommendations/conditions`}
+          className="flex h-10 items-center rounded-full px-3 text-xs font-semibold text-terra transition-colors hover:bg-surface"
+        >
+          条件を指定
+        </Link>
+      </div>
 
-        <div>
-          <p className="text-xs text-ink-sub">{group.name}</p>
-          <h1 className="text-xl font-bold text-ink">グループのおすすめ</h1>
-        </div>
-
-        <div className="flex items-center justify-end">
-          <Link
-            href={`/groups/${groupId}/recommendations/conditions`}
-            className="rounded-full border border-terra px-4 py-2 text-xs font-semibold text-terra transition-colors hover:bg-cream"
-          >
-            条件を絞り込む
-          </Link>
-        </div>
+      <div className="mx-auto max-w-md px-4 space-y-4">
 
         {recommendations.length === 0 && validMemberCount === 0 ? (
           <div className="rounded-2xl border border-edge bg-surface px-5 py-10 text-center shadow-sm">

@@ -45,7 +45,6 @@ export default async function GroupResultsPage({ params, searchParams }: GroupRe
   if (groupResult.error) throw new Error('グループ情報を読み込めませんでした。')
   if (!groupResult.data) notFound()
 
-  const group = groupResult.data as { id: string; name: string }
   const memberCount = (membersResult.data ?? []).length
   const partyTag = memberCountToPartyTag(memberCount)
 
@@ -57,17 +56,17 @@ export default async function GroupResultsPage({ params, searchParams }: GroupRe
   const changeHref = `/groups/${groupId}/recommendations/conditions${conditionQs ? `?${conditionQs}` : ''}`
 
   return (
-    <main className="min-h-screen bg-canvas px-4 py-6 pb-20">
-      <div className="mx-auto max-w-md space-y-4">
+    <main className="min-h-screen bg-canvas pb-24">
+      {/* Page header */}
+      <div className="flex items-center justify-between px-5 pt-14 pb-4">
         <Suspense>
-          <BackButton fallbackHref={changeHref} label="← 条件を変更" />
+          <BackButton fallbackHref={changeHref} label="" />
         </Suspense>
+        <h1 className="text-base font-bold text-ink">条件付きおすすめ</h1>
+        <div className="w-10" />
+      </div>
 
-        <div>
-          <p className="text-xs text-ink-sub">{group.name}</p>
-          <h1 className="text-xl font-bold text-ink">条件付きおすすめ</h1>
-        </div>
-
+      <div className="mx-auto max-w-md px-4 space-y-4">
         <GroupResultsClient
           groupId={groupId}
           partyTag={partyTag}

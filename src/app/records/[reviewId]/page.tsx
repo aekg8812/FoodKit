@@ -109,17 +109,31 @@ export default async function RecordDetailPage({ params }: PageProps) {
   const restaurant = review.restaurants
 
   return (
-    <main className="min-h-screen bg-canvas px-4 py-6 pb-20">
-      <div className="mx-auto max-w-md space-y-4">
-        {/* Back: browser history を使うので遷入元 (records list, user profile, etc) へ戻る */}
+    <main className="min-h-screen bg-canvas pb-24">
+      {/* Page header */}
+      <div className="flex items-center justify-between px-5 pt-14 pb-4">
         <Suspense>
           <BackButton
-            fallbackHref={restaurant ? `/restaurants/${restaurant.id}` : '/restaurants'}
+            fallbackHref={restaurant ? `/restaurants/${restaurant.id}` : '/home'}
+            label=""
           />
         </Suspense>
+        <h1 className="text-base font-bold text-ink">記録</h1>
+        {isOwn ? (
+          <Link
+            href={`/records/${reviewId}/edit`}
+            className="flex h-10 items-center rounded-full px-3 text-sm font-medium text-terra transition-colors hover:bg-surface"
+          >
+            編集
+          </Link>
+        ) : (
+          <div className="w-10" />
+        )}
+      </div>
 
+      <div className="mx-auto max-w-md px-4 space-y-4">
         {/* Reviewer info */}
-        <section className="rounded-2xl border border-edge bg-surface p-5 shadow-sm">
+        <section className="rounded-2xl border border-edge bg-surface p-4">
           <div className="flex items-center gap-3">
             <Link
               href={profile?.username ? `/users/${profile.username}` : '#'}
@@ -160,7 +174,7 @@ export default async function RecordDetailPage({ params }: PageProps) {
         </section>
 
         {/* Review content */}
-        <section className="rounded-2xl border border-edge bg-surface p-5 shadow-sm">
+        <section className="rounded-2xl border border-edge bg-surface p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <RatingBadge rating={review.rating} />
@@ -191,21 +205,11 @@ export default async function RecordDetailPage({ params }: PageProps) {
           )}
         </section>
 
-        {/* Edit CTA — own reviews only */}
-        {isOwn && (
-          <Link
-            href={`/records/${review.id}/edit`}
-            className="flex min-h-[48px] w-full items-center justify-center rounded-2xl bg-terra px-6 text-sm font-semibold text-white transition-colors hover:bg-terra-deep"
-          >
-            この記録を編集
-          </Link>
-        )}
-
         {/* Restaurant link */}
         {restaurant && (
           <Link
             href={`/restaurants/${restaurant.id}`}
-            className="flex items-center justify-between rounded-2xl border border-edge bg-surface p-4 shadow-sm transition-colors hover:bg-canvas"
+            className="flex items-center justify-between rounded-2xl border border-edge bg-surface p-4 transition-colors hover:bg-canvas"
           >
             <div className="min-w-0">
               <p className="text-xs text-ink-sub">この店舗を見る</p>
@@ -231,6 +235,7 @@ export default async function RecordDetailPage({ params }: PageProps) {
           </Link>
         )}
       </div>
+
       <BottomNav />
     </main>
   )
