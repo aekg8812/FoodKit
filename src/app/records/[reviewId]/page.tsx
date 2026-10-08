@@ -202,14 +202,9 @@ export default async function RecordDetailPage({ params }: PageProps) {
         {isOwn ? (
           <Link
             href={`/records/${reviewId}/edit`}
-            className="flex h-10 w-10 items-center justify-center text-ink-sub"
-            aria-label="メニュー"
+            className="flex h-10 items-center justify-center px-1 text-sm font-bold text-terra"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <circle cx="12" cy="5" r="1.5" />
-              <circle cx="12" cy="12" r="1.5" />
-              <circle cx="12" cy="19" r="1.5" />
-            </svg>
+            編集
           </Link>
         ) : (
           <div className="w-10" />

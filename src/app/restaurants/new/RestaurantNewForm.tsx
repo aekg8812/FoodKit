@@ -222,7 +222,7 @@ export default function RestaurantNewForm({
             type="button"
             onClick={() => void handleRetryAccess()}
             disabled={submitting}
-            className="flex h-[56px] w-full items-center justify-center rounded-2xl bg-terra text-base font-bold text-white disabled:opacity-50"
+            className="flex h-[56px] w-full items-center justify-center rounded-xl bg-terra text-base font-bold text-white disabled:opacity-50"
           >
             {submitting ? '再試行中...' : 'アクセス情報の保存を再試行'}
           </button>
@@ -295,7 +295,7 @@ export default function RestaurantNewForm({
               type="button"
               onClick={() => void handleCreateDespiteWarning()}
               disabled={submitting}
-              className="flex h-[56px] w-full items-center justify-center rounded-2xl bg-terra text-base font-bold text-white disabled:opacity-50"
+              className="flex h-[56px] w-full items-center justify-center rounded-xl bg-terra text-base font-bold text-white disabled:opacity-50"
             >
               {submitting ? '登録中...' : '別店舗として登録を続ける'}
             </button>
@@ -440,7 +440,7 @@ export default function RestaurantNewForm({
           <button
             type="submit"
             disabled={submitting || !name.trim()}
-            className="flex h-[56px] w-full items-center justify-center gap-1.5 rounded-2xl bg-terra text-base font-bold text-white disabled:opacity-50"
+            className="flex h-[56px] w-full items-center justify-center gap-1.5 rounded-xl bg-terra text-base font-bold text-white disabled:opacity-50"
           >
             {submitting ? '登録中...' : 'このお店を登録する'}
             {!submitting && (

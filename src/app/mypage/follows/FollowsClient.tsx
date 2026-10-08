@@ -106,7 +106,7 @@ function FollowerItem({
             type="button"
             onClick={handleUnfollow}
             disabled={loading}
-            className="rounded-full border border-edge bg-surface px-3 py-1.5 text-xs font-medium text-ink-sub transition-colors hover:bg-canvas disabled:opacity-50"
+            className="rounded-full border border-terra bg-surface px-3 py-1.5 text-xs font-semibold text-terra transition-colors hover:bg-terra/5 disabled:opacity-50"
           >
             {loading ? '…' : 'フォロー中'}
           </button>
@@ -264,7 +264,7 @@ function FollowingItem({
         type="button"
         onClick={handleUnfollow}
         disabled={loading}
-        className="shrink-0 rounded-full border border-edge bg-surface px-3 py-1.5 text-xs font-medium text-ink transition-colors hover:bg-canvas disabled:cursor-not-allowed disabled:opacity-50"
+        className="shrink-0 rounded-full border border-terra bg-surface px-3 py-1.5 text-xs font-semibold text-terra transition-colors hover:bg-terra/5 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {loading ? '…' : 'フォロー中'}
       </button>
