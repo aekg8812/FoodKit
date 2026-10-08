@@ -68,8 +68,6 @@ export default function PreferenceCardsForm({ cards, initialKeys, mode }: Props)
     }
   }
 
-  const ctaLabel = mode === 'initial' ? 'FoodKitをはじめる' : '変更を保存'
-
   return (
     <main className="min-h-screen bg-canvas pb-32">
       {/* Header */}
@@ -104,7 +102,7 @@ export default function PreferenceCardsForm({ cards, initialKeys, mode }: Props)
               <path d="M9 1 L1 9 L9 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
-          <h1 className="text-base font-bold text-ink">食の好みを編集</h1>
+          <h1 className="text-base font-bold text-ink">好みを編集</h1>
           <div className="w-10" />
         </div>
       )}
@@ -114,7 +112,7 @@ export default function PreferenceCardsForm({ cards, initialKeys, mode }: Props)
         <h1 className="text-[26px] font-black leading-tight text-ink">
           あなたの食の好みを
           <br />
-          教えてください
+          選んでください
         </h1>
         <p className="mt-2 text-sm leading-snug text-ink-sub">
           気になるカードを５つ以上選んでください。
@@ -138,12 +136,12 @@ export default function PreferenceCardsForm({ cards, initialKeys, mode }: Props)
             >
               <polyline points="20 6 9 17 4 12" />
             </svg>
-            <span className="text-xs font-bold text-terra">{count}個選択しました</span>
+            <span className="text-xs font-bold text-terra">{count}個選択中</span>
           </div>
         )}
       </div>
 
-      {/* Card grid — thumbnail + text layout */}
+      {/* Card grid — full-background-image layout */}
       <div className="px-5">
         <div className="grid grid-cols-2 gap-3">
           {cards.map((card) => {
@@ -154,28 +152,32 @@ export default function PreferenceCardsForm({ cards, initialKeys, mode }: Props)
                 type="button"
                 onClick={() => toggle(card.key)}
                 aria-pressed={isSelected}
+                style={{ minHeight: '160px' }}
                 className={[
-                  'relative flex items-center gap-2.5 rounded-2xl bg-surface p-3 text-left transition-all duration-150 active:scale-[0.97]',
-                  isSelected ? 'border-2 border-terra' : 'border border-edge',
+                  'relative overflow-hidden rounded-2xl bg-surface text-left transition-all duration-150 active:scale-[0.97]',
+                  isSelected ? 'ring-2 ring-terra ring-offset-1' : '',
                 ].join(' ')}
               >
-                {/* Food thumbnail */}
+                {/* Background food photo */}
                 {card.image_path ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={card.image_path}
                     alt=""
-                    className="h-14 w-14 shrink-0 rounded-xl object-cover"
+                    className="absolute inset-0 h-full w-full object-cover opacity-80"
                   />
                 ) : (
-                  <div className="h-14 w-14 shrink-0 rounded-xl bg-canvas" />
+                  <div className="absolute inset-0 bg-edge" />
                 )}
 
-                {/* Text */}
-                <div className="min-w-0 flex-1 pr-4">
-                  <p className="text-sm font-bold leading-snug text-ink">{card.label}</p>
+                {/* Gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+
+                {/* Content at bottom */}
+                <div className="absolute bottom-0 left-0 right-0 p-3">
+                  <p className="text-sm font-bold leading-tight text-white">{card.label}</p>
                   {card.description && (
-                    <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-ink-sub">
+                    <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-white/80">
                       {card.description}
                     </p>
                   )}
@@ -185,7 +187,7 @@ export default function PreferenceCardsForm({ cards, initialKeys, mode }: Props)
                 <span
                   className={[
                     'absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full',
-                    isSelected ? 'bg-terra' : 'border-2 border-edge',
+                    isSelected ? 'bg-terra' : 'border-2 border-white/70 bg-black/20',
                   ].join(' ')}
                   aria-hidden="true"
                 >
@@ -223,9 +225,20 @@ export default function PreferenceCardsForm({ cards, initialKeys, mode }: Props)
             type="button"
             onClick={handleSave}
             disabled={!canSave || loading}
-            className="flex h-[52px] w-full items-center justify-center rounded-full bg-terra text-base font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-[52px] w-full items-center justify-center gap-1 rounded-xl bg-terra text-base font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {loading ? '保存中...' : ctaLabel}
+            {loading ? (
+              '保存中...'
+            ) : mode === 'initial' ? (
+              'FoodKitをはじめる'
+            ) : (
+              <>
+                変更を保存
+                <svg width="8" height="14" viewBox="0 0 8 14" fill="none" aria-hidden="true">
+                  <path d="M1 1l6 6-6 6" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </>
+            )}
           </button>
           {!canSave && (
             <p className="mt-2 text-center text-xs text-ink-sub">
