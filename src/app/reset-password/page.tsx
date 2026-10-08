@@ -230,7 +230,7 @@ function ResetPasswordForm() {
         </p>
         <Link
           href="/forgot-password"
-          className="flex h-[52px] w-full items-center justify-center rounded-full bg-terra text-base font-bold text-white"
+          className="flex h-[52px] w-full items-center justify-center rounded-xl bg-terra text-base font-bold text-white"
         >
           再設定メールをもう一度送る
         </Link>
@@ -264,7 +264,7 @@ function ResetPasswordForm() {
 
         <Link
           href="/login"
-          className="mt-8 flex h-[52px] w-full items-center justify-center rounded-full bg-terra text-base font-bold text-white"
+          className="mt-8 flex h-[52px] w-full items-center justify-center rounded-xl bg-terra text-base font-bold text-white"
         >
           ログイン画面へ
         </Link>
@@ -310,7 +310,7 @@ function ResetPasswordForm() {
       <button
         type="submit"
         disabled={!canSubmit || submitting}
-        className="flex h-[52px] w-full items-center justify-center gap-2 rounded-full bg-terra text-base font-bold text-white disabled:opacity-50"
+        className="flex h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-terra text-base font-bold text-white disabled:opacity-50"
       >
         {submitting && (
           <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">

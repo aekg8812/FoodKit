@@ -2,8 +2,7 @@
 
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
-import Button from '@/components/ui/Button'
+import { useEffect, useRef, useState } from 'react'
 import ErrorMessage from '@/components/ui/ErrorMessage'
 import { createClient } from '@/lib/supabase/client'
 
@@ -22,7 +21,6 @@ function logError(error: unknown) {
     console.error('[AvatarUploadForm] error:', message, code, details, hint)
     return
   }
-
   console.error('[AvatarUploadForm] error:', error)
 }
 
@@ -32,6 +30,7 @@ export default function AvatarUploadForm({
 }: AvatarUploadFormProps) {
   const router = useRouter()
   const supabase = createClient()
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -66,8 +65,7 @@ export default function AvatarUploadForm({
     setSuccessMessage(null)
   }
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+  async function handleUpload() {
     if (!imageFile || uploading) return
 
     setUploading(true)
@@ -106,44 +104,65 @@ export default function AvatarUploadForm({
   const displayedAvatarUrl = previewUrl ?? currentAvatarUrl
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 px-4 py-4">
-      <div className="flex min-w-0 items-center gap-4">
-        <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-cream text-2xl text-terra">
-          {displayedAvatarUrl ? (
-            <Image
-              src={displayedAvatarUrl}
-              alt="プロフィール画像のプレビュー"
-              fill
-              sizes="64px"
-              className="object-cover"
-              unoptimized
-            />
-          ) : (
-            <span aria-hidden="true">👤</span>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="font-medium text-ink">プロフィール画像</p>
-          <p className="mt-1 text-xs leading-relaxed text-ink-sub">
-            JPEG・PNG・WebP、5MB以下
-          </p>
-        </div>
-      </div>
+    <div className="flex flex-col items-center gap-3 px-4 py-6">
+      {/* Avatar circle */}
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={uploading}
+        className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#F3E5D8] text-3xl text-terra"
+        aria-label="プロフィール画像を変更"
+      >
+        {displayedAvatarUrl ? (
+          <Image
+            src={displayedAvatarUrl}
+            alt="プロフィール画像のプレビュー"
+            fill
+            sizes="80px"
+            className="object-cover"
+            unoptimized
+          />
+        ) : (
+          <span aria-hidden="true" className="text-[#C9A98A]">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+          </span>
+        )}
+      </button>
+
+      {/* Trigger text */}
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        disabled={uploading}
+        className="text-sm font-bold text-terra disabled:opacity-50"
+      >
+        写真を変更
+      </button>
 
       <input
+        ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp"
         onChange={handleImageChange}
         disabled={uploading}
         aria-label="プロフィール画像を選択"
-        className="block min-h-[44px] w-full min-w-0 text-sm text-ink-sub file:mr-3 file:min-h-[44px] file:rounded-full file:border-0 file:bg-canvas file:px-4 file:text-sm file:font-medium file:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+        className="sr-only"
       />
 
-      {imageFile ? (
-        <Button type="submit" loading={uploading} disabled={uploading}>
-          {uploading ? '更新中…' : 'プロフィール画像を更新'}
-        </Button>
-      ) : null}
+      {/* Upload CTA appears after image is selected */}
+      {imageFile && (
+        <button
+          type="button"
+          onClick={() => void handleUpload()}
+          disabled={uploading}
+          className="flex min-h-[40px] items-center rounded-xl bg-terra px-6 text-sm font-bold text-white disabled:opacity-50"
+        >
+          {uploading ? '更新中…' : 'この写真にする'}
+        </button>
+      )}
 
       {error ? <ErrorMessage message={error} /> : null}
       {successMessage ? (
@@ -151,6 +170,6 @@ export default function AvatarUploadForm({
           {successMessage}
         </p>
       ) : null}
-    </form>
+    </div>
   )
 }

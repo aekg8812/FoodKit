@@ -329,7 +329,7 @@ export default function SignupPage() {
             <button
               type="submit"
               disabled={loading || !usernameAvailable}
-              className="mt-2 flex h-[52px] w-full items-center justify-center rounded-full bg-terra text-base font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-2 flex h-[52px] w-full items-center justify-center rounded-xl bg-terra text-base font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? '登録中...' : 'アカウントを作成　›'}
             </button>

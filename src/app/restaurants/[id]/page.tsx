@@ -325,7 +325,7 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
               </p>
               <Link
                 href="/mypage/food-preferences/edit"
-                className="mt-3 inline-block rounded-full bg-terra px-5 py-2 text-sm font-bold text-white"
+                className="mt-3 inline-block rounded-xl bg-terra px-5 py-2 text-sm font-bold text-white"
               >
                 好みを設定する
               </Link>

@@ -46,7 +46,7 @@ export default async function FoodPreferencesSummaryPage() {
             <p className="text-sm text-ink-sub">まだ好みカードが選択されていません。</p>
             <Link
               href="/mypage/food-preferences/edit"
-              className="mt-4 inline-flex min-h-[44px] items-center rounded-full bg-terra px-6 text-sm font-semibold text-white transition-colors hover:bg-terra-deep"
+              className="mt-4 inline-flex min-h-[44px] items-center rounded-xl bg-terra px-6 text-sm font-semibold text-white transition-colors hover:bg-terra-deep"
             >
               好みを設定する
             </Link>
@@ -90,7 +90,7 @@ export default async function FoodPreferencesSummaryPage() {
             <div className="mt-6">
               <Link
                 href="/mypage/food-preferences/edit"
-                className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-terra text-sm font-semibold text-white transition-colors hover:bg-terra-deep"
+                className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-terra text-sm font-semibold text-white transition-colors hover:bg-terra-deep"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>

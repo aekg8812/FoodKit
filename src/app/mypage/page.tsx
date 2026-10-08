@@ -209,7 +209,7 @@ export default async function MypagePage() {
               <p className="text-sm text-ink-sub">まだ好みが設定されていません</p>
               <Link
                 href="/mypage/food-preferences/edit"
-                className="mt-3 inline-flex h-[40px] items-center rounded-full bg-terra px-5 text-sm font-medium text-white"
+                className="mt-3 inline-flex h-[40px] items-center rounded-xl bg-terra px-5 text-sm font-medium text-white"
               >
                 好みを設定する
               </Link>
@@ -219,7 +219,7 @@ export default async function MypagePage() {
               {preferenceCards.map((card, i) => (
                 <span
                   key={i}
-                  className="rounded-full border border-edge bg-surface px-3 py-1.5 text-sm font-medium text-ink"
+                  className="rounded-full border border-terra/30 bg-terra/10 px-3 py-1.5 text-sm font-medium text-terra"
                 >
                   {card.label}
                 </span>
@@ -272,7 +272,7 @@ export default async function MypagePage() {
               <p className="text-sm text-ink-sub">まだ記録がありません</p>
               <Link
                 href="/record"
-                className="mt-3 inline-flex h-[40px] items-center rounded-full bg-terra px-5 text-sm font-medium text-white"
+                className="mt-3 inline-flex h-[40px] items-center rounded-xl bg-terra px-5 text-sm font-medium text-white"
               >
                 記録する
               </Link>

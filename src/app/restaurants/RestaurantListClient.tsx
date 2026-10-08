@@ -100,7 +100,7 @@ export default function RestaurantListClient({
       <h1 className="text-2xl font-bold text-ink">店舗一覧</h1>
       <Link
         href="/restaurants/search"
-        className="inline-flex min-h-[44px] items-center rounded-full bg-terra px-4 text-sm font-medium text-white transition-all duration-150 hover:bg-terra-deep motion-safe:active:scale-[0.98]"
+        className="inline-flex min-h-[44px] items-center rounded-xl bg-terra px-4 text-sm font-medium text-white transition-all duration-150 hover:bg-terra-deep motion-safe:active:scale-[0.98]"
       >
         ＋ 店舗を追加
       </Link>
@@ -117,7 +117,7 @@ export default function RestaurantListClient({
             <p className="mb-5 text-sm text-ink-sub">まだ店舗がありません。登録してみましょう。</p>
             <Link
               href="/restaurants/search"
-              className="inline-flex min-h-[44px] items-center rounded-full bg-terra px-5 text-sm font-medium text-white transition-all duration-150 hover:bg-terra-deep motion-safe:active:scale-[0.98]"
+              className="inline-flex min-h-[44px] items-center rounded-xl bg-terra px-5 text-sm font-medium text-white transition-all duration-150 hover:bg-terra-deep motion-safe:active:scale-[0.98]"
             >
               店舗を探す・追加する
             </Link>
@@ -152,7 +152,7 @@ export default function RestaurantListClient({
               }}
               className={
                 filter === opt.value
-                  ? 'min-h-[44px] rounded-full bg-terra px-4 py-1.5 text-sm font-medium text-white transition-all duration-150'
+                  ? 'min-h-[44px] rounded-xl bg-terra px-4 py-1.5 text-sm font-medium text-white transition-all duration-150'
                   : 'min-h-[44px] rounded-full border border-edge px-4 py-1.5 text-sm font-medium text-ink transition-all duration-150 hover:bg-canvas motion-safe:active:scale-[0.98]'
               }
             >

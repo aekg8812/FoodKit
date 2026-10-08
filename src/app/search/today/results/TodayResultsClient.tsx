@@ -161,7 +161,7 @@ export default function TodayResultsClient({ params, changeHref }: Props) {
                 { timeout: 10000, maximumAge: 0 }
               )
             }}
-            className="flex h-[44px] w-full items-center justify-center rounded-full bg-terra text-sm font-medium text-white"
+            className="flex h-[44px] w-full items-center justify-center rounded-xl bg-terra text-sm font-medium text-white"
           >
             現在地を再取得
           </button>
@@ -292,7 +292,7 @@ export default function TodayResultsClient({ params, changeHref }: Props) {
                   <div className="w-full space-y-3">
                     <Link
                       href={changeHref}
-                      className="flex h-[44px] w-full items-center justify-center rounded-full bg-terra text-sm font-medium text-white"
+                      className="flex h-[44px] w-full items-center justify-center rounded-xl bg-terra text-sm font-medium text-white"
                     >
                       条件を変更する
                     </Link>

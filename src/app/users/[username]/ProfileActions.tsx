@@ -123,7 +123,7 @@ export default function ProfileActions({
           type="button"
           onClick={handleFollow}
           disabled={loading}
-          className="min-h-[44px] w-full rounded-full bg-terra px-5 text-sm font-medium text-white transition-colors hover:bg-terra-deep disabled:cursor-not-allowed disabled:opacity-50"
+          className="min-h-[44px] w-full rounded-xl bg-terra px-5 text-sm font-medium text-white transition-colors hover:bg-terra-deep disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading
             ? '処理中…'

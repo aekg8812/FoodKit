@@ -55,7 +55,7 @@ export default function ProfileNameForm({ userId, currentName }: Props) {
     <form onSubmit={handleSubmit} className="space-y-4">
       <InputField
         id="name"
-        label="ユーザー名"
+        label="名前"
         type="text"
         required
         value={name}
@@ -74,7 +74,7 @@ export default function ProfileNameForm({ userId, currentName }: Props) {
       )}
 
       <Button type="submit" loading={loading} disabled={!canSubmit}>
-        {loading ? '更新中...' : '名前を保存'}
+        {loading ? '更新中...' : '変更を保存'}
       </Button>
     </form>
   )

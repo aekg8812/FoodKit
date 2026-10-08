@@ -125,7 +125,7 @@ export default async function FollowingRecordsPage() {
             {followeeIds.length === 0 && (
               <Link
                 href="/mypage/follows/search"
-                className="mt-4 inline-flex min-h-[40px] items-center rounded-full bg-terra px-5 text-sm font-bold text-white"
+                className="mt-4 inline-flex min-h-[40px] items-center rounded-xl bg-terra px-5 text-sm font-bold text-white"
               >
                 ユーザーを探す
               </Link>

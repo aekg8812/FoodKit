@@ -77,7 +77,7 @@ export default async function SearchPage() {
 
               <Link
                 href="/search/today"
-                className="mt-3 flex h-[44px] items-center justify-center gap-1 rounded-full bg-terra text-sm font-bold text-white"
+                className="mt-3 flex h-[44px] items-center justify-center gap-1 rounded-xl bg-terra text-sm font-bold text-white"
               >
                 条件を設定する
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">

@@ -41,44 +41,48 @@ export default async function ProfileEditPage() {
 
   return (
     <main className="min-h-screen bg-canvas pb-24">
-      {/* Page header */}
-      <div className="flex items-center justify-between px-5 pt-14 pb-4">
+      {/* Header */}
+      <div className="flex items-center border-b border-edge bg-canvas px-4 pt-14 pb-3">
         <Link
           href="/mypage"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-ink-sub transition-colors hover:bg-surface"
+          className="flex h-10 w-10 items-center justify-center text-ink"
           aria-label="マイページに戻る"
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M15 18l-6-6 6-6" />
+          <svg width="10" height="18" viewBox="0 0 10 18" fill="none" aria-hidden="true">
+            <path d="M9 1L1 9l8 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </Link>
-        <h1 className="text-base font-bold text-ink">プロフィールを編集</h1>
+        <h1 className="flex-1 text-center text-base font-bold text-ink">プロフィールを編集</h1>
         <div className="w-10" />
       </div>
 
-      <div className="mx-auto w-full max-w-md px-5 space-y-4">
-        {/* Avatar */}
-        <section className="rounded-2xl border border-edge bg-surface overflow-hidden">
+      <div className="mx-auto w-full max-w-md px-4 pt-4 space-y-4">
+        {/* Avatar — centered with "写真を変更" */}
+        <div className="rounded-2xl border border-edge bg-surface">
           <AvatarUploadForm userId={user.id} currentAvatarUrl={avatarUrl} />
-        </section>
+        </div>
 
-        {/* Name */}
-        <section className="rounded-2xl border border-edge bg-surface p-5">
-          <h2 className="mb-4 text-sm font-semibold text-ink-sub uppercase tracking-wide">名前</h2>
-          <ProfileNameForm userId={user.id} currentName={profile.name} />
-        </section>
+        {/* Name + ユーザーID + save */}
+        <div className="rounded-2xl border border-edge bg-surface divide-y divide-edge overflow-hidden">
+          {/* Name form */}
+          <div className="p-4">
+            <ProfileNameForm userId={user.id} currentName={profile.name} />
+          </div>
 
-        {/* Username — display only, link to settings */}
-        <section className="rounded-2xl border border-edge bg-surface p-5">
-          <h2 className="mb-1 text-sm font-semibold text-ink-sub uppercase tracking-wide">ユーザーID</h2>
-          <p className="mb-3 text-sm text-ink">@{profile.username}</p>
-          <Link
-            href="/settings/username"
-            className="inline-flex min-h-[40px] items-center rounded-full border border-edge bg-canvas px-5 text-sm font-medium text-ink transition-colors hover:bg-surface"
-          >
-            設定から変更
-          </Link>
-        </section>
+          {/* ユーザーID row */}
+          <div className="flex items-center justify-between px-4 py-3.5">
+            <div>
+              <p className="text-xs text-ink-sub">ユーザーID</p>
+              <p className="mt-0.5 text-sm font-medium text-ink">@{profile.username}</p>
+            </div>
+            <Link
+              href="/settings/username"
+              className="text-sm font-bold text-terra"
+            >
+              設定から変更 ›
+            </Link>
+          </div>
+        </div>
       </div>
 
       <BottomNav />

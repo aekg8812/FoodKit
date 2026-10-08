@@ -166,7 +166,7 @@ export default async function LandingPage() {
         <div className="px-6 pb-10 pt-6 space-y-3">
           <Link
             href="/signup"
-            className="flex h-[52px] w-full items-center justify-center rounded-full bg-terra text-base font-bold text-white"
+            className="flex h-[52px] w-full items-center justify-center rounded-xl bg-terra text-base font-bold text-white"
           >
             FoodKitをはじめる　›
           </Link>

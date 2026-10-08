@@ -270,7 +270,7 @@ export default async function HomePage() {
             {followeeIds.length === 0 && (
               <Link
                 href="/mypage/follows/search"
-                className="mt-3 inline-flex min-h-9 items-center rounded-full bg-terra px-4 text-xs font-semibold text-white"
+                className="mt-3 inline-flex min-h-9 items-center rounded-xl bg-terra px-4 text-xs font-semibold text-white"
               >
                 ユーザーを探す
               </Link>
@@ -374,7 +374,7 @@ export default async function HomePage() {
               </Link>
               <Link
                 href="/mypage/follows/search"
-                className="inline-flex min-h-9 items-center rounded-full bg-terra px-4 text-xs font-semibold text-white"
+                className="inline-flex min-h-9 items-center rounded-xl bg-terra px-4 text-xs font-semibold text-white"
               >
                 ユーザーを探す
               </Link>

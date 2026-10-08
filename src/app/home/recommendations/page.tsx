@@ -74,7 +74,7 @@ export default async function RecommendationsPage() {
               </Link>
               <Link
                 href="/mypage/follows/search"
-                className="inline-flex min-h-10 items-center rounded-full bg-terra px-4 text-sm font-semibold text-white"
+                className="inline-flex min-h-10 items-center rounded-xl bg-terra px-4 text-sm font-semibold text-white"
               >
                 ユーザーを探す
               </Link>

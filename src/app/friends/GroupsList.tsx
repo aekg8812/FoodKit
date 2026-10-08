@@ -32,7 +32,7 @@ export default function GroupsList({ groups, errorMessage }: GroupsListProps) {
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <Link
             href="/groups/join"
-            className="flex min-h-11 items-center justify-center rounded-full bg-terra px-4 text-sm font-bold text-white transition-opacity hover:opacity-90"
+            className="flex min-h-11 items-center justify-center rounded-xl bg-terra px-4 text-sm font-bold text-white transition-opacity hover:opacity-90"
           >
             グループを作る
           </Link>

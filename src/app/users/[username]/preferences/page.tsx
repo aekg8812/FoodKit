@@ -95,7 +95,7 @@ export default async function UserPreferencesPage({
             {isSelf && (
               <Link
                 href="/mypage/food-preferences/edit"
-                className="mt-3 inline-block rounded-full bg-terra px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-terra-deep"
+                className="mt-3 inline-block rounded-xl bg-terra px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-terra-deep"
               >
                 好みを設定する
               </Link>

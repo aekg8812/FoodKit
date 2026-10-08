@@ -414,7 +414,7 @@ export default function RecordFormClient({ restaurantId, restaurant, existingRev
         <button
           type="submit"
           disabled={submitting || rating === null}
-          className="flex h-[56px] w-full items-center justify-center rounded-2xl bg-terra text-base font-bold text-white disabled:opacity-50"
+          className="flex h-[56px] w-full items-center justify-center rounded-xl bg-terra text-base font-bold text-white disabled:opacity-50"
         >
           {submitting ? '記録中...' : '記録する'}
         </button>

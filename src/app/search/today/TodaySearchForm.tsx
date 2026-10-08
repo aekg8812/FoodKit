@@ -280,7 +280,7 @@ export default function TodaySearchForm({ initialValues }: TodaySearchFormProps)
         <button
           type="button"
           onClick={handleSubmit}
-          className="flex h-[52px] w-full items-center justify-center gap-1 rounded-full bg-terra text-base font-bold text-white"
+          className="flex h-[52px] w-full items-center justify-center gap-1 rounded-xl bg-terra text-base font-bold text-white"
         >
           この条件でおすすめを見る
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">

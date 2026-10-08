@@ -152,9 +152,7 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
         <Suspense>
           <BackButton fallbackHref="/mypage" label="" />
         </Suspense>
-        <h1 className="flex-1 text-center text-base font-bold text-ink">
-          {displayName}の記録
-        </h1>
+        <h1 className="flex-1 text-center text-base font-bold text-ink">自分の記録</h1>
         <div className="w-10" />
       </div>
 
@@ -254,7 +252,7 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
                 <p className="text-sm text-ink-sub">まだ記録がありません</p>
                 <Link
                   href="/record"
-                  className="mt-4 inline-flex min-h-[40px] items-center rounded-full bg-terra px-5 text-sm font-medium text-white"
+                  className="mt-4 inline-flex min-h-[40px] items-center rounded-xl bg-terra px-5 text-sm font-medium text-white"
                 >
                   記録する
                 </Link>
@@ -283,7 +281,7 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
                 >
                   {/* Thumbnail */}
                   {imgUrl ? (
-                    <div className="relative h-[70px] w-[70px] shrink-0 overflow-hidden rounded-xl">
+                    <div className="relative h-[80px] w-[80px] shrink-0 overflow-hidden rounded-xl">
                       <Image
                         src={imgUrl}
                         alt={review.restaurants?.name ?? ''}
@@ -294,7 +292,7 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
                       />
                     </div>
                   ) : (
-                    <div className="flex h-[70px] w-[70px] shrink-0 items-center justify-center rounded-xl bg-[#F3E5D8]">
+                    <div className="flex h-[80px] w-[80px] shrink-0 items-center justify-center rounded-xl bg-[#F3E5D8]">
                       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C9A98A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                         <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
                         <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
