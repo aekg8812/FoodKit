@@ -52,40 +52,50 @@ const RATING_SUBLABEL: Record<number, string> = {
   1: '残念ながらまた行こうとは思わない',
 }
 
-const RATING_STYLE: Record<number, { bg: string; text: string; subText: string }> = {
-  4: { bg: 'bg-[#FFF3EC]', text: 'text-terra', subText: 'text-terra' },
-  3: { bg: 'bg-[#FFF0F3]', text: 'text-[#E05C7A]', subText: 'text-[#E05C7A]' },
-  2: { bg: 'bg-[#EFF6FF]', text: 'text-sky-600', subText: 'text-sky-500' },
-  1: { bg: 'bg-[#F3F4F6]', text: 'text-zinc-600', subText: 'text-zinc-500' },
+const RATING_STYLE: Record<number, { bg: string; chipBg: string; text: string; subText: string }> = {
+  4: { bg: 'bg-[#FFF3EC]', chipBg: 'bg-orange-100', text: 'text-terra', subText: 'text-terra' },
+  3: { bg: 'bg-[#FFF0F3]', chipBg: 'bg-pink-100', text: 'text-[#E05C7A]', subText: 'text-[#E05C7A]' },
+  2: { bg: 'bg-[#EFF6FF]', chipBg: 'bg-sky-100', text: 'text-sky-600', subText: 'text-sky-500' },
+  1: { bg: 'bg-[#F3F4F6]', chipBg: 'bg-zinc-200', text: 'text-zinc-600', subText: 'text-zinc-500' },
 }
 
 function RatingIllustration({ rating }: { rating: number }) {
   if (rating === 4) return (
-    <svg width="48" height="48" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-      <circle cx="24" cy="24" r="18" fill="#F97316" opacity="0.15" />
-      <circle cx="24" cy="24" r="12" fill="#F97316" opacity="0.25" />
-      <text x="24" y="30" textAnchor="middle" fontSize="18" fill="#F97316">⭐</text>
+    <svg width="52" height="52" viewBox="0 0 52 52" fill="none" aria-hidden="true">
+      <circle cx="26" cy="26" r="22" fill="#F97316" opacity="0.12" />
+      {/* Crown */}
+      <path d="M14 34 L16 20 L22 27 L26 18 L30 27 L36 20 L38 34 Z" fill="#F97316" opacity="0.85" />
+      <rect x="13" y="34" width="26" height="3" rx="1.5" fill="#F97316" opacity="0.85" />
     </svg>
   )
   if (rating === 3) return (
-    <svg width="48" height="48" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-      <circle cx="24" cy="24" r="18" fill="#E05C7A" opacity="0.12" />
-      <circle cx="24" cy="24" r="12" fill="#E05C7A" opacity="0.2" />
-      <path d="M24 16 C20 16 17 19 17 22 C17 28 24 33 24 33 C24 33 31 28 31 22 C31 19 28 16 24 16Z" fill="#E05C7A" opacity="0.8" />
+    <svg width="52" height="52" viewBox="0 0 52 52" fill="none" aria-hidden="true">
+      <circle cx="26" cy="26" r="22" fill="#E05C7A" opacity="0.1" />
+      {/* Clinking glasses */}
+      <path d="M20 16 L17 28 Q17 32 21 32 L20 38" stroke="#E05C7A" strokeWidth="2" strokeLinecap="round" opacity="0.85" fill="none" />
+      <path d="M32 16 L35 28 Q35 32 31 32 L32 38" stroke="#E05C7A" strokeWidth="2" strokeLinecap="round" opacity="0.85" fill="none" />
+      <line x1="18" y1="38" x2="22" y2="38" stroke="#E05C7A" strokeWidth="2" strokeLinecap="round" opacity="0.85" />
+      <line x1="30" y1="38" x2="34" y2="38" stroke="#E05C7A" strokeWidth="2" strokeLinecap="round" opacity="0.85" />
+      {/* sparkles */}
+      <line x1="26" y1="13" x2="26" y2="11" stroke="#E05C7A" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
+      <line x1="23" y1="14" x2="22" y2="12" stroke="#E05C7A" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
+      <line x1="29" y1="14" x2="30" y2="12" stroke="#E05C7A" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
     </svg>
   )
   if (rating === 2) return (
-    <svg width="48" height="48" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-      <circle cx="24" cy="24" r="18" fill="#0EA5E9" opacity="0.12" />
-      <circle cx="24" cy="24" r="12" fill="#0EA5E9" opacity="0.2" />
-      <path d="M18 24 L24 18 L30 24 L27 24 L27 30 L21 30 L21 24 Z" fill="#0EA5E9" opacity="0.8" />
+    <svg width="52" height="52" viewBox="0 0 52 52" fill="none" aria-hidden="true">
+      <circle cx="26" cy="26" r="22" fill="#0EA5E9" opacity="0.1" />
+      {/* Fork & knife */}
+      <line x1="22" y1="16" x2="22" y2="36" stroke="#0EA5E9" strokeWidth="2" strokeLinecap="round" opacity="0.8" />
+      <path d="M19 16 L19 24 Q22 26 25 24 L25 16" stroke="#0EA5E9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.8" fill="none" />
+      <path d="M30 16 Q30 22 30 24 Q32 26 32 28 L32 36" stroke="#0EA5E9" strokeWidth="2" strokeLinecap="round" opacity="0.8" fill="none" />
     </svg>
   )
   return (
-    <svg width="48" height="48" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-      <circle cx="24" cy="24" r="18" fill="#6B7280" opacity="0.1" />
-      <circle cx="24" cy="24" r="12" fill="#6B7280" opacity="0.15" />
-      <path d="M18 28 L24 22 L30 28" stroke="#6B7280" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="52" height="52" viewBox="0 0 52 52" fill="none" aria-hidden="true">
+      <circle cx="26" cy="26" r="22" fill="#6B7280" opacity="0.08" />
+      {/* Thumbs down */}
+      <path d="M26 34 C22 34 18 30 18 26 L18 22 L28 22 L28 18 L32 18 L32 26 C32 26 30 34 26 34Z" stroke="#6B7280" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" fill="none" />
     </svg>
   )
 }
@@ -276,11 +286,13 @@ export default async function RecordDetailPage({ params }: PageProps) {
 
         {/* Rating card */}
         <div className={`rounded-2xl ${ratingStyle.bg} p-4`}>
-          <p className="mb-2 text-sm text-ink">このお店に、もう一度行きたいですか？</p>
+          <p className="mb-3 text-sm font-medium text-ink">このお店に、もう一度行きたいですか？</p>
           <div className="flex items-center justify-between">
             <div>
-              <p className={`text-xl font-black ${ratingStyle.text}`}>{RATING_LABEL[review.rating]}</p>
-              <p className={`mt-1 text-xs ${ratingStyle.subText}`}>{RATING_SUBLABEL[review.rating]}</p>
+              <span className={`inline-block rounded-full px-4 py-1.5 text-base font-bold ${ratingStyle.chipBg} ${ratingStyle.text}`}>
+                {RATING_LABEL[review.rating]}
+              </span>
+              <p className={`mt-2 text-xs ${ratingStyle.subText}`}>{RATING_SUBLABEL[review.rating]}</p>
             </div>
             <RatingIllustration rating={review.rating} />
           </div>
@@ -332,22 +344,12 @@ export default async function RecordDetailPage({ params }: PageProps) {
         {restaurant && (
           <Link
             href={`/restaurants/${restaurant.id}`}
-            className="flex h-[52px] w-full items-center justify-center gap-1.5 rounded-full bg-terra text-base font-bold text-white"
+            className="flex h-[52px] w-full items-center justify-center gap-1.5 rounded-xl bg-terra text-base font-bold text-white"
           >
             この店舗を見る
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
               <path d="M9 18l6-6-6-6" />
             </svg>
-          </Link>
-        )}
-
-        {/* Edit link for own record */}
-        {isOwn && (
-          <Link
-            href={`/records/${reviewId}/edit`}
-            className="flex h-[44px] w-full items-center justify-center gap-1.5 rounded-full border border-edge bg-surface text-sm font-medium text-ink"
-          >
-            記録を編集する
           </Link>
         )}
       </div>
