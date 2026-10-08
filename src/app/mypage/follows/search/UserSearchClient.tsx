@@ -142,7 +142,7 @@ export default function UserSearchClient({
                   disabled={isLoading}
                   className={
                     isFollowing
-                      ? 'shrink-0 rounded-full border border-edge bg-surface px-3 py-1.5 text-xs font-medium text-ink-sub transition-colors hover:bg-canvas disabled:opacity-50'
+                      ? 'shrink-0 rounded-full border border-terra bg-surface px-3 py-1.5 text-xs font-semibold text-terra transition-colors hover:bg-terra/5 disabled:opacity-50'
                       : 'shrink-0 rounded-full bg-terra px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-terra-deep disabled:opacity-50'
                   }
                 >
