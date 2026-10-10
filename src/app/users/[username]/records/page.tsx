@@ -199,7 +199,7 @@ export default async function UserRecordsPage({ params, searchParams }: PageProp
               href={sortHref(s)}
               replace
               className={`flex flex-1 items-center justify-center rounded-full py-2.5 text-sm font-bold transition-colors ${
-                sort === s ? 'bg-terra text-white' : 'text-ink-sub hover:text-ink'
+                sort === s ? 'bg-[#FFF3EC] text-terra' : 'text-ink-sub hover:text-ink'
               }`}
             >
               {s === 'newest' ? '新しい順' : '古い順'}
@@ -304,7 +304,7 @@ export default async function UserRecordsPage({ params, searchParams }: PageProp
 
                   {/* Info */}
                   <div className="min-w-0 flex-1">
-                    <p className="font-bold text-terra">
+                    <p className="font-bold text-ink">
                       {review.restaurants?.name ?? '不明な店舗'}
                     </p>
                     {(review.restaurants?.genre || review.restaurants?.area) && (
