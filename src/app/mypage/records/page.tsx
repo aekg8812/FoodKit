@@ -51,7 +51,8 @@ const RATING_CHIP: Record<number, { label: string; bg: string; text: string; bor
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr)
-  return `${d.getMonth() + 1}月${d.getDate()}日`
+  const days = ['日', '月', '火', '水', '木', '金', '土']
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 (${days[d.getDay()]})`
 }
 
 export default async function MyRecordsPage({ searchParams }: PageProps) {
