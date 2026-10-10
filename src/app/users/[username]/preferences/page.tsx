@@ -137,31 +137,18 @@ export default async function UserPreferencesPage({
                 ? `${supabaseUrl}/storage/v1/object/public/preference-card-images/${card.image_path}`
                 : null
               return (
-                <div
-                  key={card.sort_order}
-                  className="relative overflow-hidden rounded-2xl bg-surface"
-                  style={{ minHeight: '160px' }}
-                >
-                  {/* Background food photo */}
-                  {imgSrc ? (
-                    <Image
-                      src={imgSrc}
-                      alt=""
-                      fill
-                      sizes="50vw"
-                      className="object-cover opacity-80"
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="absolute inset-0 bg-[#F3E5D8]" />
-                  )}
-                  {/* Gradient overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-                  {/* Content */}
-                  <div className="absolute bottom-0 left-0 right-0 p-3">
-                    <p className="text-sm font-bold leading-tight text-white">{card.label}</p>
+                <div key={card.sort_order} className="overflow-hidden rounded-2xl border border-edge bg-surface">
+                  {/* Food photo — top portion */}
+                  <div className="relative h-28 w-full overflow-hidden bg-edge">
+                    {imgSrc && (
+                      <Image src={imgSrc} alt="" fill sizes="50vw" className="object-cover" unoptimized />
+                    )}
+                  </div>
+                  {/* Text below */}
+                  <div className="p-2.5">
+                    <p className="text-sm font-bold leading-snug text-ink">{card.label}</p>
                     {card.description && (
-                      <p className="mt-0.5 text-[11px] leading-snug text-white/80 line-clamp-2">
+                      <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-ink-sub">
                         {card.description}
                       </p>
                     )}

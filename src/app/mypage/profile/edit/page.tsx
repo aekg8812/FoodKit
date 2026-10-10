@@ -56,28 +56,21 @@ export default async function ProfileEditPage() {
         <div className="w-10" />
       </div>
 
-      <div className="mx-auto w-full max-w-md px-4 pt-4 space-y-4">
-        {/* Avatar — centered with "写真を変更" */}
-        <div className="rounded-2xl border border-edge bg-surface">
-          <AvatarUploadForm userId={user.id} currentAvatarUrl={avatarUrl} />
-        </div>
+      <div className="mx-auto w-full max-w-md px-4 pt-6 space-y-6">
+        {/* Avatar — centered */}
+        <AvatarUploadForm userId={user.id} currentAvatarUrl={avatarUrl} />
 
-        {/* Name + ユーザーID + save */}
-        <div className="rounded-2xl border border-edge bg-surface divide-y divide-edge overflow-hidden">
-          {/* Name form */}
-          <div className="p-4">
-            <ProfileNameForm userId={user.id} currentName={profile.name} />
-          </div>
+        {/* Name field */}
+        <ProfileNameForm userId={user.id} currentName={profile.name} />
 
-          {/* ユーザーID row */}
-          <div className="flex items-center justify-between px-4 py-3.5">
-            <div>
-              <p className="text-xs text-ink-sub">ユーザーID</p>
-              <p className="mt-0.5 text-sm font-medium text-ink">@{profile.username}</p>
-            </div>
+        {/* ユーザーID — read-only display */}
+        <div>
+          <p className="mb-1.5 block text-sm font-medium text-ink">ユーザーID</p>
+          <div className="flex items-center justify-between rounded-xl border border-edge bg-surface px-3 py-3">
+            <p className="text-base text-ink">@{profile.username}</p>
             <Link
               href="/settings/username"
-              className="text-sm font-bold text-terra"
+              className="shrink-0 text-sm font-bold text-terra"
             >
               設定から変更 ›
             </Link>

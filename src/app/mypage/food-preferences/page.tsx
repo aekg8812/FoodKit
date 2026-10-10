@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import Image from 'next/image'
 import Link from 'next/link'
 import { Suspense } from 'react'
 import BottomNav from '@/components/BottomNav'
@@ -19,10 +20,17 @@ export default async function FoodPreferencesSummaryPage() {
 
   type CardJoin = { key: string; label: string; description: string | null; image_path: string | null; sort_order: number }
 
-  const selectionResult = await supabase
-    .from('user_preference_cards')
-    .select('preference_card_id, preference_cards(key, label, description, image_path, sort_order)')
-    .eq('user_id', user.id)
+  const [selectionResult, profileResult] = await Promise.all([
+    supabase
+      .from('user_preference_cards')
+      .select('preference_card_id, preference_cards(key, label, description, image_path, sort_order)')
+      .eq('user_id', user.id),
+    supabase
+      .from('user_public_profiles')
+      .select('id, username, name, avatar_path, updated_at')
+      .eq('id', user.id)
+      .maybeSingle(),
+  ])
 
   const selectedCards: CardJoin[] = (selectionResult.data ?? [])
     .map((row) => {
@@ -32,6 +40,21 @@ export default async function FoodPreferencesSummaryPage() {
     })
     .filter((c): c is CardJoin => c !== null)
     .sort((a, b) => a.sort_order - b.sort_order)
+
+  const profile = profileResult.data as {
+    id: string; username: string | null; name: string | null; avatar_path: string | null; updated_at: string | null
+  } | null
+
+  const displayName = profile?.name ?? profile?.username ?? ''
+  const initial = Array.from(displayName.trim())[0] ?? '?'
+  const avatarRaw = profile?.avatar_path
+    ? supabase.storage.from('avatars').getPublicUrl(profile.avatar_path).data.publicUrl
+    : null
+  const avatarUrl = avatarRaw && profile?.updated_at
+    ? `${avatarRaw}?v=${encodeURIComponent(profile.updated_at)}`
+    : avatarRaw
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 
   return (
     <div className="min-h-screen bg-canvas pb-24">
@@ -45,6 +68,30 @@ export default async function FoodPreferencesSummaryPage() {
       </div>
 
       <div className="px-4 pt-4 space-y-4">
+        {/* Profile row */}
+        <div className="flex items-center gap-3">
+          {avatarUrl ? (
+            <Image
+              src={avatarUrl}
+              alt={displayName}
+              width={44}
+              height={44}
+              className="h-11 w-11 rounded-full object-cover"
+              unoptimized
+            />
+          ) : (
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-edge text-base font-bold text-ink-sub">
+              {initial}
+            </span>
+          )}
+          <div className="min-w-0">
+            <p className="font-bold text-ink">{displayName}</p>
+            {profile?.username && (
+              <p className="text-xs text-ink-sub">@{profile.username}</p>
+            )}
+          </div>
+        </div>
+
         <p className="text-sm text-ink-sub">あなたがお店選びで大切にしていること</p>
 
         {selectedCards.length === 0 ? (
@@ -59,33 +106,28 @@ export default async function FoodPreferencesSummaryPage() {
           </div>
         ) : (
           <>
-            {/* 2-column card grid with images */}
+            {/* 2-column card grid — image-top + text-below */}
             <div className="grid grid-cols-2 gap-3">
-              {selectedCards.map((card) => (
-                <div
-                  key={card.key}
-                  className="relative overflow-hidden rounded-2xl bg-surface"
-                  style={{ minHeight: '160px' }}
-                >
-                  {card.image_path ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={card.image_path}
-                      alt=""
-                      className="absolute inset-0 h-full w-full object-cover opacity-80"
-                    />
-                  ) : (
-                    <div className="absolute inset-0 bg-edge" />
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-3">
-                    <p className="text-sm font-bold leading-tight text-white">{card.label}</p>
-                    {card.description && (
-                      <p className="mt-0.5 text-[11px] leading-snug text-white/80 line-clamp-2">{card.description}</p>
-                    )}
+              {selectedCards.map((card) => {
+                const imgSrc = card.image_path
+                  ? `${supabaseUrl}/storage/v1/object/public/preference-card-images/${card.image_path}`
+                  : null
+                return (
+                  <div key={card.key} className="overflow-hidden rounded-2xl border border-edge bg-surface">
+                    <div className="relative h-28 w-full overflow-hidden bg-edge">
+                      {imgSrc && (
+                        <Image src={imgSrc} alt="" fill sizes="50vw" className="object-cover" unoptimized />
+                      )}
+                    </div>
+                    <div className="p-2.5">
+                      <p className="text-sm font-bold leading-snug text-ink">{card.label}</p>
+                      {card.description && (
+                        <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-ink-sub">{card.description}</p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
 
             <Link
