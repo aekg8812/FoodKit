@@ -45,11 +45,11 @@ export default async function RecommendationsPage() {
   return (
     <main className="min-h-screen bg-canvas pb-24">
       {/* Page header */}
-      <div className="flex items-center justify-between px-5 pt-14 pb-4">
+      <div className="flex items-center border-b border-edge bg-canvas px-4 pt-14 pb-3">
         <Suspense>
           <BackButton fallbackHref="/home" label="" />
         </Suspense>
-        <h1 className="text-base font-bold text-ink">あなたへのおすすめ</h1>
+        <h1 className="flex-1 text-center text-base font-bold text-ink">あなたへのおすすめ</h1>
         <div className="w-10" />
       </div>
 
