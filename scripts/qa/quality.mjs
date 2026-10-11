@@ -3,7 +3,7 @@
 
 import { execSync } from 'child_process'
 
-const ROOT = new URL('../../..', import.meta.url).pathname.replace(/\/$/, '')
+const ROOT = new URL('../..', import.meta.url).pathname.replace(/\/$/, '')
 
 function run(label, cmd) {
   console.log(`\n[${label}] ${cmd}`)

@@ -110,10 +110,22 @@ export async function createGroup(admin, userIds) {
 
   // Service role bypasses group_members INSERT RLS
   const { error: memErr } = await admin.from('group_members').insert([
-    { group_id: gid, user_id: userIds.test1, role: 'admin' },
+    { group_id: gid, user_id: userIds.test1, role: 'owner' },
     { group_id: gid, user_id: userIds.test2, role: 'member' },
   ])
   if (memErr) throw new Error(`group_members insert: ${memErr.message}`)
+
+  // Grant group access to a notification-test restaurant so authenticated members can INSERT reviews
+  const { data: notifRest } = await admin.from('restaurants').select('id').eq('name', '台湾料理 聚豊園').maybeSingle()
+  if (notifRest) {
+    await admin.from('restaurant_accesses').insert({
+      restaurant_id: notifRest.id,
+      group_id: gid,
+      visibility: 'group',
+      created_by: userIds.test1,
+    })
+  }
+
   return gid
 }
 
