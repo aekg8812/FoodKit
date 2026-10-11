@@ -36,10 +36,10 @@ type RecRow         = {
 // ── Rating chip ────────────────────────────────────────────────────────────
 
 const SHORT_RATING: Record<number, { label: string; bg: string }> = {
-  4: { label: '常連になりたい', bg: 'bg-terra text-white' },
-  3: { label: 'また行きたい', bg: 'bg-emerald-500 text-white' },
-  2: { label: '一度で十分', bg: 'bg-sky-400 text-white' },
-  1: { label: '二度と行かない', bg: 'bg-red-400 text-white' },
+  4: { label: '常連になりたい', bg: 'bg-emerald-100 text-emerald-700' },
+  3: { label: 'また行きたい',   bg: 'bg-orange-100 text-orange-700' },
+  2: { label: '一度で十分',    bg: 'bg-sky-100 text-sky-700' },
+  1: { label: '二度と行かない', bg: 'bg-red-100 text-red-600' },
 }
 
 function RatingChip({ rating }: { rating: number }) {
@@ -177,7 +177,7 @@ export default async function HomePage() {
       {/* ── Search ───────────────────────────────────────────────────────── */}
       <div className="mb-3 px-5">
         <form action="/search/results" method="get">
-          <label className="flex items-center gap-3 rounded-full border border-edge bg-surface px-4 py-2.5 shadow-sm transition-shadow focus-within:ring-1 focus-within:ring-terra">
+          <label className="flex items-center gap-3 rounded-2xl border border-edge bg-surface px-4 py-2.5 shadow-sm transition-shadow focus-within:ring-1 focus-within:ring-terra">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-ink-sub" aria-hidden="true">
               <circle cx="11" cy="11" r="7" />
               <path d="M21 21l-4.35-4.35" />
@@ -197,11 +197,44 @@ export default async function HomePage() {
       <div className="mb-4 px-5">
         <Link
           href="/search/today"
-          className="flex overflow-hidden rounded-2xl bg-surface shadow-sm"
-          style={{ minHeight: '130px' }}
+          className="relative block overflow-hidden rounded-2xl shadow-sm"
+          style={{ background: '#FFF7F0', minHeight: '164px' }}
         >
-          {/* Left: text content (~65%) */}
-          <div className="flex flex-1 flex-col justify-between p-4">
+          {/* Right: food photo (~44%) */}
+          <div
+            className="absolute inset-y-0 right-0 overflow-hidden"
+            style={{ width: '44%' }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/landing-hero-food.png"
+              alt=""
+              className="h-full w-full object-cover"
+              style={{ objectPosition: '30% center' }}
+              aria-hidden="true"
+            />
+            {/* Cream gradient — blends photo left edge into card background */}
+            <div
+              className="absolute inset-y-0 left-0 w-16"
+              style={{ background: 'linear-gradient(to right, #FFF7F0, transparent)' }}
+              aria-hidden="true"
+            />
+          </div>
+
+          {/* Photo caption */}
+          <p
+            className="absolute right-3 top-3 z-10 text-right text-[11px] font-medium italic leading-snug"
+            style={{ color: 'rgba(47,42,39,0.60)' }}
+            aria-hidden="true"
+          >
+            今日は<br />どんなお店に行く？
+          </p>
+
+          {/* Left content area (~57%) */}
+          <div
+            className="relative z-10 flex flex-col justify-between p-4"
+            style={{ minHeight: '164px', width: '57%' }}
+          >
             <div>
               <div className="flex items-center gap-1.5">
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -213,46 +246,31 @@ export default async function HomePage() {
             </div>
 
             {/* Condition chips */}
-            <div className="mt-2 flex flex-wrap gap-1">
+            <div className="mt-2 flex flex-wrap gap-1.5">
               {['1人', '友達と', '安く', '近くで', 'ゆっくり'].map((chip) => (
                 <span
                   key={chip}
-                  className="rounded-full border border-edge bg-canvas px-2 py-0.5 text-[10px] text-ink"
+                  className="rounded-full border border-edge bg-white/80 px-2.5 py-0.5 text-[11px] text-ink"
                 >
                   {chip}
                 </span>
               ))}
             </div>
 
-            {/* CTA */}
-            <div className="mt-2.5">
-              <span className="inline-block rounded-full bg-terra px-3.5 py-1 text-xs font-bold text-white">
+            {/* CTA — full-width of left column */}
+            <div className="mt-3">
+              <span className="block rounded-full bg-terra py-2.5 text-center text-sm font-bold text-white">
                 条件を設定する ›
               </span>
             </div>
-          </div>
-
-          {/* Right: food photo (~35%) with soft left curve */}
-          <div
-            className="relative shrink-0 overflow-hidden"
-            style={{ width: '130px', borderRadius: '12px 0 0 12px' }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/images/landing-hero-food.png"
-              alt=""
-              className="h-full w-full object-cover"
-              style={{ objectPosition: '35% center' }}
-              aria-hidden="true"
-            />
           </div>
         </Link>
       </div>
 
       {/* ── フォロー中の人の最近の記録 ───────────────────────────────────── */}
       <section className="mb-4 px-5">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-bold text-ink">フォロー中の人の最近の記録</h2>
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-base font-bold text-ink">フォロー中の人の最近の記録</h2>
           {reviews.length > 0 && (
             <Link href="/home/following-records" className="text-xs font-medium text-terra">
               もっと見る ›
@@ -273,62 +291,61 @@ export default async function HomePage() {
             )}
           </div>
         ) : (
-          <div className="divide-y divide-edge overflow-hidden rounded-2xl border border-edge bg-surface">
+          <div className="flex flex-col gap-2">
             {reviews.map((review) => {
-              const restaurant = restaurantMap.get(review.restaurant_id)
-              const profile    = profileMap.get(review.user_id)
-              const avatarUrl  = profile?.avatar_path
+              const restaurant  = restaurantMap.get(review.restaurant_id)
+              const profile     = profileMap.get(review.user_id)
+              const avatarUrl   = profile?.avatar_path
                 ? `${supabaseUrl}/storage/v1/object/public/avatars/${profile.avatar_path}`
                 : null
-              const imageUrl   = review.image_path ? signedUrlMap.get(review.image_path) ?? null : null
-              const initial    = Array.from((profile?.name ?? profile?.username ?? '?').trim())[0] ?? '?'
+              const imageUrl    = review.image_path ? signedUrlMap.get(review.image_path) ?? null : null
+              const displayName = profile?.name ?? profile?.username ?? '...'
+              const initial     = Array.from(displayName.trim())[0] ?? '?'
 
               return (
                 <Link
                   key={review.id}
                   href={`/records/${review.id}`}
-                  className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-canvas"
+                  className="flex items-center gap-3 rounded-2xl border border-edge bg-surface p-3 shadow-sm transition-colors hover:bg-canvas"
                 >
-                  {/* Avatar */}
-                  <div className="shrink-0">
+                  {/* Avatar + username */}
+                  <div className="flex w-12 shrink-0 flex-col items-center gap-0.5">
                     {avatarUrl ? (
                       <Image
                         src={avatarUrl}
-                        alt={profile?.name ?? ''}
-                        width={36}
-                        height={36}
-                        className="h-9 w-9 rounded-full object-cover"
+                        alt={displayName}
+                        width={40}
+                        height={40}
+                        className="h-10 w-10 rounded-full object-cover"
                         unoptimized
                       />
                     ) : (
-                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-edge text-sm font-semibold text-ink-sub">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-edge text-sm font-semibold text-ink-sub">
                         {initial}
                       </span>
                     )}
+                    <span className="w-full truncate text-center text-[10px] text-ink-sub">{displayName}</span>
                   </div>
 
-                  {/* Content */}
+                  {/* Food thumbnail (only when signed URL exists) */}
+                  {imageUrl && (
+                    <Image
+                      src={imageUrl}
+                      alt=""
+                      width={52}
+                      height={52}
+                      className="h-[52px] w-[52px] shrink-0 rounded-xl object-cover"
+                      unoptimized
+                    />
+                  )}
+
+                  {/* Text area */}
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-ink">
-                        {profile?.name ?? profile?.username ?? '（名前なし）'}
-                      </span>
-                      <RatingChip rating={review.rating} />
-                    </div>
-                    <div className="mt-0.5 flex items-center gap-2">
-                      {imageUrl && (
-                        <Image
-                          src={imageUrl}
-                          alt=""
-                          width={40}
-                          height={40}
-                          className="h-10 w-10 shrink-0 rounded-lg object-cover"
-                          unoptimized
-                        />
-                      )}
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                       {restaurant && (
-                        <span className="truncate text-xs font-semibold text-ink">{restaurant.name}</span>
+                        <span className="truncate text-sm font-semibold text-ink">{restaurant.name}</span>
                       )}
+                      <RatingChip rating={review.rating} />
                     </div>
                     {review.comment && (
                       <p className="mt-0.5 line-clamp-1 text-xs text-ink-sub">{review.comment}</p>
@@ -346,9 +363,9 @@ export default async function HomePage() {
 
       {/* ── あなたへのおすすめ ────────────────────────────────────────────── */}
       <section className="mb-4 px-5">
-        <div className="mb-3 flex items-start justify-between">
+        <div className="mb-2 flex items-start justify-between">
           <div>
-            <h2 className="text-sm font-bold text-ink">あなたへのおすすめ</h2>
+            <h2 className="text-base font-bold text-ink">あなたへのおすすめ</h2>
             <p className="mt-0.5 text-xs text-ink-sub">好みが近い人の記録をもとにおすすめしています</p>
           </div>
           {recs.length > 0 && (
@@ -382,25 +399,20 @@ export default async function HomePage() {
               <Link
                 key={rec.restaurant_id}
                 href={`/restaurants/${rec.restaurant_id}`}
-                className="overflow-hidden rounded-2xl border border-edge bg-surface shadow-sm transition-opacity hover:opacity-90"
+                className="flex flex-col overflow-hidden rounded-2xl border border-edge bg-surface p-3 shadow-sm transition-opacity hover:opacity-90"
               >
-                {/* Genre accent header — intentional text-focused design */}
-                <div className="flex items-center gap-1.5 border-b border-edge/60 bg-[#FFF7F0] px-3 py-2.5">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <line x1="8" y1="2" x2="8" y2="22" />
-                    <path d="M6 2v4a2 2 0 0 0 4 0V2" />
-                  </svg>
-                  <span className="truncate text-[11px] font-medium text-terra">
-                    {rec.genre ?? 'レストラン'}
-                  </span>
-                </div>
+                {/* Restaurant name + genre */}
+                <p className="line-clamp-2 text-sm font-bold leading-snug text-ink">{rec.name}</p>
+                {rec.genre && (
+                  <p className="mt-0.5 truncate text-xs text-ink-sub">{rec.genre}</p>
+                )}
 
-                {/* Info */}
-                <div className="px-3 pt-2.5 pb-3">
-                  <p className="line-clamp-2 text-sm font-bold leading-snug text-ink">{rec.name}</p>
+                {/* Spacer pushes evidence box to bottom */}
+                <div className="min-h-[8px] flex-1" />
 
-                  {/* Evidence badge */}
-                  <div className="mt-2 flex items-start gap-1 rounded-lg bg-terra/10 px-2 py-1.5">
+                {/* Evidence box */}
+                <div className="mt-2.5 rounded-lg bg-terra/10 px-2 py-1.5">
+                  <div className="flex items-start gap-1">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0" aria-hidden="true">
                       <circle cx="9" cy="7" r="3" />
                       <path d="M3 21v-2a5 5 0 0 1 5-5h2" />
@@ -418,8 +430,8 @@ export default async function HomePage() {
 
       {/* ── グループで店を探す ────────────────────────────────────────────── */}
       <section className="mb-4 px-5">
-        <div className="mb-3">
-          <h2 className="text-sm font-bold text-ink">グループで店を探す</h2>
+        <div className="mb-2">
+          <h2 className="text-base font-bold text-ink">グループで店を探す</h2>
           <p className="mt-0.5 text-xs text-ink-sub">みんなの好みに合うお店を見つける</p>
         </div>
 
@@ -428,7 +440,7 @@ export default async function HomePage() {
             <Link
               key={group.id}
               href={`/groups/${group.id}`}
-              className="flex shrink-0 items-center gap-1.5 rounded-full border border-edge bg-surface px-3 py-2 text-xs text-ink whitespace-nowrap"
+              className="flex shrink-0 items-center gap-2 rounded-xl border border-edge bg-surface px-3 py-2.5 shadow-sm whitespace-nowrap"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <circle cx="9" cy="7" r="3" />
@@ -436,13 +448,13 @@ export default async function HomePage() {
                 <circle cx="17" cy="9" r="3" />
                 <path d="M21 21v-2a5 5 0 0 0-5-5h-2" />
               </svg>
-              <span className="font-medium">{group.name}</span>
-              <span className="text-ink-sub" aria-hidden="true">›</span>
+              <span className="text-xs font-medium text-ink">{group.name}</span>
+              <span className="text-xs text-ink-sub" aria-hidden="true">›</span>
             </Link>
           ))}
           <Link
             href="/groups"
-            className="shrink-0 rounded-full border border-terra px-3 py-2 text-xs font-bold text-terra whitespace-nowrap"
+            className="shrink-0 rounded-xl border border-terra px-3 py-2.5 text-xs font-bold text-terra whitespace-nowrap"
           >
             グループを見る ›
           </Link>
