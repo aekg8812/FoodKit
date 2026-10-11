@@ -7,9 +7,9 @@ import { createClient } from '@/lib/supabase/client'
 
 function FoodKitLogoStacked() {
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex flex-col items-center gap-0.5">
       {/* Fork + Spoon icons */}
-      <svg width="56" height="44" viewBox="0 0 56 44" fill="none" aria-label="FoodKit" role="img">
+      <svg width="42" height="34" viewBox="0 0 56 44" fill="none" aria-label="FoodKit" role="img">
         {/* Fork */}
         <g transform="translate(4, 2) rotate(-10, 10, 22)">
           <line x1="10" y1="0" x2="10" y2="38" stroke="#F97316" strokeWidth="3" strokeLinecap="round" />
@@ -24,7 +24,7 @@ function FoodKitLogoStacked() {
         </g>
       </svg>
       {/* Wordmark */}
-      <span className="text-[28px] font-black leading-none tracking-tight text-ink" style={{ fontFamily: 'system-ui, sans-serif' }}>
+      <span className="text-[22px] font-black leading-none tracking-tight text-ink" style={{ fontFamily: 'system-ui, sans-serif' }}>
         FoodKit
       </span>
     </div>
@@ -33,40 +33,40 @@ function FoodKitLogoStacked() {
 
 function FoodIllustrations() {
   return (
-    <div className="relative w-full overflow-hidden" style={{ height: '180px' }}>
+    <div className="pointer-events-none relative w-full overflow-hidden" style={{ height: '140px' }}>
       {/* Wavy peach background */}
       <svg
-        viewBox="0 0 375 180"
+        viewBox="0 0 375 140"
         preserveAspectRatio="none"
         className="absolute inset-0 h-full w-full"
         aria-hidden="true"
       >
         <path
-          d="M0,70 C60,30 120,50 187,40 C254,30 310,55 375,45 L375,180 L0,180 Z"
+          d="M0,55 C60,25 120,40 187,32 C254,24 310,44 375,36 L375,140 L0,140 Z"
           fill="#FFE8D6"
+          opacity="0.7"
         />
       </svg>
       {/* Decorative dots */}
-      <span className="absolute left-[15%] top-[30px] h-1.5 w-1.5 rounded-full bg-terra/30" aria-hidden="true" />
-      <span className="absolute left-[55%] top-[20px] h-1.5 w-1.5 rounded-full bg-terra/30" aria-hidden="true" />
-      <span className="absolute right-[15%] top-[35px] h-1.5 w-1.5 rounded-full bg-terra/30" aria-hidden="true" />
-      <span className="absolute left-[40%] bottom-[30px] h-1 w-1 rounded-full bg-terra/20" aria-hidden="true" />
+      <span className="absolute left-[15%] top-[22px] h-1 w-1 rounded-full bg-terra/20" aria-hidden="true" />
+      <span className="absolute left-[55%] top-[14px] h-1 w-1 rounded-full bg-terra/20" aria-hidden="true" />
+      <span className="absolute right-[15%] top-[26px] h-1 w-1 rounded-full bg-terra/20" aria-hidden="true" />
       {/* Food illustrations */}
       <svg
-        viewBox="0 0 375 180"
+        viewBox="0 0 375 140"
         className="absolute inset-0 h-full w-full"
         fill="none"
         aria-hidden="true"
       >
         {/* Bowl / ramen */}
-        <g transform="translate(42, 75)" stroke="#F9A17C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <g transform="translate(42, 60)" stroke="#F9A17C" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" opacity="0.7">
           <ellipse cx="28" cy="8" rx="28" ry="8" />
           <path d="M4 8 Q0 28 28 32 Q56 28 52 8" />
           <path d="M12 0 Q14 -8 16 0" />
           <path d="M28 0 Q30 -8 32 0" />
         </g>
         {/* Pizza slice */}
-        <g transform="translate(167, 68)" stroke="#F9A17C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <g transform="translate(167, 54)" stroke="#F9A17C" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" opacity="0.7">
           <path d="M20 0 L0 40 L40 40 Z" />
           <path d="M0 40 Q20 44 40 40" />
           <circle cx="20" cy="28" r="3" />
@@ -74,7 +74,7 @@ function FoodIllustrations() {
           <circle cx="28" cy="20" r="2" />
         </g>
         {/* Burger */}
-        <g transform="translate(296, 72)" stroke="#F9A17C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <g transform="translate(296, 58)" stroke="#F9A17C" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" opacity="0.7">
           <path d="M4 10 Q20 0 36 10" />
           <rect x="2" y="10" width="36" height="7" rx="2" />
           <rect x="0" y="17" width="40" height="6" rx="1" />
@@ -121,7 +121,7 @@ export default function ForgotPasswordPage() {
   return (
     <main className="relative flex min-h-screen flex-col overflow-hidden bg-canvas">
       {/* Back button */}
-      <div className="px-5 pt-14">
+      <div className="px-5 pt-6">
         <Link href="/login" className="inline-flex h-10 w-10 items-center justify-center text-ink" aria-label="ログインに戻る">
           <svg width="10" height="18" viewBox="0 0 10 18" fill="none" aria-hidden="true">
             <path d="M9 1 L1 9 L9 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -130,7 +130,7 @@ export default function ForgotPasswordPage() {
       </div>
 
       {/* Logo */}
-      <div className="pt-3 pb-6 text-center">
+      <div className="pt-1 pb-3 text-center">
         <FoodKitLogoStacked />
       </div>
 
@@ -165,7 +165,7 @@ export default function ForgotPasswordPage() {
 
               <Link
                 href="/login"
-                className="mt-8 flex h-[52px] w-full items-center justify-center rounded-xl bg-terra text-base font-bold text-white"
+                className="mt-6 flex h-[48px] w-full items-center justify-center rounded-xl bg-terra text-sm font-bold text-white"
               >
                 ログイン画面に戻る
               </Link>
@@ -173,14 +173,14 @@ export default function ForgotPasswordPage() {
           ) : (
             /* ── Form state ── */
             <div>
-              <h1 className="mb-2 text-center text-2xl font-black text-ink">パスワードを再設定</h1>
-              <p className="mb-6 text-center text-sm leading-relaxed text-ink-sub">
+              <h1 className="mb-2 text-center text-xl font-black text-ink">パスワードを再設定</h1>
+              <p className="mb-4 text-center text-xs leading-relaxed text-ink-sub">
                 FoodKitに登録しているメールアドレスを<br />
                 入力してください。<br />
                 パスワード再設定用のメールをお送りします。
               </p>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-3">
                 <div>
                   <label htmlFor="email" className="block text-sm font-bold text-ink">
                     メールアドレス
@@ -200,7 +200,7 @@ export default function ForgotPasswordPage() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       autoComplete="email"
-                      className="w-full rounded-xl border border-edge bg-surface py-3 pl-9 pr-3 text-base text-ink placeholder:text-ink-sub/60 focus:border-terra focus:outline-none"
+                      className="w-full rounded-xl border border-edge bg-surface py-2.5 pl-9 pr-3 text-sm text-ink placeholder:text-ink-sub/60 focus:border-terra focus:outline-none"
                     />
                   </div>
                 </div>
@@ -210,7 +210,7 @@ export default function ForgotPasswordPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-terra text-base font-bold text-white disabled:opacity-50"
+                  className="mt-1 flex h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-terra text-sm font-bold text-white disabled:opacity-50"
                 >
                   {loading && (
                     <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -222,8 +222,8 @@ export default function ForgotPasswordPage() {
                 </button>
               </form>
 
-              <div className="mt-5 text-center">
-                <Link href="/login" className="text-sm font-medium text-terra">
+              <div className="mt-3 text-center">
+                <Link href="/login" className="text-xs font-medium text-terra">
                   ログイン画面に戻る
                 </Link>
               </div>
