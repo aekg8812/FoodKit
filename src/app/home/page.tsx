@@ -198,14 +198,13 @@ export default async function HomePage() {
         <Link
           href="/search/today"
           className="flex overflow-hidden rounded-2xl bg-surface shadow-sm"
-          style={{ minHeight: '140px' }}
+          style={{ minHeight: '130px' }}
         >
-          {/* Left: text content */}
+          {/* Left: text content (~65%) */}
           <div className="flex flex-1 flex-col justify-between p-4">
             <div>
               <div className="flex items-center gap-1.5">
-                {/* Sparkle icon */}
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                   <path d="M8 0 L9.2 5.8 L15 8 L9.2 10.2 L8 16 L6.8 10.2 L1 8 L6.8 5.8 Z" fill="#F97316" />
                 </svg>
                 <span className="text-sm font-bold text-ink">今日のお店</span>
@@ -214,11 +213,11 @@ export default async function HomePage() {
             </div>
 
             {/* Condition chips */}
-            <div className="mt-2 flex flex-wrap gap-1.5">
+            <div className="mt-2 flex flex-wrap gap-1">
               {['1人', '友達と', '安く', '近くで', 'ゆっくり'].map((chip) => (
                 <span
                   key={chip}
-                  className="rounded-full border border-edge bg-canvas px-2.5 py-0.5 text-[11px] text-ink"
+                  className="rounded-full border border-edge bg-canvas px-2 py-0.5 text-[10px] text-ink"
                 >
                   {chip}
                 </span>
@@ -226,20 +225,24 @@ export default async function HomePage() {
             </div>
 
             {/* CTA */}
-            <div className="mt-3">
-              <span className="inline-block rounded-full bg-terra px-4 py-1.5 text-xs font-bold text-white">
+            <div className="mt-2.5">
+              <span className="inline-block rounded-full bg-terra px-3.5 py-1 text-xs font-bold text-white">
                 条件を設定する ›
               </span>
             </div>
           </div>
 
-          {/* Right: food photo */}
-          <div className="relative w-[120px] shrink-0 overflow-hidden">
+          {/* Right: food photo (~35%) with soft left curve */}
+          <div
+            className="relative shrink-0 overflow-hidden"
+            style={{ width: '130px', borderRadius: '12px 0 0 12px' }}
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/images/landing-hero-food.png"
               alt=""
-              className="h-full w-full object-cover object-center"
+              className="h-full w-full object-cover"
+              style={{ objectPosition: '35% center' }}
               aria-hidden="true"
             />
           </div>
@@ -381,23 +384,24 @@ export default async function HomePage() {
                 href={`/restaurants/${rec.restaurant_id}`}
                 className="overflow-hidden rounded-2xl border border-edge bg-surface shadow-sm transition-opacity hover:opacity-90"
               >
-                {/* Photo placeholder — no restaurant image in DB */}
-                <div
-                  className="h-20 w-full"
-                  style={{ background: 'linear-gradient(135deg, #FFF3E6 0%, #FDD9B5 100%)' }}
-                  aria-hidden="true"
-                />
+                {/* Genre accent header — intentional text-focused design */}
+                <div className="flex items-center gap-1.5 border-b border-edge/60 bg-[#FFF7F0] px-3 py-2.5">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <line x1="8" y1="2" x2="8" y2="22" />
+                    <path d="M6 2v4a2 2 0 0 0 4 0V2" />
+                  </svg>
+                  <span className="truncate text-[11px] font-medium text-terra">
+                    {rec.genre ?? 'レストラン'}
+                  </span>
+                </div>
 
                 {/* Info */}
-                <div className="p-3">
-                  <p className="truncate text-sm font-bold text-ink">{rec.name}</p>
-                  {rec.genre && (
-                    <p className="mt-0.5 truncate text-xs text-ink-sub">{rec.genre}</p>
-                  )}
+                <div className="px-3 pt-2.5 pb-3">
+                  <p className="line-clamp-2 text-sm font-bold leading-snug text-ink">{rec.name}</p>
 
                   {/* Evidence badge */}
-                  <div className="mt-2 flex items-start gap-1.5 rounded-xl bg-terra/10 px-2 py-1.5">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0" aria-hidden="true">
+                  <div className="mt-2 flex items-start gap-1 rounded-lg bg-terra/10 px-2 py-1.5">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0" aria-hidden="true">
                       <circle cx="9" cy="7" r="3" />
                       <path d="M3 21v-2a5 5 0 0 1 5-5h2" />
                       <circle cx="17" cy="9" r="3" />
