@@ -614,7 +614,40 @@ async function main() {
       t.assert(!data || data.length === 0, 'outsider should not get group recommendations')
     })
 
-    t.skip_('GROUPREC-06', '0 valid preference member scenario', 'requires separate fixture without preference cards')
+    await t.check('GROUPREC-06', '0 valid preference member group returns empty recommendations', async () => {
+      const tmpEmail = `qa_grp6_${Date.now()}@foodkit.local`
+      const { data: tmpData, error: tmpErr } = await admin.auth.admin.createUser({
+        email: tmpEmail, password: QA_PASSWORD, email_confirm: true,
+        user_metadata: { name: 'QA Temp GrpRec6' },
+      })
+      if (tmpErr) throw new Error(`temp user: ${tmpErr.message}`)
+      const tmpUid = tmpData.user.id
+
+      const { data: tmpGrp, error: gErr } = await admin.from('groups').insert({
+        name: 'QA Tmp ZeroValid', invite_code: `qa-zvm-${Date.now()}`, created_by: tmpUid,
+      }).select('id').single()
+      if (gErr) { await admin.auth.admin.deleteUser(tmpUid); throw new Error(`temp group: ${gErr.message}`) }
+      const tmpGid = tmpGrp.id
+
+      await admin.from('group_members').insert({ group_id: tmpGid, user_id: tmpUid, role: 'member' })
+
+      try {
+        const tmpClient = await signInAs(tmpEmail)
+
+        // Summary: valid_member_count should be 0 (tmpUser has 0 cards < 5 threshold)
+        const { data: summary } = await tmpClient.rpc('get_group_preference_summary', { p_group_id: tmpGid })
+        const allZero = (summary ?? []).every(r => Number(r.valid_member_count) === 0)
+        t.assert(allZero || (summary ?? []).length === 0, `expected valid_member_count=0 everywhere`)
+
+        // Recommendations: empty because no valid members
+        const { data: recs, error: recErr } = await tmpClient.rpc('get_group_recommendations_v2', { p_group_id: tmpGid })
+        t.assert(!recErr, recErr?.message)
+        t.assert((recs ?? []).length === 0, `expected 0 recs for 0-valid-member group, got ${recs?.length}`)
+      } finally {
+        await admin.from('groups').delete().eq('id', tmpGid)
+        await admin.auth.admin.deleteUser(tmpUid)
+      }
+    })
   })
 
   // ───────────────────────────────────────────────────────────────────────────
