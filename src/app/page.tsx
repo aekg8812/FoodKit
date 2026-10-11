@@ -35,7 +35,7 @@ export default async function LandingPage() {
       />
       {/* Bottom-right orange blob */}
       <div
-        className="pointer-events-none absolute -right-6 bottom-[140px] h-[140px] w-[140px] rounded-[50%_40%_60%_50%/60%_50%_45%_55%] opacity-70"
+        className="pointer-events-none absolute -right-6 bottom-[100px] h-[90px] w-[90px] rounded-[50%_40%_60%_50%/60%_50%_45%_55%] opacity-35"
         style={{ background: '#FDBA74' }}
         aria-hidden="true"
       />
@@ -106,7 +106,7 @@ export default async function LandingPage() {
         </div>
 
         {/* Hero food image with organic blob mask + accent dashes */}
-        <div className="relative w-full" style={{ height: '260px' }}>
+        <div className="relative w-full" style={{ height: '280px' }}>
           {/* Orange accent dashes */}
           <span
             className="pointer-events-none absolute right-[28px] top-[8px] h-[3px] w-[18px] rounded-full bg-terra"
@@ -131,18 +131,18 @@ export default async function LandingPage() {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/images/hero-food.png"
+              src="/images/landing-hero-food.png"
               alt=""
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover object-center"
               aria-hidden="true"
             />
           </div>
         </div>
 
         {/* Headline */}
-        <div className="px-6 pt-5">
+        <div className="px-5 pt-5">
           <h1
-            className="text-[32px] font-black leading-[1.25] text-ink"
+            className="text-[22px] font-black leading-[1.4] text-ink"
             style={{ fontFamily: "'Nunito', 'Hiragino Sans', system-ui, sans-serif" }}
           >
             次のお店を、
