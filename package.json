@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "qa:reset": "node scripts/qa/reset.mjs",
+    "qa:smoke": "node scripts/qa/smoke.mjs",
+    "qa:quality": "node scripts/qa/quality.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
