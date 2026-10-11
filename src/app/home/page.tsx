@@ -200,10 +200,10 @@ export default async function HomePage() {
           className="relative block overflow-hidden rounded-2xl shadow-sm"
           style={{ background: '#FFF7F0', minHeight: '164px' }}
         >
-          {/* Right: food photo (~44%) */}
+          {/* Right: food photo (~39%) */}
           <div
             className="absolute inset-y-0 right-0 overflow-hidden"
-            style={{ width: '44%' }}
+            style={{ width: '39%' }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -215,25 +215,25 @@ export default async function HomePage() {
             />
             {/* Cream gradient — blends photo left edge into card background */}
             <div
-              className="absolute inset-y-0 left-0 w-16"
+              className="absolute inset-y-0 left-0 w-14"
               style={{ background: 'linear-gradient(to right, #FFF7F0, transparent)' }}
               aria-hidden="true"
             />
           </div>
 
-          {/* Photo caption */}
+          {/* Photo caption — small/dim, secondary visual only */}
           <p
-            className="absolute right-3 top-3 z-10 text-right text-[11px] font-medium italic leading-snug"
-            style={{ color: 'rgba(47,42,39,0.60)' }}
+            className="absolute right-2.5 top-3 z-10 text-right text-[10px] italic leading-snug"
+            style={{ color: 'rgba(47,42,39,0.40)' }}
             aria-hidden="true"
           >
             今日は<br />どんなお店に行く？
           </p>
 
-          {/* Left content area (~57%) */}
+          {/* Left content area (~63%) */}
           <div
             className="relative z-10 flex flex-col justify-between p-4"
-            style={{ minHeight: '164px', width: '57%' }}
+            style={{ minHeight: '164px', width: '63%' }}
           >
             <div>
               <div className="flex items-center gap-1.5">
@@ -306,25 +306,24 @@ export default async function HomePage() {
                 <Link
                   key={review.id}
                   href={`/records/${review.id}`}
-                  className="flex items-center gap-3 rounded-2xl border border-edge bg-surface p-3 shadow-sm transition-colors hover:bg-canvas"
+                  className="flex items-center gap-2.5 rounded-2xl border border-edge bg-surface px-3 py-2.5 shadow-sm transition-colors hover:bg-canvas"
                 >
-                  {/* Avatar + username */}
-                  <div className="flex w-12 shrink-0 flex-col items-center gap-0.5">
+                  {/* Avatar only — no label below */}
+                  <div className="shrink-0">
                     {avatarUrl ? (
                       <Image
                         src={avatarUrl}
                         alt={displayName}
-                        width={40}
-                        height={40}
-                        className="h-10 w-10 rounded-full object-cover"
+                        width={36}
+                        height={36}
+                        className="h-9 w-9 rounded-full object-cover"
                         unoptimized
                       />
                     ) : (
-                      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-edge text-sm font-semibold text-ink-sub">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-edge text-sm font-semibold text-ink-sub">
                         {initial}
                       </span>
                     )}
-                    <span className="w-full truncate text-center text-[10px] text-ink-sub">{displayName}</span>
                   </div>
 
                   {/* Food thumbnail (only when signed URL exists) */}
@@ -332,18 +331,19 @@ export default async function HomePage() {
                     <Image
                       src={imageUrl}
                       alt=""
-                      width={52}
-                      height={52}
-                      className="h-[52px] w-[52px] shrink-0 rounded-xl object-cover"
+                      width={48}
+                      height={48}
+                      className="h-12 w-12 shrink-0 rounded-xl object-cover"
                       unoptimized
                     />
                   )}
 
-                  {/* Text area */}
+                  {/* Text area: username / restaurant + chip / comment */}
                   <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <p className="truncate text-xs font-medium text-ink-sub">{displayName}</p>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                       {restaurant && (
-                        <span className="truncate text-sm font-semibold text-ink">{restaurant.name}</span>
+                        <span className="truncate text-sm font-bold text-ink">{restaurant.name}</span>
                       )}
                       <RatingChip rating={review.rating} />
                     </div>
@@ -399,7 +399,7 @@ export default async function HomePage() {
               <Link
                 key={rec.restaurant_id}
                 href={`/restaurants/${rec.restaurant_id}`}
-                className="flex flex-col overflow-hidden rounded-2xl border border-edge bg-surface p-3 shadow-sm transition-opacity hover:opacity-90"
+                className="flex flex-col overflow-hidden rounded-2xl border border-edge bg-surface p-2.5 shadow-sm transition-opacity hover:opacity-90"
               >
                 {/* Restaurant name + genre */}
                 <p className="line-clamp-2 text-sm font-bold leading-snug text-ink">{rec.name}</p>
@@ -408,10 +408,10 @@ export default async function HomePage() {
                 )}
 
                 {/* Spacer pushes evidence box to bottom */}
-                <div className="min-h-[8px] flex-1" />
+                <div className="min-h-[6px] flex-1" />
 
                 {/* Evidence box */}
-                <div className="mt-2.5 rounded-lg bg-terra/10 px-2 py-1.5">
+                <div className="mt-2 rounded-lg bg-terra/10 px-2 py-1.5">
                   <div className="flex items-start gap-1">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0" aria-hidden="true">
                       <circle cx="9" cy="7" r="3" />
