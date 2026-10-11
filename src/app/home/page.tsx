@@ -156,7 +156,7 @@ export default async function HomePage() {
     <main className="min-h-screen bg-canvas pb-24">
 
       {/* ── Header ───────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-5 pt-14 pb-3">
+      <div className="flex items-center justify-between px-5 pt-10 pb-2">
         <div className="w-10" />
         <h1 className="text-base font-bold text-ink">ホーム</h1>
         <Link
@@ -175,9 +175,9 @@ export default async function HomePage() {
       </div>
 
       {/* ── Search ───────────────────────────────────────────────────────── */}
-      <div className="mb-4 px-5">
+      <div className="mb-3 px-5">
         <form action="/search/results" method="get">
-          <label className="flex items-center gap-3 rounded-full border border-edge bg-surface px-4 py-3 shadow-sm transition-shadow focus-within:ring-1 focus-within:ring-terra">
+          <label className="flex items-center gap-3 rounded-full border border-edge bg-surface px-4 py-2.5 shadow-sm transition-shadow focus-within:ring-1 focus-within:ring-terra">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-ink-sub" aria-hidden="true">
               <circle cx="11" cy="11" r="7" />
               <path d="M21 21l-4.35-4.35" />
@@ -194,7 +194,7 @@ export default async function HomePage() {
       </div>
 
       {/* ── 今日のお店 ────────────────────────────────────────────────────── */}
-      <div className="mb-6 px-5">
+      <div className="mb-4 px-5">
         <Link
           href="/search/today"
           className="flex overflow-hidden rounded-2xl bg-surface shadow-sm"
@@ -234,27 +234,20 @@ export default async function HomePage() {
           </div>
 
           {/* Right: food photo */}
-          <div className="relative w-[140px] shrink-0 overflow-hidden">
+          <div className="relative w-[120px] shrink-0 overflow-hidden">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/images/hero-food.png"
+              src="/images/landing-hero-food.png"
               alt=""
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover object-center"
               aria-hidden="true"
             />
-            <span
-              className="absolute right-2 top-3 max-w-[80px] text-right text-[11px] font-bold leading-snug text-white"
-              style={{ textShadow: '0 1px 4px rgba(0,0,0,0.6)' }}
-              aria-hidden="true"
-            >
-              今日は<br />どんなお店に行く？
-            </span>
           </div>
         </Link>
       </div>
 
       {/* ── フォロー中の人の最近の記録 ───────────────────────────────────── */}
-      <section className="mb-6 px-5">
+      <section className="mb-4 px-5">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-bold text-ink">フォロー中の人の最近の記録</h2>
           {reviews.length > 0 && (
@@ -349,7 +342,7 @@ export default async function HomePage() {
       </section>
 
       {/* ── あなたへのおすすめ ────────────────────────────────────────────── */}
-      <section className="mb-6 px-5">
+      <section className="mb-4 px-5">
         <div className="mb-3 flex items-start justify-between">
           <div>
             <h2 className="text-sm font-bold text-ink">あなたへのおすすめ</h2>
@@ -388,9 +381,9 @@ export default async function HomePage() {
                 href={`/restaurants/${rec.restaurant_id}`}
                 className="overflow-hidden rounded-2xl border border-edge bg-surface shadow-sm transition-opacity hover:opacity-90"
               >
-                {/* Photo placeholder */}
+                {/* Photo placeholder — no restaurant image in DB */}
                 <div
-                  className="h-28 w-full"
+                  className="h-20 w-full"
                   style={{ background: 'linear-gradient(135deg, #FFF3E6 0%, #FDD9B5 100%)' }}
                   aria-hidden="true"
                 />
@@ -420,7 +413,7 @@ export default async function HomePage() {
       </section>
 
       {/* ── グループで店を探す ────────────────────────────────────────────── */}
-      <section className="mb-6 px-5">
+      <section className="mb-4 px-5">
         <div className="mb-3">
           <h2 className="text-sm font-bold text-ink">グループで店を探す</h2>
           <p className="mt-0.5 text-xs text-ink-sub">みんなの好みに合うお店を見つける</p>
