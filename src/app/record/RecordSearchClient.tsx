@@ -141,31 +141,76 @@ export default function RecordSearchClient({ recentRestaurants }: Props) {
         </div>
       )}
 
-      {/* Not found CTA */}
-      <div className="overflow-hidden rounded-2xl bg-[#FFF3EC] p-4">
-        <div className="flex items-start gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-terra/20">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {/* Search wider / not found CTA */}
+      <div className="space-y-3">
+        {/* Search FoodKit + Google if there's a query */}
+        {query.trim().length >= 2 && (
+          <Link
+            href={`/search/results?q=${encodeURIComponent(query.trim())}&from=record`}
+            className="flex h-[48px] w-full items-center justify-center gap-1.5 rounded-full border border-terra text-sm font-medium text-terra"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#F97316"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
               <circle cx="11" cy="11" r="7" />
               <path d="M21 21l-4.35-4.35" />
             </svg>
+            「{query.trim()}」をFoodKit全体で検索する
+          </Link>
+        )}
+
+        <div className="overflow-hidden rounded-2xl bg-[#FFF3EC] p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-terra/20">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#F97316"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="M21 21l-4.35-4.35" />
+              </svg>
+            </div>
+            <div>
+              <p className="font-bold text-ink">お店が見つかりませんか？</p>
+              <p className="mt-0.5 text-xs leading-relaxed text-ink-sub">
+                FoodKitにまだ登録されていないお店は新しく追加できます
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="font-bold text-ink">お店が見つかりませんか？</p>
-            <p className="mt-0.5 text-xs leading-relaxed text-ink-sub">
-              FoodKitにまだ登録されていないお店は新しく追加できます
-            </p>
-          </div>
+          <Link
+            href={`/restaurants/new?from=record${query ? `&name=${encodeURIComponent(query)}` : ''}`}
+            className="mt-3 flex h-[48px] items-center justify-center gap-1.5 rounded-full border-2 border-terra text-base font-bold text-terra"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#F97316"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              aria-hidden="true"
+            >
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            新しい飲食店を登録
+          </Link>
         </div>
-        <Link
-          href={`/restaurants/new?from=record${query ? `&name=${encodeURIComponent(query)}` : ''}`}
-          className="mt-3 flex h-[48px] items-center justify-center gap-1.5 rounded-full border-2 border-terra text-base font-bold text-terra"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-          新しい飲食店を登録
-        </Link>
       </div>
     </div>
   )

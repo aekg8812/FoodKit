@@ -6,6 +6,8 @@ export type RestaurantSearchResult = {
   area: string | null
   genre: string | null
   address: string | null
+  main_image_path: string | null
+  external_place_id: string | null
 }
 
 export type RestaurantSearchFilters = {
@@ -33,7 +35,7 @@ export async function searchRestaurants(
 
   let request = supabase
     .from('restaurants')
-    .select('id, name, area, genre, address')
+    .select('id, name, area, genre, address, main_image_path, external_place_id')
     .order('name')
 
   if (normalizedQuery) {
@@ -60,7 +62,7 @@ export async function findDuplicateRestaurantCandidates(
 
   let request = supabase
     .from('restaurants')
-    .select('id, name, area, genre, address')
+    .select('id, name, area, genre, address, main_image_path, external_place_id')
     .ilike('name', `%${escapeLikePattern(normalizedName)}%`)
     .order('name')
     .limit(5)

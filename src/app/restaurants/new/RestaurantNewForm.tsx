@@ -2,10 +2,11 @@
 
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Link from 'next/link'
 import BottomNav from '@/components/BottomNav'
 import ErrorMessage from '@/components/ui/ErrorMessage'
+import RestaurantMainImage from '@/components/RestaurantMainImage'
 import { RESTAURANT_GENRES } from '@/lib/restaurants/genres'
 import { createRestaurant } from '@/lib/restaurants/create'
 import { ensureRestaurantAccesses } from '@/lib/restaurants/access'
@@ -13,11 +14,17 @@ import {
   findDuplicateRestaurantCandidates,
   type RestaurantSearchResult,
 } from '@/lib/restaurants/search'
+import { createRestaurantAction } from './actions'
+
+const RESTAURANT_IMAGE_BUCKET = 'restaurant-images'
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024
+const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp']
 
 type FormStep =
   | { kind: 'form' }
   | { kind: 'duplicate_warning'; candidates: RestaurantSearchResult[] }
   | { kind: 'access_failed'; restaurantId: string }
+  | { kind: 'image_failed'; restaurantId: string }
 
 function logError(err: unknown) {
   if (err !== null && typeof err === 'object') {
@@ -44,6 +51,7 @@ type Props = {
   initialArea?: string
   initialGenre?: string
   successDestination?: 'restaurant' | 'record'
+  initialExternalPlaceId?: string
 }
 
 function RequiredBadge() {
@@ -74,6 +82,7 @@ export default function RestaurantNewForm({
   initialArea = '',
   initialGenre = '',
   successDestination = 'restaurant',
+  initialExternalPlaceId,
 }: Props) {
   const router = useRouter()
   const supabase = createClient()
@@ -84,6 +93,8 @@ export default function RestaurantNewForm({
 
   const backHref = successDestination === 'record' ? '/record' : '/restaurants/search'
 
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   const [step, setStep] = useState<FormStep>({ kind: 'form' })
   const [name, setName] = useState(initialName)
   const [genre, setGenre] = useState(initialGenre)
@@ -91,6 +102,36 @@ export default function RestaurantNewForm({
   const [submitting, setSubmitting] = useState(false)
   const [selectingCandidateId, setSelectingCandidateId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // Image state
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
+  const [imageError, setImageError] = useState<string | null>(null)
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImageError(null)
+    if (!ALLOWED_MIME.includes(file.type)) {
+      setImageError('jpeg、png、webp の画像を選択してください')
+      e.target.value = ''
+      return
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      setImageError('5MB以下の画像を選択してください')
+      e.target.value = ''
+      return
+    }
+    setImageFile(file)
+    setImagePreviewUrl(URL.createObjectURL(file))
+  }
+
+  function handleClearImage() {
+    setImageFile(null)
+    setImagePreviewUrl(null)
+    setImageError(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
 
   // area is preserved internally but not exposed in the PDF form UI
   const area = initialArea
@@ -112,10 +153,14 @@ export default function RestaurantNewForm({
     setError(null)
 
     try {
-      const candidates = await findDuplicateRestaurantCandidates(supabase, name, area)
-      if (candidates.length > 0) {
-        setStep({ kind: 'duplicate_warning', candidates })
-        return
+      // When an external_place_id is present the Server Action handles dedup and
+      // Google validation — skip the client-side duplicate check.
+      if (!initialExternalPlaceId) {
+        const candidates = await findDuplicateRestaurantCandidates(supabase, name, area)
+        if (candidates.length > 0) {
+          setStep({ kind: 'duplicate_warning', candidates })
+          return
+        }
       }
       await submitRestaurant()
     } catch (err) {
@@ -127,6 +172,59 @@ export default function RestaurantNewForm({
   }
 
   async function submitRestaurant() {
+    // ── External place ID path: Server Action handles auth, Google validation, INSERT ──
+    if (initialExternalPlaceId) {
+      const result = await createRestaurantAction({
+        name,
+        area,
+        genre,
+        address,
+        memo: '',
+        externalPlaceId: initialExternalPlaceId,
+      })
+
+      if (!result.ok) {
+        setError(result.error)
+        return
+      }
+
+      // Upload image for new restaurants only (existing restaurants already have their own)
+      if (!result.isExisting && imageFile) {
+        const ext =
+          imageFile.type === 'image/png'
+            ? 'png'
+            : imageFile.type === 'image/webp'
+              ? 'webp'
+              : 'jpg'
+        const imagePath = `${result.restaurantId}/${crypto.randomUUID()}.${ext}`
+        const { error: uploadError } = await supabase.storage
+          .from(RESTAURANT_IMAGE_BUCKET)
+          .upload(imagePath, imageFile, { contentType: imageFile.type })
+
+        if (uploadError) {
+          logError(uploadError)
+          setStep({ kind: 'image_failed', restaurantId: result.restaurantId })
+          return
+        }
+
+        const { error: updateError } = await supabase
+          .from('restaurants')
+          .update({ main_image_path: imagePath })
+          .eq('id', result.restaurantId)
+
+        if (updateError) {
+          logError(updateError)
+          await supabase.storage.from(RESTAURANT_IMAGE_BUCKET).remove([imagePath])
+          setStep({ kind: 'image_failed', restaurantId: result.restaurantId })
+          return
+        }
+      }
+
+      successPush(result.restaurantId)
+      return
+    }
+
+    // ── Manual path (no external_place_id): existing client-side flow ──
     const {
       data: { user },
     } = await supabase.auth.getUser()
@@ -145,6 +243,34 @@ export default function RestaurantNewForm({
       setStep({ kind: 'access_failed', restaurantId })
       setError('店舗は作成されましたが、共有設定の保存に失敗しました。もう一度お試しください')
       return
+    }
+
+    // Upload main image if provided (optional — failure does not roll back the restaurant)
+    if (imageFile) {
+      const ext =
+        imageFile.type === 'image/png' ? 'png' : imageFile.type === 'image/webp' ? 'webp' : 'jpg'
+      const imagePath = `${restaurantId}/${crypto.randomUUID()}.${ext}`
+      const { error: uploadError } = await supabase.storage
+        .from(RESTAURANT_IMAGE_BUCKET)
+        .upload(imagePath, imageFile, { contentType: imageFile.type })
+
+      if (uploadError) {
+        logError(uploadError)
+        setStep({ kind: 'image_failed', restaurantId })
+        return
+      }
+
+      const { error: updateError } = await supabase
+        .from('restaurants')
+        .update({ main_image_path: imagePath })
+        .eq('id', restaurantId)
+
+      if (updateError) {
+        logError(updateError)
+        await supabase.storage.from(RESTAURANT_IMAGE_BUCKET).remove([imagePath])
+        setStep({ kind: 'image_failed', restaurantId })
+        return
+      }
     }
 
     successPush(restaurantId)
@@ -225,6 +351,38 @@ export default function RestaurantNewForm({
             className="flex h-[56px] w-full items-center justify-center rounded-xl bg-terra text-base font-bold text-white disabled:opacity-50"
           >
             {submitting ? '再試行中...' : 'アクセス情報の保存を再試行'}
+          </button>
+        </div>
+        <BottomNav />
+      </main>
+    )
+  }
+
+  // ── Image upload failed (restaurant was created successfully) ────────────
+  if (step.kind === 'image_failed') {
+    return (
+      <main className="min-h-screen bg-canvas pb-24">
+        <div className="flex items-center border-b border-edge bg-canvas px-4 pt-14 pb-3">
+          <div className="w-10" />
+          <h1 className="flex-1 text-center text-base font-bold text-ink">新しい飲食店を登録</h1>
+          <div className="w-10" />
+        </div>
+        <div className="px-4 pt-6 space-y-4">
+          <div className="rounded-2xl bg-[#FFF3EC] px-4 py-4">
+            <p className="font-bold text-ink">店舗を登録しました</p>
+            <p className="mt-1 text-sm text-ink-sub">
+              写真のアップロードだけ失敗しました。店舗の情報は保存されています。
+            </p>
+          </div>
+          <p className="text-sm text-ink-sub">
+            「店舗ページへ進む」からでも、後で店舗の編集画面で写真を追加できます。
+          </p>
+          <button
+            type="button"
+            onClick={() => successPush(step.restaurantId)}
+            className="flex h-[56px] w-full items-center justify-center rounded-xl bg-terra text-base font-bold text-white"
+          >
+            店舗ページへ進む
           </button>
         </div>
         <BottomNav />
@@ -408,30 +566,64 @@ export default function RestaurantNewForm({
             <p className="mt-1.5 text-xs text-ink-sub">店舗を特定できる住所を入力してください。</p>
           </div>
 
-          {/* 店舗写真 — visual placeholder (no DB storage for restaurant photos) */}
+          {/* 店舗写真 */}
           <div>
             <p className="mb-1 text-sm font-bold text-ink">
               店舗写真
-              <span className="ml-1.5 rounded px-1.5 py-0.5 text-[10px] font-bold bg-ink-sub/20 text-ink-sub">
-                準備中
+              <span className="ml-1.5 rounded px-1.5 py-0.5 text-[10px] font-normal text-ink-sub">
+                任意
               </span>
             </p>
             <p className="mb-2 text-xs text-ink-sub">お店や料理が分かる写真を追加してください。</p>
-            <div className="flex gap-3">
+
+            {imagePreviewUrl ? (
+              <div className="space-y-2">
+                <div className="relative h-[120px] w-[160px] overflow-hidden rounded-xl">
+                  <RestaurantMainImage src={imagePreviewUrl} alt="プレビュー" />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex h-8 items-center gap-1 rounded-lg border border-terra px-2.5 text-xs font-medium text-terra"
+                  >
+                    変更
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClearImage}
+                    className="flex h-8 items-center gap-1 rounded-lg border border-edge px-2.5 text-xs font-medium text-ink-sub"
+                  >
+                    削除
+                  </button>
+                </div>
+              </div>
+            ) : (
               <button
                 type="button"
-                disabled
-                className="flex h-[100px] w-[140px] shrink-0 flex-col items-center justify-center rounded-xl border-2 border-dashed border-edge/60 text-ink-sub/50"
-                aria-label="写真を追加（準備中）"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex h-[100px] w-[140px] shrink-0 flex-col items-center justify-center rounded-xl border-2 border-dashed border-edge text-ink-sub hover:border-terra hover:text-terra"
+                aria-label="写真を追加"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
                   <path d="M12 5v14M5 12h14" />
                 </svg>
                 <span className="mt-1 text-xs">写真を追加</span>
               </button>
-            </div>
+            )}
+
+            {imageError && <p className="mt-1 text-xs text-red-600">{imageError}</p>}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+
             <p className="mt-2 text-xs text-ink-sub">
-              ※ 店舗の外観・内観・料理など、お店の雰囲気が分かる写真がおすすめです。
+              ※ jpeg・png・webp、5MB以下。外観・内観・料理など。
             </p>
           </div>
 

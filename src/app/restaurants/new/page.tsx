@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import RestaurantNewForm from './RestaurantNewForm'
 import { RESTAURANT_AREAS } from '@/lib/restaurants/areas'
 import { RESTAURANT_GENRES } from '@/lib/restaurants/genres'
+import { ensureRestaurantAccesses } from '@/lib/restaurants/access'
 
 export default async function RestaurantNewPage({
   searchParams,
@@ -12,6 +13,7 @@ export default async function RestaurantNewPage({
     area?: string | string[]
     genre?: string | string[]
     from?: string | string[]
+    external_place_id?: string | string[]
   }>
 }) {
   const supabase = await createClient()
@@ -38,9 +40,31 @@ export default async function RestaurantNewPage({
     ? requestedGenre
     : ''
 
-  // Only 'record' is a recognised source; anything else falls through to the normal flow.
   const from = typeof requestedParams.from === 'string' ? requestedParams.from : ''
-  const successDestination = from === 'record' ? 'record' as const : 'restaurant' as const
+  const successDestination = from === 'record' ? ('record' as const) : ('restaurant' as const)
+
+  // Resolve external_place_id: if an existing restaurant already has this place ID,
+  // ensure access and redirect directly (skips the registration form).
+  const rawExternalPlaceId =
+    typeof requestedParams.external_place_id === 'string'
+      ? requestedParams.external_place_id.trim()
+      : ''
+
+  if (rawExternalPlaceId) {
+    const { data: existingId } = await supabase.rpc(
+      'resolve_restaurant_by_external_place_id',
+      { p_external_place_id: rawExternalPlaceId },
+    )
+
+    if (existingId) {
+      await ensureRestaurantAccesses(supabase, existingId as string, user.id)
+      redirect(
+        successDestination === 'record'
+          ? `/record/${existingId}`
+          : `/restaurants/${existingId}`,
+      )
+    }
+  }
 
   return (
     <RestaurantNewForm
@@ -48,6 +72,7 @@ export default async function RestaurantNewPage({
       initialArea={initialArea}
       initialGenre={initialGenre}
       successDestination={successDestination}
+      initialExternalPlaceId={rawExternalPlaceId || undefined}
     />
   )
 }
