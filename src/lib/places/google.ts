@@ -42,6 +42,8 @@ export async function searchGooglePlaces(query: string): Promise<GooglePlace[]> 
       body: JSON.stringify({
         textQuery: query,
         maxResultCount: MAX_RESULT_COUNT,
+        languageCode: 'ja',
+        regionCode: 'JP',
         locationBias: {
           circle: {
             center: LOCATION_BIAS_CENTER,
