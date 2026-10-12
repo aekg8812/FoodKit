@@ -2,8 +2,9 @@ import 'server-only'
 
 const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY
 
-const LOCATION_BIAS_CENTER = { latitude: 33.6427, longitude: 130.6909 }
-const LOCATION_BIAS_RADIUS_METERS = 30000
+const IIZUKA_CENTER = { latitude: 33.6427, longitude: 130.6909 }
+const USER_LOCATION_RADIUS_METERS = 10000
+const IIZUKA_FALLBACK_RADIUS_METERS = 30000
 const MAX_RESULT_COUNT = 8
 const SEARCH_FIELD_MASK = 'places.id,places.displayName,places.formattedAddress'
 const VALIDATE_FIELD_MASK = 'id'
@@ -24,9 +25,28 @@ type PlacesSearchResponse = {
   }>
 }
 
-export async function searchGooglePlaces(query: string): Promise<GooglePlace[]> {
+export async function searchGooglePlaces(
+  query: string,
+  userLat?: number,
+  userLng?: number,
+): Promise<GooglePlace[]> {
   if (!GOOGLE_PLACES_API_KEY) return []
   if (query.trim().length < 2) return []
+
+  const hasUserCoords =
+    userLat !== undefined &&
+    userLng !== undefined &&
+    Number.isFinite(userLat) &&
+    Number.isFinite(userLng) &&
+    userLat >= -90 &&
+    userLat <= 90 &&
+    userLng >= -180 &&
+    userLng <= 180
+
+  const center = hasUserCoords
+    ? { latitude: userLat!, longitude: userLng! }
+    : IIZUKA_CENTER
+  const radius = hasUserCoords ? USER_LOCATION_RADIUS_METERS : IIZUKA_FALLBACK_RADIUS_METERS
 
   try {
     const controller = new AbortController()
@@ -46,8 +66,8 @@ export async function searchGooglePlaces(query: string): Promise<GooglePlace[]> 
         regionCode: 'JP',
         locationBias: {
           circle: {
-            center: LOCATION_BIAS_CENTER,
-            radius: LOCATION_BIAS_RADIUS_METERS,
+            center,
+            radius,
           },
         },
       }),

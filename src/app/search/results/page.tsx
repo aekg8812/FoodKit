@@ -6,8 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getUserState } from '@/lib/auth/getUserState'
 import { logPageAuthRequest } from '@/lib/diagnostics/authRequests'
 import { searchRestaurants } from '@/lib/restaurants/search'
-import { searchGooglePlaces } from '@/lib/places/google'
-import GoogleCandidatesList from './GoogleCandidatesList'
+import GoogleSearchSection from './GoogleSearchSection'
 
 export default async function SearchResultsPage({
   searchParams,
@@ -31,11 +30,7 @@ export default async function SearchResultsPage({
 
   if (!q) redirect('/search')
 
-  // Parallel fetch: FoodKit DB and Google Places
-  const [restaurants, googlePlaces] = await Promise.all([
-    searchRestaurants(supabase, { query: q }),
-    searchGooglePlaces(q),
-  ])
+  const restaurants = await searchRestaurants(supabase, { query: q })
 
   // Generate signed URLs for restaurant main images (private bucket)
   const restaurantImagePaths = restaurants
@@ -53,15 +48,10 @@ export default async function SearchResultsPage({
     }
   }
 
-  // Dedup: remove Google candidates whose place_id already appears in FoodKit results
-  const foodkitPlaceIds = new Set(
-    restaurants
-      .map((r) => r.external_place_id)
-      .filter((id): id is string => id !== null),
-  )
-  const dedupedGooglePlaces = googlePlaces.filter((p) => !foodkitPlaceIds.has(p.id))
+  const foodkitPlaceIds = restaurants
+    .map((r) => r.external_place_id)
+    .filter((id): id is string => id !== null)
 
-  const hasGoogleResults = dedupedGooglePlaces.length > 0
   const newRestaurantHref = `/restaurants/new${from === 'record' ? '?from=record' : ''}${q ? `${from === 'record' ? '&' : '?'}name=${encodeURIComponent(q)}` : ''}`
 
   return (
@@ -139,160 +129,121 @@ export default async function SearchResultsPage({
       </div>
 
       <div className="px-4">
-        {restaurants.length > 0 || hasGoogleResults ? (
-          <>
-            {/* ── FoodKit results ─────────────────────────────────────────── */}
-            {restaurants.length > 0 && (
-              <div>
-                <div className="flex items-center justify-between py-3">
-                  <p className="text-sm font-medium text-ink">
-                    「{q}」の検索結果{' '}
-                    <span className="text-[18px] font-black text-terra">
-                      {restaurants.length}
-                    </span>{' '}
-                    件
-                  </p>
-                </div>
+        {/* ── FoodKit results or empty state ─────────────────────────────── */}
+        {restaurants.length > 0 ? (
+          <div>
+            <div className="flex items-center justify-between py-3">
+              <p className="text-sm font-medium text-ink">
+                「{q}」の検索結果{' '}
+                <span className="text-[18px] font-black text-terra">{restaurants.length}</span>{' '}
+                件
+              </p>
+            </div>
 
-                <ul className="space-y-3" aria-label="FoodKit検索結果">
-                  {restaurants.map((restaurant) => (
-                    <li key={restaurant.id}>
-                      <Link
-                        href={`/restaurants/${restaurant.id}`}
-                        prefetch={false}
-                        className="flex overflow-hidden rounded-2xl bg-surface"
-                      >
-                        <div className="relative h-[130px] w-[110px] shrink-0 overflow-hidden">
-                          <RestaurantMainImage
-                            src={
-                              restaurant.main_image_path
-                                ? (restaurantImageSignedUrls.get(
-                                    restaurant.main_image_path,
-                                  ) ?? null)
-                                : null
-                            }
-                            alt={restaurant.name}
-                          />
+            <ul className="space-y-3" aria-label="FoodKit検索結果">
+              {restaurants.map((restaurant) => (
+                <li key={restaurant.id}>
+                  <Link
+                    href={`/restaurants/${restaurant.id}`}
+                    prefetch={false}
+                    className="flex overflow-hidden rounded-2xl bg-surface"
+                  >
+                    <div className="relative h-[130px] w-[110px] shrink-0 overflow-hidden">
+                      <RestaurantMainImage
+                        src={
+                          restaurant.main_image_path
+                            ? (restaurantImageSignedUrls.get(restaurant.main_image_path) ?? null)
+                            : null
+                        }
+                        alt={restaurant.name}
+                      />
+                    </div>
+
+                    <div className="flex flex-1 flex-col justify-between p-3">
+                      <div>
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="font-bold text-ink">{restaurant.name}</p>
+                          <svg
+                            width="8"
+                            height="14"
+                            viewBox="0 0 8 14"
+                            fill="none"
+                            className="mt-0.5 shrink-0 text-ink-sub"
+                            aria-hidden="true"
+                          >
+                            <path
+                              d="M1 1l6 6-6 6"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
                         </div>
-
-                        <div className="flex flex-1 flex-col justify-between p-3">
-                          <div>
-                            <div className="flex items-start justify-between gap-2">
-                              <p className="font-bold text-ink">{restaurant.name}</p>
+                        {(restaurant.area || restaurant.genre) && (
+                          <p className="mt-0.5 text-xs text-ink-sub">
+                            {[restaurant.genre, restaurant.area].filter(Boolean).join('・')}
+                          </p>
+                        )}
+                        <div className="mt-1 flex items-center gap-3 text-xs text-ink-sub">
+                          {restaurant.area && (
+                            <span className="flex items-center gap-0.5">
                               <svg
-                                width="8"
-                                height="14"
-                                viewBox="0 0 8 14"
-                                fill="none"
-                                className="mt-0.5 shrink-0 text-ink-sub"
-                                aria-hidden="true"
-                              >
-                                <path
-                                  d="M1 1l6 6-6 6"
-                                  stroke="currentColor"
-                                  strokeWidth="1.5"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                />
-                              </svg>
-                            </div>
-                            {(restaurant.area || restaurant.genre) && (
-                              <p className="mt-0.5 text-xs text-ink-sub">
-                                {[restaurant.genre, restaurant.area].filter(Boolean).join('・')}
-                              </p>
-                            )}
-                            <div className="mt-1 flex items-center gap-3 text-xs text-ink-sub">
-                              {restaurant.area && (
-                                <span className="flex items-center gap-0.5">
-                                  <svg
-                                    width="12"
-                                    height="12"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    aria-hidden="true"
-                                  >
-                                    <circle cx="12" cy="10" r="3" />
-                                    <path d="M12 2a8 8 0 0 1 8 8c0 5.4-8 12-8 12S4 15.4 4 10a8 8 0 0 1 8-8z" />
-                                  </svg>
-                                  {restaurant.area}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="mt-2 rounded-lg bg-[#FFF3EC] px-2.5 py-2">
-                            <p className="flex items-center gap-1.5 text-[11px] font-bold text-terra">
-                              <svg
-                                width="14"
-                                height="14"
+                                width="12"
+                                height="12"
                                 viewBox="0 0 24 24"
                                 fill="none"
-                                className="shrink-0"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
                                 aria-hidden="true"
                               >
-                                <path
-                                  d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
-                                  stroke="#F97316"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                />
-                                <circle cx="9" cy="7" r="4" stroke="#F97316" strokeWidth="2" />
-                                <path
-                                  d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"
-                                  stroke="#F97316"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                />
+                                <circle cx="12" cy="10" r="3" />
+                                <path d="M12 2a8 8 0 0 1 8 8c0 5.4-8 12-8 12S4 15.4 4 10a8 8 0 0 1 8-8z" />
                               </svg>
-                              FoodKitユーザーが記録中
-                            </p>
-                          </div>
+                              {restaurant.area}
+                            </span>
+                          )}
                         </div>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+                      </div>
 
-            {/* ── Google candidates ────────────────────────────────────────── */}
-            {hasGoogleResults && (
-              <GoogleCandidatesList
-                places={dedupedGooglePlaces}
-                query={q}
-                from={from}
-              />
-            )}
-
-            {/* ── Register CTA ─────────────────────────────────────────────── */}
-            <div className="mt-6 w-full rounded-2xl border border-edge bg-surface p-4">
-              <p className="text-sm font-bold text-ink">見つからない場合は登録できます</p>
-              <p className="mt-0.5 text-xs text-ink-sub">
-                FoodKitにまだ掲載されていない飲食店を追加できます。
-              </p>
-              <Link
-                href={newRestaurantHref}
-                className="mt-3 flex h-[44px] w-full items-center justify-center gap-1.5 rounded-xl border border-terra text-sm font-bold text-terra"
-              >
-                <span>+</span>
-                <span>新しい飲食店を登録</span>
-              </Link>
-            </div>
-          </>
+                      <div className="mt-2 rounded-lg bg-[#FFF3EC] px-2.5 py-2">
+                        <p className="flex items-center gap-1.5 text-[11px] font-bold text-terra">
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            className="shrink-0"
+                            aria-hidden="true"
+                          >
+                            <path
+                              d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
+                              stroke="#F97316"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                            />
+                            <circle cx="9" cy="7" r="4" stroke="#F97316" strokeWidth="2" />
+                            <path
+                              d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"
+                              stroke="#F97316"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                          FoodKitユーザーが記録中
+                        </p>
+                      </div>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : (
-          /* Empty state */
           <div className="mt-6 flex flex-col items-center text-center">
             <div className="mb-5">
-              <svg
-                width="120"
-                height="100"
-                viewBox="0 0 120 100"
-                fill="none"
-                aria-hidden="true"
-              >
+              <svg width="120" height="100" viewBox="0 0 120 100" fill="none" aria-hidden="true">
                 <rect x="10" y="50" width="30" height="40" rx="3" fill="#F3E5D8" />
                 <rect x="20" y="40" width="40" height="50" rx="3" fill="#EDCFB8" />
                 <circle cx="8" cy="58" r="7" fill="#F3E5D8" />
@@ -347,53 +298,32 @@ export default async function SearchResultsPage({
                 />
               </svg>
             </div>
-
             <h2 className="text-xl font-black text-ink">お店が見つかりませんでした</h2>
             <p className="mt-2 text-sm leading-relaxed text-ink-sub">
               店名やジャンル、エリアを変えて、
               <br />
               もう一度検索してみてください。
             </p>
-
-            <div className="mt-6 w-full rounded-2xl border border-edge bg-surface p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-terra/10">
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="#F97316"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                    <polyline points="9 22 9 12 15 12 15 22" />
-                  </svg>
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="text-sm font-bold text-ink">
-                    FoodKitにまだ登録されていないお店ですか？
-                  </p>
-                  <p className="mt-0.5 text-xs text-ink-sub">
-                    まだ掲載されていない飲食店を、
-                    <br />
-                    あなたのおすすめとして登録することができます。
-                  </p>
-                </div>
-              </div>
-              <Link
-                href={newRestaurantHref}
-                className="mt-3 flex h-[44px] w-full items-center justify-center gap-1.5 rounded-xl border border-terra text-sm font-bold text-terra"
-              >
-                <span>+</span>
-                <span>新しい飲食店を登録</span>
-              </Link>
-            </div>
           </div>
         )}
+
+        {/* ── Google candidates (client component — async) ─────────────── */}
+        <GoogleSearchSection query={q} from={from} foodkitPlaceIds={foodkitPlaceIds} />
+
+        {/* ── Register CTA ─────────────────────────────────────────────── */}
+        <div className="mt-6 w-full rounded-2xl border border-edge bg-surface p-4">
+          <p className="text-sm font-bold text-ink">見つからない場合は登録できます</p>
+          <p className="mt-0.5 text-xs text-ink-sub">
+            FoodKitにまだ掲載されていない飲食店を追加できます。
+          </p>
+          <Link
+            href={newRestaurantHref}
+            className="mt-3 flex h-[44px] w-full items-center justify-center gap-1.5 rounded-xl border border-terra text-sm font-bold text-terra"
+          >
+            <span>+</span>
+            <span>新しい飲食店を登録</span>
+          </Link>
+        </div>
       </div>
 
       <BottomNav />

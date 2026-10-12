@@ -56,15 +56,7 @@ export default function GoogleCandidatesList({ places, query, from }: Props) {
   }
 
   return (
-    <div className="mt-6">
-      {/* Section header with Google Maps attribution */}
-      <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-bold text-ink">その他のお店</h2>
-        <span translate="no" className="text-xs font-normal text-ink-sub">
-          Google Maps
-        </span>
-      </div>
-
+    <>
       <ul className="space-y-2" aria-label="Google検索結果">
         {places.map((place) => (
           <li key={place.id}>
@@ -109,6 +101,6 @@ export default function GoogleCandidatesList({ places, query, from }: Props) {
       {error && (
         <p className="mt-2 rounded-xl bg-red-50 px-4 py-2 text-sm text-red-600">{error}</p>
       )}
-    </div>
+    </>
   )
 }
