@@ -57,16 +57,12 @@ export default function GoogleCandidatesList({ places, query, from }: Props) {
 
   return (
     <div className="mt-6">
-      {/* Section header with Google attribution */}
+      {/* Section header with Google Maps attribution */}
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-sm font-bold text-ink">その他のお店</h2>
-        {/* Google Maps Platform attribution — official logo from gstatic CDN */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="https://maps.gstatic.com/mapfiles/api-3/images/google4.png"
-          alt="Powered by Google"
-          className="h-4 w-auto"
-        />
+        <span translate="no" className="text-xs font-normal text-ink-sub">
+          Google Maps
+        </span>
       </div>
 
       <ul className="space-y-2" aria-label="Google検索結果">
