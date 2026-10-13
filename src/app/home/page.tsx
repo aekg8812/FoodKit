@@ -21,7 +21,7 @@ type ReviewRow      = {
   image_path: string | null
   user_id: string
 }
-type RestaurantRow  = { id: string; name: string | null; source: string; external_place_id: string | null; area: string | null; genre: string | null }
+type RestaurantRow  = { id: string; name: string | null; source: string; external_place_id: string | null; area: string | null; genre: string | null; main_image_path: string | null }
 type ProfileRow     = { id: string; username: string; name: string | null; avatar_path: string | null }
 type GroupRow       = { id: string; name: string }
 type RecRow         = {
@@ -130,7 +130,7 @@ export default async function HomePage() {
 
   const [reviewRestaurantsResult, reviewProfilesResult] = await Promise.all([
     reviewRestaurantIds.length > 0
-      ? supabase.from('restaurants').select('id, name, source, external_place_id, area, genre').in('id', reviewRestaurantIds)
+      ? supabase.from('restaurants').select('id, name, source, external_place_id, area, genre, main_image_path').in('id', reviewRestaurantIds)
       : { data: [] as RestaurantRow[], error: null },
     reviewAuthorIds.length > 0
       ? supabase.from('user_public_profiles').select('id, username, name, avatar_path').in('id', reviewAuthorIds)
@@ -153,6 +153,24 @@ export default async function HomePage() {
   const signedUrlMap = new Map<string, string>()
   for (const s of signedResult.data ?? []) {
     if (s.path && s.signedUrl && !s.error) signedUrlMap.set(s.path, s.signedUrl)
+  }
+
+  // ── Phase 4.5: sign restaurant main images for review feed fallback ───────
+  const reviewRestaurantImagePaths = [
+    ...new Set(
+      [...restaurantMap.values()]
+        .map((r) => r.main_image_path)
+        .filter((p): p is string => Boolean(p)),
+    ),
+  ]
+  const reviewRestaurantImgUrls = new Map<string, string>()
+  if (reviewRestaurantImagePaths.length > 0) {
+    const { data: rImgData } = await supabase.storage
+      .from('restaurant-images')
+      .createSignedUrls(reviewRestaurantImagePaths, 3600)
+    for (const s of rImgData ?? []) {
+      if (s.path && s.signedUrl && !s.error) reviewRestaurantImgUrls.set(s.path, s.signedUrl)
+    }
   }
 
   // ── Phase 5: sign restaurant main image URLs ─────────────────────────────
@@ -336,7 +354,11 @@ export default async function HomePage() {
               const avatarUrl   = profile?.avatar_path
                 ? `${supabaseUrl}/storage/v1/object/public/avatars/${profile.avatar_path}`
                 : null
-              const imageUrl    = review.image_path ? signedUrlMap.get(review.image_path) ?? null : null
+              const reviewImg   = review.image_path ? (signedUrlMap.get(review.image_path) ?? null) : null
+              const restaurantImg = restaurant?.main_image_path
+                ? (reviewRestaurantImgUrls.get(restaurant.main_image_path) ?? null)
+                : null
+              const imageUrl = reviewImg ?? restaurantImg
               const displayName = profile?.name ?? profile?.username ?? '...'
               const initial     = Array.from(displayName.trim())[0] ?? '?'
 

@@ -129,8 +129,8 @@ export default async function SearchResultsPage({
       </div>
 
       <div className="px-4">
-        {/* ── FoodKit results or empty state ─────────────────────────────── */}
-        {restaurants.length > 0 ? (
+        {/* ── FoodKit name-match results (manual / seed) ─────────────────── */}
+        {restaurants.length > 0 && (
           <div>
             <div className="flex items-center justify-between py-3">
               <p className="text-sm font-medium text-ink">
@@ -240,75 +240,16 @@ export default async function SearchResultsPage({
               ))}
             </ul>
           </div>
-        ) : (
-          <div className="mt-6 flex flex-col items-center text-center">
-            <div className="mb-5">
-              <svg width="120" height="100" viewBox="0 0 120 100" fill="none" aria-hidden="true">
-                <rect x="10" y="50" width="30" height="40" rx="3" fill="#F3E5D8" />
-                <rect x="20" y="40" width="40" height="50" rx="3" fill="#EDCFB8" />
-                <circle cx="8" cy="58" r="7" fill="#F3E5D8" />
-                <rect x="6" y="60" width="4" height="10" fill="#EDCFB8" />
-                <circle cx="112" cy="60" r="7" fill="#F3E5D8" />
-                <rect x="110" y="62" width="4" height="10" fill="#EDCFB8" />
-                <circle cx="60" cy="46" r="28" fill="white" stroke="#E5D4C8" strokeWidth="2" />
-                <circle cx="56" cy="42" r="16" fill="white" stroke="#E5D4C8" strokeWidth="3" />
-                <rect x="48" y="38" width="16" height="12" rx="2" fill="#F97316" opacity="0.9" />
-                <path
-                  d="M46 38 Q56 32 66 38"
-                  stroke="#F97316"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                />
-                <rect x="53" y="42" width="6" height="8" rx="1" fill="white" />
-                <line
-                  x1="68"
-                  y1="58"
-                  x2="80"
-                  y2="72"
-                  stroke="#E5D4C8"
-                  strokeWidth="5"
-                  strokeLinecap="round"
-                />
-                <line
-                  x1="80"
-                  y1="22"
-                  x2="84"
-                  y2="18"
-                  stroke="#F97316"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-                <line
-                  x1="85"
-                  y1="28"
-                  x2="91"
-                  y2="26"
-                  stroke="#F97316"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-                <line
-                  x1="78"
-                  y1="16"
-                  x2="78"
-                  y2="10"
-                  stroke="#F97316"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </div>
-            <h2 className="text-xl font-black text-ink">お店が見つかりませんでした</h2>
-            <p className="mt-2 text-sm leading-relaxed text-ink-sub">
-              店名やジャンル、エリアを変えて、
-              <br />
-              もう一度検索してみてください。
-            </p>
-          </div>
         )}
 
-        {/* ── Google candidates (client component — async) ─────────────── */}
-        <GoogleSearchSection query={q} from={from} foodkitPlaceIds={foodkitPlaceIds} />
+        {/* ── Google section: resolves FoodKit-existing + Google-only,
+             shows empty state when both server + Google return nothing ── */}
+        <GoogleSearchSection
+          query={q}
+          from={from}
+          foodkitPlaceIds={foodkitPlaceIds}
+          serverEmpty={restaurants.length === 0}
+        />
 
         {/* ── Register CTA ─────────────────────────────────────────────── */}
         <div className="mt-6 w-full rounded-2xl border border-edge bg-surface p-4">

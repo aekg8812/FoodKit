@@ -15,7 +15,7 @@ type ReviewRow = {
   visit_date: string | null
   created_at: string
   image_path: string | null
-  restaurants: { id: string; name: string | null; source: string; external_place_id: string | null; genre: string | null; area: string | null } | null
+  restaurants: { id: string; name: string | null; source: string; external_place_id: string | null; genre: string | null; area: string | null; main_image_path: string | null } | null
 }
 
 type UserProfile = {
@@ -91,7 +91,7 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
 
   let query = supabase
     .from('reviews')
-    .select('id, rating, comment, visit_date, created_at, image_path, restaurants(id, name, source, external_place_id, genre, area)')
+    .select('id, rating, comment, visit_date, created_at, image_path, restaurants(id, name, source, external_place_id, genre, area, main_image_path)')
     .eq('user_id', user.id)
 
   if (ratingFilter !== 'all') {
@@ -122,6 +122,24 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
   const signedImageUrls = new Map<string, string | null>()
   for (const s of signedImagesResult.data ?? []) {
     if (s.path) signedImageUrls.set(s.path, s.signedUrl)
+  }
+
+  // Signed URLs for restaurant main images (fallback when review has no image)
+  const restaurantImagePaths = [
+    ...new Set(
+      reviews
+        .map((r) => r.restaurants?.main_image_path)
+        .filter((p): p is string => Boolean(p)),
+    ),
+  ]
+  const restaurantSignedUrls = new Map<string, string>()
+  if (restaurantImagePaths.length > 0) {
+    const { data: rImgData } = await supabase.storage
+      .from('restaurant-images')
+      .createSignedUrls(restaurantImagePaths, 60 * 60)
+    for (const s of rImgData ?? []) {
+      if (s.path && s.signedUrl && !s.error) restaurantSignedUrls.set(s.path, s.signedUrl)
+    }
   }
 
   const { count: totalCount } = await supabase
@@ -279,9 +297,13 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
         {reviews.length > 0 && (
           <div className="divide-y divide-edge overflow-hidden rounded-2xl bg-surface">
             {reviews.map((review) => {
-              const imgUrl = review.image_path
-                ? signedImageUrls.get(review.image_path) ?? null
+              const reviewImgUrl = review.image_path
+                ? (signedImageUrls.get(review.image_path) ?? null)
                 : null
+              const restaurantImgUrl = review.restaurants?.main_image_path
+                ? (restaurantSignedUrls.get(review.restaurants.main_image_path) ?? null)
+                : null
+              const imgUrl = reviewImgUrl ?? restaurantImgUrl
               const chip = RATING_CHIP[review.rating]
               const dateStr = review.visit_date
                 ? formatDate(review.visit_date)

@@ -12,7 +12,7 @@ type RecentReviewRow = {
   comment: string | null
   visit_date: string | null
   image_path: string | null
-  restaurants: { id: string; name: string | null; source: string; external_place_id: string | null } | null
+  restaurants: { id: string; name: string | null; source: string; external_place_id: string | null; main_image_path: string | null } | null
 }
 
 type PreferenceCardRow = {
@@ -61,7 +61,7 @@ export default async function MypagePage() {
       .eq('user_id', user.id),
     supabase
       .from('reviews')
-      .select('id, rating, comment, visit_date, image_path, restaurants(id, name, source, external_place_id)')
+      .select('id, rating, comment, visit_date, image_path, restaurants(id, name, source, external_place_id, main_image_path)')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .order('id', { ascending: false })
@@ -114,6 +114,24 @@ export default async function MypagePage() {
   const signedImageUrls = new Map<string, string | null>()
   for (const s of signedImagesResult.data ?? []) {
     if (s.path) signedImageUrls.set(s.path, s.signedUrl)
+  }
+
+  // Signed URLs for restaurant main images (fallback when review has no image)
+  const restaurantImagePaths = [
+    ...new Set(
+      recentRows
+        .map((r) => r.restaurants?.main_image_path)
+        .filter((p): p is string => Boolean(p)),
+    ),
+  ]
+  const restaurantSignedUrls = new Map<string, string>()
+  if (restaurantImagePaths.length > 0) {
+    const { data: rImgData } = await supabase.storage
+      .from('restaurant-images')
+      .createSignedUrls(restaurantImagePaths, 60 * 60)
+    for (const s of rImgData ?? []) {
+      if (s.path && s.signedUrl && !s.error) restaurantSignedUrls.set(s.path, s.signedUrl)
+    }
   }
 
   const avatarRaw = profile.avatar_path
@@ -293,9 +311,13 @@ export default async function MypagePage() {
           ) : (
             <div className="divide-y divide-edge overflow-hidden rounded-2xl border border-edge bg-surface">
               {recentRows.map((review) => {
-                const imgUrl = review.image_path
-                  ? signedImageUrls.get(review.image_path) ?? null
+                const reviewImgUrl = review.image_path
+                  ? (signedImageUrls.get(review.image_path) ?? null)
                   : null
+                const restaurantImgUrl = review.restaurants?.main_image_path
+                  ? (restaurantSignedUrls.get(review.restaurants.main_image_path) ?? null)
+                  : null
+                const imgUrl = reviewImgUrl ?? restaurantImgUrl
                 const chip = RATING_CHIP[review.rating]
                 return (
                   <Link
