@@ -209,7 +209,7 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
     ? `${process.env.NEXT_PUBLIC_SITE_URL}/restaurants/${id}`
     : undefined
   const isOwner = r.created_by !== null && r.created_by === user.id
-  const canEdit = isOwner && r.source !== 'google_place'
+  const canEdit = isOwner
 
   const viewerNeedsPreference = reviewTab === 'similar' && viewerCardCount < 5
 
