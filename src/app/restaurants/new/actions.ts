@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { ensureRestaurantAccesses } from '@/lib/restaurants/access'
 import { validateGooglePlaceExists } from '@/lib/places/google'
 
@@ -77,8 +78,11 @@ export async function createRestaurantAction(
     }
   }
 
-  // Step 5: INSERT (user session client — INSERT RLS applies)
-  const { data, error } = await supabase
+  // Step 5: INSERT
+  // Google place restaurants (external_place_id IS NOT NULL) require service role —
+  // the RLS INSERT policy blocks authenticated clients from setting external_place_id.
+  const insertClient = externalPlaceId ? createServiceClient() : supabase
+  const { data, error } = await insertClient
     .from('restaurants')
     .insert({
       name,
@@ -87,7 +91,7 @@ export async function createRestaurantAction(
       address: input.address.trim() || null,
       memo: input.memo.trim() || null,
       created_by: user.id,
-      source: 'manual',
+      source: externalPlaceId ? 'google_place' : 'manual',
       external_place_id: externalPlaceId || null,
     })
     .select('id')

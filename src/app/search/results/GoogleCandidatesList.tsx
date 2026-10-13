@@ -41,12 +41,15 @@ export default function GoogleCandidatesList({ places, query, from }: Props) {
         if (!user) throw new Error('Authentication is required')
         await ensureRestaurantAccesses(supabase, existingId as string, user.id)
         router.push(from === 'record' ? `/record/${existingId}` : `/restaurants/${existingId}`)
+      } else if (from === 'record') {
+        // Record flow: go to the dedicated place-confirmation page
+        const params = new URLSearchParams()
+        if (query) params.set('name', query)
+        const qs = params.toString()
+        router.push(`/record/place/${encodeURIComponent(place.id)}${qs ? `?${qs}` : ''}`)
       } else {
-        const params = new URLSearchParams({
-          external_place_id: place.id,
-          name: query,
-        })
-        if (from === 'record') params.set('from', 'record')
+        // Non-record flow: standard restaurant registration form
+        const params = new URLSearchParams({ external_place_id: place.id, name: query })
         router.push(`/restaurants/new?${params.toString()}`)
       }
     } catch {

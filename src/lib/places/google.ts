@@ -8,6 +8,7 @@ const IIZUKA_FALLBACK_RADIUS_METERS = 30000
 const MAX_RESULT_COUNT = 8
 const SEARCH_FIELD_MASK = 'places.id,places.displayName,places.formattedAddress'
 const VALIDATE_FIELD_MASK = 'id'
+const DISPLAY_NAME_FIELD_MASK = 'displayName'
 const PLACES_API_BASE = 'https://places.googleapis.com/v1'
 const FETCH_TIMEOUT_MS = 5000
 
@@ -85,6 +86,37 @@ export async function searchGooglePlaces(
     }))
   } catch {
     return []
+  }
+}
+
+export async function getGooglePlaceDisplayName(placeId: string): Promise<string | null> {
+  if (!GOOGLE_PLACES_API_KEY) return null
+  if (!placeId.trim()) return null
+
+  try {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+
+    const res = await fetch(
+      `${PLACES_API_BASE}/places/${encodeURIComponent(placeId)}`,
+      {
+        method: 'GET',
+        headers: {
+          'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
+          'X-Goog-FieldMask': DISPLAY_NAME_FIELD_MASK,
+        },
+        cache: 'no-store',
+        signal: controller.signal,
+      },
+    )
+    clearTimeout(timer)
+
+    if (!res.ok) return null
+
+    const json = (await res.json()) as { displayName?: { text?: string } }
+    return json.displayName?.text ?? null
+  } catch {
+    return null
   }
 }
 
