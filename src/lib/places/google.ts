@@ -101,13 +101,12 @@ export async function getGooglePlaceDetails(placeId: string): Promise<{
     const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
 
     const res = await fetch(
-      `${PLACES_API_BASE}/places/${encodeURIComponent(placeId)}`,
+      `${PLACES_API_BASE}/places/${encodeURIComponent(placeId)}?languageCode=ja&regionCode=JP`,
       {
         method: 'GET',
         headers: {
           'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
           'X-Goog-FieldMask': DETAILS_FIELD_MASK,
-          'X-Goog-LanguageCode': 'ja',
         },
         cache: 'no-store',
         signal: controller.signal,

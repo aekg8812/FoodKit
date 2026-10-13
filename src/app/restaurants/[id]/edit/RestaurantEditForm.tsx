@@ -16,7 +16,7 @@ const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp']
 
 type RestaurantData = {
   id: string
-  name: string
+  name: string | null
   area: string | null
   genre: string | null
   address: string | null
@@ -43,7 +43,7 @@ export default function RestaurantEditForm({ restaurant, currentImageSignedUrl }
   const supabase = createClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const [name, setName] = useState(restaurant.name)
+  const [name, setName] = useState(restaurant.name ?? '')
   const [genre, setGenre] = useState(restaurant.genre ?? '')
   const [address, setAddress] = useState(restaurant.address ?? '')
   const [area, setArea] = useState(restaurant.area ?? '')

@@ -22,13 +22,18 @@ export default async function RestaurantEditPage({ params }: PageProps) {
   const { data: restaurant, error } = await supabase
     .from('restaurants')
     .select(
-      'id, name, area, genre, address, budget_per_person_max_yen, party_size_tags, atmosphere_tags, walk_in_available, parking_available, main_image_path, created_by',
+      'id, name, source, area, genre, address, budget_per_person_max_yen, party_size_tags, atmosphere_tags, walk_in_available, parking_available, main_image_path, created_by',
     )
     .eq('id', id)
     .maybeSingle()
 
   if (error) throw new Error(`RestaurantEditPage: query failed: ${error.message}`)
   if (!restaurant) notFound()
+
+  // Google restaurants are not editable — displayName/address come from runtime fetch.
+  if (restaurant.source === 'google_place') {
+    redirect(`/restaurants/${id}`)
+  }
 
   // Only the creator can edit. Seed restaurants (created_by=NULL) redirect non-owners.
   if (restaurant.created_by !== user.id) {

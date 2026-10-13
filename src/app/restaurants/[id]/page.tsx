@@ -209,6 +209,7 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
     ? `${process.env.NEXT_PUBLIC_SITE_URL}/restaurants/${id}`
     : undefined
   const isOwner = r.created_by !== null && r.created_by === user.id
+  const canEdit = isOwner && r.source !== 'google_place'
 
   const viewerNeedsPreference = reviewTab === 'similar' && viewerCardCount < 5
 
@@ -230,7 +231,7 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
             <BackButton fallbackHref="/home" label="" />
           </Suspense>
           <div className="flex items-center gap-3">
-            {isOwner && (
+            {canEdit && (
               <Link
                 href={`/restaurants/${id}/edit`}
                 className="flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white"
