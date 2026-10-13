@@ -6,6 +6,7 @@ import BottomNav from '@/components/BottomNav'
 import BackButton from '@/components/BackButton'
 import { getUserState } from '@/lib/auth/getUserState'
 import { createClient } from '@/lib/supabase/server'
+import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
 
 type ReviewRow = {
   id: string
@@ -14,7 +15,7 @@ type ReviewRow = {
   visit_date: string | null
   created_at: string
   image_path: string | null
-  restaurants: { id: string; name: string; genre: string | null; area: string | null } | null
+  restaurants: { id: string; name: string | null; source: string; external_place_id: string | null; genre: string | null; area: string | null } | null
 }
 
 type UserProfile = {
@@ -90,7 +91,7 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
 
   let query = supabase
     .from('reviews')
-    .select('id, rating, comment, visit_date, created_at, image_path, restaurants(id, name, genre, area)')
+    .select('id, rating, comment, visit_date, created_at, image_path, restaurants(id, name, source, external_place_id, genre, area)')
     .eq('user_id', user.id)
 
   if (ratingFilter !== 'all') {
@@ -129,6 +130,18 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
     .eq('user_id', user.id)
 
   const hasAnyReviews = (totalCount ?? 0) > 0
+
+  // Resolve display names for Google-sourced restaurants
+  const restaurantDisplayNames = new Map<string, string>()
+  await Promise.all(
+    reviews
+      .map(r => r.restaurants)
+      .filter((r): r is NonNullable<typeof r> => r !== null && r.source === 'google_place' && r.external_place_id !== null)
+      .map(async (r) => {
+        const d = await resolveRestaurantDisplay(r)
+        restaurantDisplayNames.set(r.id, d.name)
+      }),
+  )
 
   function sortHref(s: SortOrder) {
     const params = new URLSearchParams()
@@ -285,7 +298,7 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
                     <div className="relative h-[80px] w-[80px] shrink-0 overflow-hidden rounded-xl">
                       <Image
                         src={imgUrl}
-                        alt={review.restaurants?.name ?? ''}
+                        alt={review.restaurants ? (restaurantDisplayNames.get(review.restaurants.id) ?? review.restaurants.name ?? '') : ''}
                         fill
                         sizes="70px"
                         className="object-cover"
@@ -307,7 +320,9 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
                   {/* Info */}
                   <div className="min-w-0 flex-1">
                     <p className="font-bold text-ink">
-                      {review.restaurants?.name ?? '不明な店舗'}
+                      {review.restaurants
+                        ? (restaurantDisplayNames.get(review.restaurants.id) ?? review.restaurants.name ?? '不明な店舗')
+                        : '不明な店舗'}
                     </p>
                     {(review.restaurants?.genre || review.restaurants?.area) && (
                       <p className="text-xs text-ink-sub">

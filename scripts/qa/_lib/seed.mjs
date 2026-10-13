@@ -1,5 +1,27 @@
 import { QA_PASSWORD } from './env.mjs'
 
+// Minimal valid 1×1 transparent webp (base64) — used to seed restaurant main images
+// without committing binary files to git.
+export const MINIMAL_WEBP_BASE64 =
+  'UklGRlYAAABXRUJQVlA4IEoAAADQAQCdASoBAAEAAkA4JYgCdAEO/gHOAAD++P/////+wAAAAA=='
+
+export async function uploadRestaurantMainImage(admin, restaurantId) {
+  const imageBytes = Buffer.from(MINIMAL_WEBP_BASE64, 'base64')
+  const path = `${restaurantId}/qa-fixture.webp`
+  // Remove any existing fixture image first (idempotent reset)
+  await admin.storage.from('restaurant-images').remove([path])
+  const { error: uploadErr } = await admin.storage
+    .from('restaurant-images')
+    .upload(path, imageBytes, { contentType: 'image/webp' })
+  if (uploadErr) throw new Error(`restaurant image upload for ${restaurantId}: ${uploadErr.message}`)
+  const { error: updateErr } = await admin
+    .from('restaurants')
+    .update({ main_image_path: path })
+    .eq('id', restaurantId)
+  if (updateErr) throw new Error(`restaurant main_image_path update for ${restaurantId}: ${updateErr.message}`)
+  return path
+}
+
 // Preference card keys per user
 // Similarity vs test1: test2 Jaccard=5/7≈0.71, test3 Jaccard=4/8=0.50 — both ≥0.40 and intersection≥3
 export const CARD_KEYS = {

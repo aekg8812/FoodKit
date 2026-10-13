@@ -2,8 +2,10 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
+import RestaurantMainImage from '@/components/RestaurantMainImage'
 import { getUserState } from '@/lib/auth/getUserState'
 import { createClient } from '@/lib/supabase/server'
+import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -19,14 +21,17 @@ type ReviewRow      = {
   image_path: string | null
   user_id: string
 }
-type RestaurantRow  = { id: string; name: string; area: string | null; genre: string | null }
+type RestaurantRow  = { id: string; name: string | null; source: string; external_place_id: string | null; area: string | null; genre: string | null }
 type ProfileRow     = { id: string; username: string; name: string | null; avatar_path: string | null }
 type GroupRow       = { id: string; name: string }
 type RecRow         = {
   restaurant_id: string
-  name: string
+  name: string | null
+  source: string
+  external_place_id: string | null
   area: string | null
   genre: string | null
+  main_image_path: string | null
   personal_score: number
   evidence_count: number
   followed_evidence_count: number
@@ -125,7 +130,7 @@ export default async function HomePage() {
 
   const [reviewRestaurantsResult, reviewProfilesResult] = await Promise.all([
     reviewRestaurantIds.length > 0
-      ? supabase.from('restaurants').select('id, name, area, genre').in('id', reviewRestaurantIds)
+      ? supabase.from('restaurants').select('id, name, source, external_place_id, area, genre').in('id', reviewRestaurantIds)
       : { data: [] as RestaurantRow[], error: null },
     reviewAuthorIds.length > 0
       ? supabase.from('user_public_profiles').select('id, username, name, avatar_path').in('id', reviewAuthorIds)
@@ -149,6 +154,39 @@ export default async function HomePage() {
   for (const s of signedResult.data ?? []) {
     if (s.path && s.signedUrl && !s.error) signedUrlMap.set(s.path, s.signedUrl)
   }
+
+  // ── Phase 5: sign restaurant main image URLs ─────────────────────────────
+  const recImagePaths = recs
+    .map(r => r.main_image_path)
+    .filter((p): p is string => Boolean(p))
+  const recImageSignedUrls = new Map<string, string>()
+  if (recImagePaths.length > 0) {
+    const { data } = await supabase.storage
+      .from('restaurant-images')
+      .createSignedUrls(recImagePaths, 3600)
+    for (const s of data ?? []) {
+      if (s.path && s.signedUrl && !s.error) recImageSignedUrls.set(s.path, s.signedUrl)
+    }
+  }
+
+  // Resolve display names for Google-sourced restaurants (review feed + recs)
+  const restaurantDisplayNames = new Map<string, string>()
+  const recDisplayNames = new Map<string, string>()
+
+  await Promise.all([
+    ...([...restaurantMap.values()] as RestaurantRow[])
+      .filter(r => r.source === 'google_place' && r.external_place_id)
+      .map(async (r) => {
+        const d = await resolveRestaurantDisplay(r)
+        restaurantDisplayNames.set(r.id, d.name)
+      }),
+    ...recs
+      .filter(r => r.source === 'google_place' && r.external_place_id)
+      .map(async (rec) => {
+        const d = await resolveRestaurantDisplay(rec)
+        recDisplayNames.set(rec.restaurant_id, d.name)
+      }),
+  ])
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 
@@ -343,7 +381,9 @@ export default async function HomePage() {
                     <p className="truncate text-xs font-medium text-ink-sub">{displayName}</p>
                     <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                       {restaurant && (
-                        <span className="truncate text-sm font-bold text-ink">{restaurant.name}</span>
+                        <span className="truncate text-sm font-bold text-ink">
+                          {restaurantDisplayNames.get(restaurant.id) ?? restaurant.name ?? '—'}
+                        </span>
                       )}
                       <RatingChip rating={review.rating} />
                     </div>
@@ -395,35 +435,49 @@ export default async function HomePage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            {recs.slice(0, 4).map((rec) => (
-              <Link
-                key={rec.restaurant_id}
-                href={`/restaurants/${rec.restaurant_id}`}
-                className="flex flex-col overflow-hidden rounded-2xl border border-edge bg-surface p-2.5 shadow-sm transition-opacity hover:opacity-90"
-              >
-                {/* Restaurant name + genre */}
-                <p className="line-clamp-2 text-sm font-bold leading-snug text-ink">{rec.name}</p>
-                {rec.genre && (
-                  <p className="mt-0.5 truncate text-xs text-ink-sub">{rec.genre}</p>
-                )}
-
-                {/* Spacer pushes evidence box to bottom */}
-                <div className="min-h-[6px] flex-1" />
-
-                {/* Evidence box */}
-                <div className="mt-2 rounded-lg bg-terra/10 px-2 py-1.5">
-                  <div className="flex items-start gap-1">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0" aria-hidden="true">
-                      <circle cx="9" cy="7" r="3" />
-                      <path d="M3 21v-2a5 5 0 0 1 5-5h2" />
-                      <circle cx="17" cy="9" r="3" />
-                      <path d="M21 21v-2a5 5 0 0 0-5-5h-2" />
-                    </svg>
-                    <p className="text-[10px] leading-snug text-terra">{evidenceBadgeText(rec)}</p>
+            {recs.slice(0, 4).map((rec) => {
+              const imageUrl = rec.main_image_path
+                ? (recImageSignedUrls.get(rec.main_image_path) ?? null)
+                : null
+              return (
+                <Link
+                  key={rec.restaurant_id}
+                  href={`/restaurants/${rec.restaurant_id}`}
+                  className="flex flex-col overflow-hidden rounded-2xl border border-edge bg-surface shadow-sm transition-opacity hover:opacity-90"
+                >
+                  {/* Restaurant image thumbnail */}
+                  <div className="relative h-[80px] w-full overflow-hidden">
+                    <RestaurantMainImage src={imageUrl} alt={recDisplayNames.get(rec.restaurant_id) ?? rec.name ?? '—'} />
                   </div>
-                </div>
-              </Link>
-            ))}
+
+                  <div className="flex flex-col p-2.5">
+                    {/* Restaurant name + genre */}
+                    <p className="line-clamp-2 text-sm font-bold leading-snug text-ink">
+                      {recDisplayNames.get(rec.restaurant_id) ?? rec.name ?? '—'}
+                    </p>
+                    {rec.genre && (
+                      <p className="mt-0.5 truncate text-xs text-ink-sub">{rec.genre}</p>
+                    )}
+
+                    {/* Spacer pushes evidence box to bottom */}
+                    <div className="min-h-[6px] flex-1" />
+
+                    {/* Evidence box */}
+                    <div className="mt-2 rounded-lg bg-terra/10 px-2 py-1.5">
+                      <div className="flex items-start gap-1">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0" aria-hidden="true">
+                          <circle cx="9" cy="7" r="3" />
+                          <path d="M3 21v-2a5 5 0 0 1 5-5h2" />
+                          <circle cx="17" cy="9" r="3" />
+                          <path d="M21 21v-2a5 5 0 0 0-5-5h-2" />
+                        </svg>
+                        <p className="text-[10px] leading-snug text-terra">{evidenceBadgeText(rec)}</p>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              )
+            })}
           </div>
         )}
       </section>

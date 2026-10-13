@@ -4,6 +4,7 @@ import BottomNav from '@/components/BottomNav'
 import BackButton from '@/components/BackButton'
 import { getUserState } from '@/lib/auth/getUserState'
 import { createClient } from '@/lib/supabase/server'
+import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
 import ReviewForm, { type ExistingReview } from '@/app/restaurants/[id]/ReviewForm'
 
 type PageProps = {
@@ -24,7 +25,7 @@ export default async function RecordEditPage({ params }: PageProps) {
 
   const { data: reviewData, error: reviewError } = await supabase
     .from('reviews')
-    .select('id, rating, comment, visit_date, image_path, user_id, restaurant_id, restaurants(id, name)')
+    .select('id, rating, comment, visit_date, image_path, user_id, restaurant_id, restaurants(id, name, source, external_place_id)')
     .eq('id', reviewId)
     .maybeSingle()
 
@@ -41,7 +42,7 @@ export default async function RecordEditPage({ params }: PageProps) {
     image_path: string | null
     user_id: string
     restaurant_id: string
-    restaurants: { id: string; name: string } | null
+    restaurants: { id: string; name: string | null; source: string; external_place_id: string | null } | null
   }
 
   const review = reviewData as unknown as ReviewRow
@@ -74,6 +75,7 @@ export default async function RecordEditPage({ params }: PageProps) {
   }
 
   const restaurant = review.restaurants
+  const restaurantDisplay = restaurant ? await resolveRestaurantDisplay(restaurant) : null
 
   return (
     <main className="min-h-screen bg-canvas pb-24">
@@ -84,8 +86,8 @@ export default async function RecordEditPage({ params }: PageProps) {
         </Suspense>
         <div className="flex-1 text-center">
           <h1 className="text-base font-bold text-ink">記録を編集</h1>
-          {restaurant && (
-            <p className="text-xs text-ink-sub">{restaurant.name}</p>
+          {restaurantDisplay && (
+            <p className="text-xs text-ink-sub" translate={restaurantDisplay.isGoogle ? 'no' : undefined}>{restaurantDisplay.name}</p>
           )}
         </div>
         <div className="w-10" />

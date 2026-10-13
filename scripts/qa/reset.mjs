@@ -10,6 +10,7 @@ import {
   createGroup,
   createBaseFollows,
   validateFixture,
+  uploadRestaurantMainImage,
 } from './_lib/seed.mjs'
 
 loadEnv()
@@ -75,8 +76,28 @@ async function main() {
     process.exit(1)
   }
 
-  // 6/6 — validate
-  console.log('\n[6/6] Validating fixture ...')
+  // 6/7 — restaurant main image fixture
+  console.log('\n[6/7] Uploading restaurant main image fixture ...')
+  try {
+    // Seed one restaurant with a main image (すき家 飯塚市役所前店) for image display tests
+    const { data: targetRest } = await admin
+      .from('restaurants')
+      .select('id')
+      .eq('name', 'すき家 飯塚市役所前店')
+      .maybeSingle()
+    if (targetRest) {
+      await uploadRestaurantMainImage(admin, targetRest.id)
+      console.log(`  ✓ main_image_path set for すき家 飯塚市役所前店 (${targetRest.id.slice(0, 8)}...)`)
+    } else {
+      console.warn('  ⚠ すき家 飯塚市役所前店 not found — skipping image fixture')
+    }
+  } catch (err) {
+    console.error('Restaurant image fixture failed:', err.message)
+    process.exit(1)
+  }
+
+  // 7/7 — validate
+  console.log('\n[7/7] Validating fixture ...')
   try {
     await validateFixture(admin, userIds)
   } catch (err) {
@@ -84,7 +105,8 @@ async function main() {
     process.exit(1)
   }
 
-  console.log('\n=== qa:reset complete ===\n')
+  console.log('\n=== qa:reset complete ===')
+  console.log('Restaurant image fixture: すき家 飯塚市役所前店 has main_image_path (others NULL)\n')
 }
 
 main().catch(err => {

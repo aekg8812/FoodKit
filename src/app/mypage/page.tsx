@@ -4,6 +4,7 @@ import BottomNav from '@/components/BottomNav'
 import { getUserState } from '@/lib/auth/getUserState'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
 
 type RecentReviewRow = {
   id: string
@@ -11,7 +12,7 @@ type RecentReviewRow = {
   comment: string | null
   visit_date: string | null
   image_path: string | null
-  restaurants: { id: string; name: string } | null
+  restaurants: { id: string; name: string | null; source: string; external_place_id: string | null } | null
 }
 
 type PreferenceCardRow = {
@@ -60,7 +61,7 @@ export default async function MypagePage() {
       .eq('user_id', user.id),
     supabase
       .from('reviews')
-      .select('id, rating, comment, visit_date, image_path, restaurants(id, name)')
+      .select('id, rating, comment, visit_date, image_path, restaurants(id, name, source, external_place_id)')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .order('id', { ascending: false })
@@ -124,6 +125,18 @@ export default async function MypagePage() {
       : avatarRaw
 
   const initial: string = (profile.name ?? profile.username ?? '?').trim().charAt(0) || '?'
+
+  // Resolve display names for Google-sourced restaurants in recent reviews
+  const recentRestaurantDisplayNames = new Map<string, string>()
+  await Promise.all(
+    recentRows
+      .map(r => r.restaurants)
+      .filter((r): r is NonNullable<typeof r> => r !== null && r.source === 'google_place' && r.external_place_id !== null)
+      .map(async (r) => {
+        const d = await resolveRestaurantDisplay(r)
+        recentRestaurantDisplayNames.set(r.id, d.name)
+      }),
+  )
 
   return (
     <main className="min-h-screen bg-canvas pb-24">
@@ -317,7 +330,9 @@ export default async function MypagePage() {
                     {/* Info */}
                     <div className="min-w-0 flex-1">
                       {review.restaurants && (
-                        <p className="truncate text-sm font-bold text-terra">{review.restaurants.name}</p>
+                        <p className="truncate text-sm font-bold text-terra">
+                          {recentRestaurantDisplayNames.get(review.restaurants.id) ?? review.restaurants.name ?? '—'}
+                        </p>
                       )}
                       <div className="mt-0.5 flex items-center gap-2">
                         {chip && (

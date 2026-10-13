@@ -3,9 +3,20 @@ import BottomNav from '@/components/BottomNav'
 import { createClient } from '@/lib/supabase/server'
 import { getUserState } from '@/lib/auth/getUserState'
 import { logPageAuthRequest } from '@/lib/diagnostics/authRequests'
+import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
 import RecordFormClient, { type ExistingReview } from './RecordFormClient'
 
 type Restaurant = {
+  id: string
+  name: string | null
+  source: string
+  external_place_id: string | null
+  area: string | null
+  genre: string | null
+  address: string | null
+}
+
+type RestaurantForForm = {
   id: string
   name: string
   area: string | null
@@ -32,7 +43,7 @@ export default async function RecordPage({ params }: RecordPageProps) {
 
   const { data: restaurantData, error: restaurantError } = await supabase
     .from('restaurants')
-    .select('id, name, area, genre, address')
+    .select('id, name, source, external_place_id, area, genre, address')
     .eq('id', restaurantId)
     .maybeSingle()
 
@@ -42,6 +53,14 @@ export default async function RecordPage({ params }: RecordPageProps) {
   if (!restaurantData) notFound()
 
   const restaurant = restaurantData as Restaurant
+  const display = await resolveRestaurantDisplay(restaurant)
+  const restaurantForForm: RestaurantForForm = {
+    id: restaurant.id,
+    name: display.name,
+    area: restaurant.area,
+    genre: restaurant.genre,
+    address: display.address ?? restaurant.address,
+  }
 
   const { data: canRecord, error: canRecordError } = await supabase.rpc(
     'can_record_restaurant',
@@ -91,7 +110,7 @@ export default async function RecordPage({ params }: RecordPageProps) {
     <main className="min-h-screen bg-canvas pb-24">
       <RecordFormClient
         restaurantId={restaurantId}
-        restaurant={restaurant}
+        restaurant={restaurantForForm}
         existingReview={existingReview}
       />
       <BottomNav />

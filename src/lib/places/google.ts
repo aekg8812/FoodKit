@@ -8,7 +8,7 @@ const IIZUKA_FALLBACK_RADIUS_METERS = 30000
 const MAX_RESULT_COUNT = 8
 const SEARCH_FIELD_MASK = 'places.id,places.displayName,places.formattedAddress'
 const VALIDATE_FIELD_MASK = 'id'
-const DISPLAY_NAME_FIELD_MASK = 'displayName'
+const DETAILS_FIELD_MASK = 'displayName,formattedAddress'
 const PLACES_API_BASE = 'https://places.googleapis.com/v1'
 const FETCH_TIMEOUT_MS = 5000
 
@@ -89,7 +89,10 @@ export async function searchGooglePlaces(
   }
 }
 
-export async function getGooglePlaceDisplayName(placeId: string): Promise<string | null> {
+export async function getGooglePlaceDetails(placeId: string): Promise<{
+  displayName: string | null
+  formattedAddress: string | null
+} | null> {
   if (!GOOGLE_PLACES_API_KEY) return null
   if (!placeId.trim()) return null
 
@@ -103,7 +106,8 @@ export async function getGooglePlaceDisplayName(placeId: string): Promise<string
         method: 'GET',
         headers: {
           'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
-          'X-Goog-FieldMask': DISPLAY_NAME_FIELD_MASK,
+          'X-Goog-FieldMask': DETAILS_FIELD_MASK,
+          'X-Goog-LanguageCode': 'ja',
         },
         cache: 'no-store',
         signal: controller.signal,
@@ -113,8 +117,14 @@ export async function getGooglePlaceDisplayName(placeId: string): Promise<string
 
     if (!res.ok) return null
 
-    const json = (await res.json()) as { displayName?: { text?: string } }
-    return json.displayName?.text ?? null
+    const json = (await res.json()) as {
+      displayName?: { text?: string }
+      formattedAddress?: string
+    }
+    return {
+      displayName: json.displayName?.text ?? null,
+      formattedAddress: json.formattedAddress ?? null,
+    }
   } catch {
     return null
   }
@@ -138,6 +148,7 @@ export async function validateGooglePlaceExists(placeId: string): Promise<boolea
           'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
           'X-Goog-FieldMask': VALIDATE_FIELD_MASK,
         },
+        cache: 'no-store',
         signal: controller.signal,
       },
     )

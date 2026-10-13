@@ -6,20 +6,26 @@ import BackButton from '@/components/BackButton'
 import ReviewCard, { type ReviewCardData } from '@/components/ReviewCard'
 import ReviewTabsNav, { type ReviewTab } from '@/components/ReviewTabsNav'
 import ShareButton from '@/components/ShareButton'
+import RestaurantMainImage from '@/components/RestaurantMainImage'
 import { logPageAuthRequest } from '@/lib/diagnostics/authRequests'
 import { getUserState } from '@/lib/auth/getUserState'
+import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
 import { Suspense } from 'react'
 
 const REVIEW_PREVIEW_COUNT = 3
 
 type Restaurant = {
   id: string
-  name: string
+  name: string | null
+  source: string
+  external_place_id: string | null
   area: string | null
   genre: string | null
   address: string | null
   memo: string | null
   budget_per_person_max_yen: number | null
+  main_image_path: string | null
+  created_by: string | null
 }
 
 type RpcReviewRow = {
@@ -102,7 +108,7 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
   const [restaurantResult, ratingCountsResult, reviewsResult, cardCountResult] = await Promise.all([
     supabase
       .from('restaurants')
-      .select('id, name, area, genre, address, memo, budget_per_person_max_yen')
+      .select('id, name, source, external_place_id, area, genre, address, memo, budget_per_person_max_yen, main_image_path, created_by')
       .eq('id', id)
       .maybeSingle(),
     supabase
@@ -132,6 +138,7 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
   }
 
   const r = restaurantResult.data as Restaurant
+  const rDisplay = await resolveRestaurantDisplay(r)
   const rpcRows = (reviewsResult.data ?? []) as RpcReviewRow[]
   const viewerCardCount = cardCountResult.count ?? 0
 
@@ -147,6 +154,15 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
     3: totalReviews ? Math.round((ratingCounts[3] / totalReviews) * 100) : 0,
     2: totalReviews ? Math.round((ratingCounts[2] / totalReviews) * 100) : 0,
     1: totalReviews ? Math.round((ratingCounts[1] / totalReviews) * 100) : 0,
+  }
+
+  // Generate signed URL for restaurant main image (private bucket)
+  let mainImageSignedUrl: string | null = null
+  if (r.main_image_path) {
+    const { data: signedData } = await supabase.storage
+      .from('restaurant-images')
+      .createSignedUrl(r.main_image_path, 60 * 60)
+    mainImageSignedUrl = signedData?.signedUrl ?? null
   }
 
   // Generate signed URLs for review images
@@ -187,10 +203,12 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
     created_at: row.created_at,
   }))
 
-  const mapsUrl = buildMapsUrl(r.name, r.address)
+  const displayAddress = rDisplay.address ?? r.address
+  const mapsUrl = buildMapsUrl(rDisplay.name, displayAddress)
   const pageUrl = process.env.NEXT_PUBLIC_SITE_URL
     ? `${process.env.NEXT_PUBLIC_SITE_URL}/restaurants/${id}`
     : undefined
+  const isOwner = r.created_by !== null && r.created_by === user.id
 
   const viewerNeedsPreference = reviewTab === 'similar' && viewerCardCount < 5
 
@@ -203,16 +221,8 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
   return (
     <main className="min-h-screen bg-canvas pb-24">
       {/* Hero image area */}
-      <div className="relative h-[220px] w-full bg-[#2F2A27]">
-        <div className="flex h-full w-full items-center justify-center bg-[#3D3530]">
-          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#8A7A72" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
-            <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
-            <line x1="6" y1="1" x2="6" y2="4" />
-            <line x1="10" y1="1" x2="10" y2="4" />
-            <line x1="14" y1="1" x2="14" y2="4" />
-          </svg>
-        </div>
+      <div className="relative h-[220px] w-full overflow-hidden">
+        <RestaurantMainImage src={mainImageSignedUrl} alt={rDisplay.name} />
 
         {/* Overlay controls */}
         <div className="absolute inset-x-0 top-0 flex items-center justify-between px-4 pt-14">
@@ -220,13 +230,20 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
             <BackButton fallbackHref="/home" label="" />
           </Suspense>
           <div className="flex items-center gap-3">
-            <button type="button" className="flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white" aria-label="保存">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-              </svg>
-            </button>
+            {isOwner && (
+              <Link
+                href={`/restaurants/${id}/edit`}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white"
+                aria-label="店舗情報を編集"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+              </Link>
+            )}
             <Suspense>
-              <ShareButton title={r.name} url={pageUrl} />
+              <ShareButton title={rDisplay.name} url={pageUrl} />
             </Suspense>
           </div>
         </div>
@@ -234,7 +251,7 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
 
       {/* Restaurant name + meta */}
       <div className="bg-surface px-4 pt-4 pb-4">
-        <h1 className="text-xl font-black text-ink">{r.name}</h1>
+        <h1 className="text-xl font-black text-ink" translate={rDisplay.isGoogle ? 'no' : undefined}>{rDisplay.name}</h1>
         {(r.area || r.genre) && (
           <p className="mt-0.5 text-sm text-ink-sub">{[r.genre, r.area].filter(Boolean).join('・')}</p>
         )}
@@ -248,13 +265,13 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
               ¥{r.budget_per_person_max_yen.toLocaleString()}以下/人
             </span>
           )}
-          {r.address && (
+          {displayAddress && (
             <span className="flex items-center gap-1">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <circle cx="12" cy="10" r="3" />
                 <path d="M12 2a8 8 0 0 1 8 8c0 5.4-8 12-8 12S4 15.4 4 10a8 8 0 0 1 8-8z" />
               </svg>
-              {r.address}
+              <span translate={rDisplay.isGoogle ? 'no' : undefined}>{displayAddress}</span>
             </span>
           )}
         </div>
@@ -359,7 +376,7 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
       </div>
 
       {/* Store info */}
-      {(r.area || r.genre || r.address || r.memo) && (
+      {(r.area || r.genre || displayAddress || r.memo) && (
         <div className="mx-4 mt-4 rounded-2xl bg-surface p-4">
           <h2 className="mb-3 text-sm font-bold text-ink">店舗情報</h2>
           <dl className="space-y-2.5">
@@ -386,7 +403,7 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
                 <dd className="text-ink">¥{r.budget_per_person_max_yen.toLocaleString()}以下/人</dd>
               </div>
             )}
-            {r.address && (
+            {displayAddress && (
               <div className="flex gap-3 text-sm">
                 <dt className="flex w-[64px] shrink-0 items-center gap-1.5 text-ink-sub">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -395,7 +412,7 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
                   </svg>
                   住所
                 </dt>
-                <dd className="text-ink">{r.address}</dd>
+                <dd className="text-ink" translate={rDisplay.isGoogle ? 'no' : undefined}>{displayAddress}</dd>
               </div>
             )}
             {r.area && (

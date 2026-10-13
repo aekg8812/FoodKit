@@ -3,10 +3,13 @@ import { notFound, redirect } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
 import { getUserState } from '@/lib/auth/getUserState'
 import { createClient } from '@/lib/supabase/server'
+import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
 
 type RecommendationRow = {
   restaurant_id: string
-  name: string
+  name: string | null
+  source: string
+  external_place_id: string | null
   area: string | null
   genre: string | null
   address: string | null
@@ -74,6 +77,17 @@ export default async function GroupRecommendationsPage({ params }: GroupRecommen
   }
 
   const recommendations = (recData ?? []) as RecommendationRow[]
+
+  // Resolve display names for Google-sourced restaurants
+  const recDisplayNames = new Map<string, string>()
+  await Promise.all(
+    recommendations
+      .filter(r => r.source === 'google_place' && r.external_place_id)
+      .map(async (rec) => {
+        const d = await resolveRestaurantDisplay(rec)
+        recDisplayNames.set(rec.restaurant_id, d.name)
+      }),
+  )
 
   return (
     <main className="min-h-screen bg-canvas pb-24">
@@ -190,7 +204,9 @@ export default async function GroupRecommendationsPage({ params }: GroupRecommen
                         </svg>
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="font-bold text-ink">{rec.name}</p>
+                        <p className="font-bold text-ink">
+                          {recDisplayNames.get(rec.restaurant_id) ?? rec.name ?? '—'}
+                        </p>
                         {(rec.genre ?? rec.area) && (
                           <p className="mt-0.5 text-xs text-ink-sub">
                             {[rec.genre, rec.area].filter(Boolean).join('・')}

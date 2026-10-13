@@ -2,32 +2,21 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { ensureRestaurantAccesses } from '@/lib/restaurants/access'
 import { validateGooglePlaceExists } from '@/lib/places/google'
 
-export type CreateGoogleRestaurantResult =
+export type SubmitGooglePlaceReviewResult =
   | { ok: true; restaurantId: string }
   | { ok: false; error: string }
 
-async function tryEnsureAccess(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  restaurantId: string,
-  userId: string,
-): Promise<void> {
-  try {
-    await ensureRestaurantAccesses(supabase, restaurantId, userId)
-  } catch {
-    // Non-fatal: access row may already exist
-  }
-}
-
-export async function createGoogleRestaurantForRecordAction(input: {
+export async function submitGooglePlaceReviewAction(input: {
   placeId: string
-  name: string
-}): Promise<CreateGoogleRestaurantResult> {
+  rating: number
+  comment: string
+  visitDate: string
+  imagePath: string | null
+}): Promise<SubmitGooglePlaceReviewResult> {
   const supabase = await createClient()
 
-  // Step 1: Auth
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -35,26 +24,40 @@ export async function createGoogleRestaurantForRecordAction(input: {
     return { ok: false, error: 'ログインが必要です。再度ログインしてください' }
   }
 
-  // Step 2: Name validation
-  const name = input.name.trim()
-  if (!name) return { ok: false, error: 'お店の名前を入力してください' }
-  if (name.length > 100) return { ok: false, error: 'お店の名前は100文字以内にしてください' }
-
-  // Step 3: placeId validation
   const placeId = input.placeId.trim()
-  if (!placeId) return { ok: false, error: 'お店の情報が取得できませんでした。もう一度お試しください' }
+  if (!placeId) {
+    return { ok: false, error: 'お店の情報が取得できませんでした。もう一度お試しください' }
+  }
 
-  // Step 4: Pre-resolve — return early if this place is already registered
+  const { rating, comment, visitDate, imagePath } = input
+
+  if (rating < 1 || rating > 4) {
+    return { ok: false, error: '評価を選択してください' }
+  }
+
+  // Fast path: restaurant already registered
   const { data: existingId } = await supabase.rpc(
     'resolve_restaurant_by_external_place_id',
     { p_external_place_id: placeId },
   )
   if (existingId) {
-    await tryEnsureAccess(supabase, existingId as string, user.id)
-    return { ok: true, restaurantId: existingId as string }
+    const serviceClient = createServiceClient()
+    const { data, error } = await serviceClient.rpc('create_google_restaurant_review', {
+      p_external_place_id: placeId,
+      p_user_id: user.id,
+      p_rating: rating,
+      p_comment: comment.trim() || null,
+      p_visit_date: visitDate || null,
+      p_image_path: imagePath || null,
+    })
+    if (error) {
+      return { ok: false, error: '記録の保存に失敗しました。時間をおいて再度お試しください' }
+    }
+    const result = data as { restaurant_id: string }
+    return { ok: true, restaurantId: result.restaurant_id }
   }
 
-  // Step 5: Server-side Google Place ID re-validation
+  // Server-side Google Place ID validation
   let placeExists: boolean
   try {
     placeExists = await validateGooglePlaceExists(placeId)
@@ -71,44 +74,21 @@ export async function createGoogleRestaurantForRecordAction(input: {
     }
   }
 
-  // Step 6: INSERT via service role (bypasses RLS for external_place_id IS NOT NULL)
+  // Atomic restaurant resolve/create + review upsert
   const serviceClient = createServiceClient()
-  const { data, error } = await serviceClient
-    .from('restaurants')
-    .insert({
-      name,
-      external_place_id: placeId,
-      source: 'google_place',
-      created_by: user.id,
-      area: null,
-      genre: null,
-      address: null,
-      main_image_path: null,
-    })
-    .select('id')
-    .single()
-
-  // 23505 = unique_violation: race where another user inserted the same place_id
-  if (error?.code === '23505') {
-    const { data: racedId } = await supabase.rpc(
-      'resolve_restaurant_by_external_place_id',
-      { p_external_place_id: placeId },
-    )
-    if (racedId) {
-      await tryEnsureAccess(supabase, racedId as string, user.id)
-      return { ok: true, restaurantId: racedId as string }
-    }
-    return { ok: false, error: '登録中に問題が発生しました。時間をおいて再度お試しください' }
-  }
+  const { data, error } = await serviceClient.rpc('create_google_restaurant_review', {
+    p_external_place_id: placeId,
+    p_user_id: user.id,
+    p_rating: rating,
+    p_comment: comment.trim() || null,
+    p_visit_date: visitDate || null,
+    p_image_path: imagePath || null,
+  })
 
   if (error) {
-    return { ok: false, error: '登録に失敗しました。時間をおいて再度お試しください' }
+    return { ok: false, error: '記録の保存に失敗しました。時間をおいて再度お試しください' }
   }
 
-  const restaurantId = (data as { id: string }).id
-
-  // Step 7: Ensure restaurant_accesses using normal authenticated client
-  await tryEnsureAccess(supabase, restaurantId, user.id)
-
-  return { ok: true, restaurantId }
+  const result = data as { restaurant_id: string }
+  return { ok: true, restaurantId: result.restaurant_id }
 }

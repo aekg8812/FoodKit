@@ -3,14 +3,19 @@ import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import BottomNav from '@/components/BottomNav'
 import BackButton from '@/components/BackButton'
+import RestaurantMainImage from '@/components/RestaurantMainImage'
 import { getUserState } from '@/lib/auth/getUserState'
 import { createClient } from '@/lib/supabase/server'
+import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
 
 type RecRow = {
   restaurant_id: string
-  name: string
+  name: string | null
+  source: string
+  external_place_id: string | null
   area: string | null
   genre: string | null
+  main_image_path: string | null
   budget_per_person_max_yen: number | null
   walk_in_available: boolean | null
   parking_available: boolean | null
@@ -41,6 +46,33 @@ export default async function RecommendationsPage() {
 
   const recsResult = await supabase.rpc('get_personal_recommendations_v2', { p_limit: 20 })
   const recs = ((recsResult.data ?? []) as RecRow[])
+
+  // Resolve display names for Google-sourced restaurants
+  const recDisplayNames = new Map<string, string>()
+  await Promise.all(
+    recs
+      .filter(r => r.source === 'google_place' && r.external_place_id)
+      .map(async (rec) => {
+        const d = await resolveRestaurantDisplay(rec)
+        recDisplayNames.set(rec.restaurant_id, d.name)
+      }),
+  )
+
+  // Generate signed URLs for restaurant main images (private bucket)
+  const recImagePaths = recs
+    .map((r) => r.main_image_path)
+    .filter((p): p is string => Boolean(p))
+  const recImageSignedUrls = new Map<string, string>()
+  if (recImagePaths.length > 0) {
+    const { data } = await supabase.storage
+      .from('restaurant-images')
+      .createSignedUrls(recImagePaths, 60 * 60)
+    for (const item of data ?? []) {
+      if (item.path && item.signedUrl && !item.error) {
+        recImageSignedUrls.set(item.path, item.signedUrl)
+      }
+    }
+  }
 
   return (
     <main className="min-h-screen bg-canvas pb-24">
@@ -82,55 +114,64 @@ export default async function RecommendationsPage() {
           </div>
         ) : (
           <ul className="space-y-3">
-            {recs.map(rec => (
-              <li key={rec.restaurant_id}>
-                <Link
-                  href={`/restaurants/${rec.restaurant_id}`}
-                  className="block rounded-2xl border border-edge bg-surface p-4 shadow-sm transition-colors hover:bg-canvas"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-semibold text-ink">{rec.name}</p>
-                      {(rec.genre ?? rec.area) && (
-                        <p className="mt-0.5 truncate text-xs text-ink-sub">
-                          {[rec.genre, rec.area].filter(Boolean).join(' · ')}
-                        </p>
-                      )}
-                      {rec.budget_per_person_max_yen && (
-                        <p className="mt-0.5 text-xs text-ink-sub">
-                          〜¥{rec.budget_per_person_max_yen.toLocaleString()}
-                        </p>
-                      )}
-                      <p className="mt-1 text-[10px] text-ink-sub">{recommendationReason(rec)}</p>
+            {recs.map(rec => {
+              const imageUrl = rec.main_image_path
+                ? (recImageSignedUrls.get(rec.main_image_path) ?? null)
+                : null
+              return (
+                <li key={rec.restaurant_id}>
+                  <Link
+                    href={`/restaurants/${rec.restaurant_id}`}
+                    className="flex overflow-hidden rounded-2xl border border-edge bg-surface shadow-sm transition-colors hover:bg-canvas"
+                  >
+                    {/* Left: restaurant main image */}
+                    <div className="relative h-[100px] w-[90px] shrink-0 overflow-hidden">
+                      <RestaurantMainImage src={imageUrl} alt={recDisplayNames.get(rec.restaurant_id) ?? rec.name ?? '—'} />
                     </div>
-                    <div className="shrink-0 text-right">
-                      <p className="text-sm font-bold text-terra">
-                        {Math.round(rec.personal_score * 50)}点
-                      </p>
-                      <p className="text-[10px] text-ink-sub">{rec.evidence_count}件</p>
-                    </div>
-                  </div>
 
-                  <div className="mt-2 flex gap-2 text-[10px] text-ink-sub">
-                    {rec.followed_evidence_count > 0 && (
-                      <span className="rounded-full bg-cream px-2 py-0.5 font-medium text-amber-700">
-                        フォロー {rec.followed_evidence_count}件
-                      </span>
-                    )}
-                    {rec.similar_evidence_count > 0 && (
-                      <span className="rounded-full bg-cream px-2 py-0.5 font-medium text-amber-700">
-                        好み近い {rec.similar_evidence_count}件
-                      </span>
-                    )}
-                    {rec.rating_4_count > 0 && (
-                      <span className="rounded-full bg-cream px-2 py-0.5 font-medium text-amber-700">
-                        ★4: {rec.rating_4_count}
-                      </span>
-                    )}
-                  </div>
-                </Link>
-              </li>
-            ))}
+                    {/* Right: info */}
+                    <div className="flex min-w-0 flex-1 flex-col justify-between p-3">
+                      <div>
+                        <p className="truncate font-semibold text-ink">
+                          {recDisplayNames.get(rec.restaurant_id) ?? rec.name ?? '—'}
+                        </p>
+                        {(rec.genre ?? rec.area) && (
+                          <p className="mt-0.5 truncate text-xs text-ink-sub">
+                            {[rec.genre, rec.area].filter(Boolean).join(' · ')}
+                          </p>
+                        )}
+                        {rec.budget_per_person_max_yen && (
+                          <p className="mt-0.5 text-xs text-ink-sub">
+                            〜¥{rec.budget_per_person_max_yen.toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+
+                      <div>
+                        <p className="text-[10px] text-ink-sub">{recommendationReason(rec)}</p>
+                        <div className="mt-1.5 flex flex-wrap gap-1.5 text-[10px]">
+                          {rec.followed_evidence_count > 0 && (
+                            <span className="rounded-full bg-terra/10 px-2 py-0.5 font-medium text-terra">
+                              フォロー {rec.followed_evidence_count}件
+                            </span>
+                          )}
+                          {rec.similar_evidence_count > 0 && (
+                            <span className="rounded-full bg-terra/10 px-2 py-0.5 font-medium text-terra">
+                              好み近い {rec.similar_evidence_count}件
+                            </span>
+                          )}
+                          {rec.rating_4_count > 0 && (
+                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700">
+                              ★4: {rec.rating_4_count}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                </li>
+              )
+            })}
           </ul>
         )}
       </div>

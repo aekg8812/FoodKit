@@ -3,17 +3,15 @@ import { createClient } from '@/lib/supabase/server'
 import { getUserState } from '@/lib/auth/getUserState'
 import { logPageAuthRequest } from '@/lib/diagnostics/authRequests'
 import { ensureRestaurantAccesses } from '@/lib/restaurants/access'
-import { getGooglePlaceDisplayName } from '@/lib/places/google'
-import PlaceConfirmClient from './PlaceConfirmClient'
+import { getGooglePlaceDetails } from '@/lib/places/google'
+import GooglePlaceRecordForm from './GooglePlaceRecordForm'
 
 type Props = {
   params: Promise<{ placeId: string }>
-  searchParams: Promise<{ name?: string | string[] }>
 }
 
-export default async function RecordPlacePage({ params, searchParams }: Props) {
+export default async function RecordPlacePage({ params }: Props) {
   const { placeId: rawPlaceId } = await params
-  const sp = await searchParams
 
   const supabase = await createClient()
 
@@ -26,11 +24,10 @@ export default async function RecordPlacePage({ params, searchParams }: Props) {
   const state = await getUserState(supabase, user)
   if (state === 'no_onboarding') redirect('/onboarding')
 
-  // Validate placeId from URL
   const placeId = rawPlaceId?.trim() ?? ''
   if (!placeId) redirect('/record')
 
-  // Resolve existing restaurant — if found, go directly to record flow
+  // Fast path: restaurant already exists
   const { data: existingId } = await supabase.rpc(
     'resolve_restaurant_by_external_place_id',
     { p_external_place_id: placeId },
@@ -41,18 +38,14 @@ export default async function RecordPlacePage({ params, searchParams }: Props) {
     redirect(`/record/${existingId}`)
   }
 
-  // Not registered yet — fetch displayName for ephemeral hint (never stored)
-  const googleHint = await getGooglePlaceDisplayName(placeId)
-
-  // Initial name from userQuery (search term typed by user — user's own data, not Google)
-  const rawName = Array.isArray(sp.name) ? sp.name[0] : sp.name
-  const initialName = rawName?.trim().slice(0, 100) ?? ''
+  // Fetch Google Place details for ephemeral display (never stored)
+  const details = await getGooglePlaceDetails(placeId)
 
   return (
-    <PlaceConfirmClient
+    <GooglePlaceRecordForm
       placeId={placeId}
-      googleHint={googleHint}
-      initialName={initialName}
+      googleDisplayName={details?.displayName ?? null}
+      googleFormattedAddress={details?.formattedAddress ?? null}
     />
   )
 }

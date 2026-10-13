@@ -7,6 +7,7 @@ import BottomNav from '@/components/BottomNav'
 import BackButton from '@/components/BackButton'
 import { logPageAuthRequest } from '@/lib/diagnostics/authRequests'
 import { getUserState } from '@/lib/auth/getUserState'
+import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
 
 type ReviewRow = {
   id: string
@@ -19,7 +20,9 @@ type ReviewRow = {
   restaurant_id: string
   restaurants: {
     id: string
-    name: string
+    name: string | null
+    source: string
+    external_place_id: string | null
     area: string | null
     genre: string | null
     address: string | null
@@ -141,7 +144,7 @@ export default async function RecordDetailPage({ params }: PageProps) {
   const { data: reviewData, error: reviewError } = await supabase
     .from('reviews')
     .select(
-      'id, rating, comment, visit_date, created_at, image_path, user_id, restaurant_id, restaurants(id, name, area, genre, address)',
+      'id, rating, comment, visit_date, created_at, image_path, user_id, restaurant_id, restaurants(id, name, source, external_place_id, area, genre, address)',
     )
     .eq('id', reviewId)
     .maybeSingle()
@@ -191,12 +194,16 @@ export default async function RecordDetailPage({ params }: PageProps) {
   const restaurant = review.restaurants
   const ratingStyle = RATING_STYLE[review.rating] ?? RATING_STYLE[3]
 
+  const restaurantDisplay = restaurant
+    ? await resolveRestaurantDisplay(restaurant)
+    : null
+
   return (
     <main className="min-h-screen bg-canvas pb-24">
       {/* Header */}
       <div className="flex items-center border-b border-edge bg-canvas px-4 pt-14 pb-3">
         <Suspense>
-          <BackButton fallbackHref={restaurant ? `/restaurants/${restaurant.id}` : '/home'} label="" />
+          <BackButton fallbackHref={review.restaurant_id ? `/restaurants/${review.restaurant_id}` : '/home'} label="" />
         </Suspense>
         <h1 className="flex-1 text-center text-base font-bold text-ink">記録詳細</h1>
         {isOwn ? (
@@ -244,7 +251,7 @@ export default async function RecordDetailPage({ params }: PageProps) {
         </div>
 
         {/* Restaurant card */}
-        {restaurant && (
+        {restaurant && restaurantDisplay && (
           <Link
             href={`/restaurants/${restaurant.id}`}
             className="flex items-center gap-3 overflow-hidden rounded-2xl border border-edge bg-surface p-3"
@@ -259,17 +266,19 @@ export default async function RecordDetailPage({ params }: PageProps) {
               </svg>
             </div>
             <div className="min-w-0 flex-1">
-              <p className="font-bold text-ink">{restaurant.name}</p>
+              <p className="font-bold text-ink" translate={restaurantDisplay.isGoogle ? 'no' : undefined}>{restaurantDisplay.name}</p>
               {(restaurant.area || restaurant.genre) && (
                 <p className="text-xs text-ink-sub">{[restaurant.genre, restaurant.area].filter(Boolean).join('・')}</p>
               )}
-              {restaurant.address && (
+              {(restaurantDisplay.address ?? restaurant.address) && (
                 <p className="mt-0.5 flex items-center gap-1 text-xs text-ink-sub">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <circle cx="12" cy="10" r="3" />
                     <path d="M12 2a8 8 0 0 1 8 8c0 5.4-8 12-8 12S4 15.4 4 10a8 8 0 0 1 8-8z" />
                   </svg>
-                  {restaurant.address}
+                  <span translate={restaurantDisplay.isGoogle ? 'no' : undefined}>
+                    {restaurantDisplay.address ?? restaurant.address}
+                  </span>
                 </p>
               )}
             </div>
@@ -336,9 +345,9 @@ export default async function RecordDetailPage({ params }: PageProps) {
         )}
 
         {/* Bottom CTA */}
-        {restaurant && (
+        {review.restaurant_id && (
           <Link
-            href={`/restaurants/${restaurant.id}`}
+            href={`/restaurants/${review.restaurant_id}`}
             className="flex h-[52px] w-full items-center justify-center gap-1.5 rounded-xl bg-terra text-base font-bold text-white"
           >
             この店舗を見る
