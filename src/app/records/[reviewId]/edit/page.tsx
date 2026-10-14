@@ -65,6 +65,12 @@ export default async function RecordEditPage({ params }: PageProps) {
     }
   }
 
+  // Load existing learning signals
+  const { data: signalsData } = await supabase.rpc('get_review_learning_signals', {
+    p_review_id: reviewId,
+  })
+  const signals = signalsData as { reason_keys: string[]; label_keys: string[] } | null
+
   const existingReview: ExistingReview = {
     id: review.id,
     rating: review.rating,
@@ -72,6 +78,8 @@ export default async function RecordEditPage({ params }: PageProps) {
     visit_date: review.visit_date,
     image_path: review.image_path,
     image_url: imageUrl,
+    reason_keys: signals?.reason_keys ?? [],
+    label_keys:  signals?.label_keys ?? [],
   }
 
   const restaurant = review.restaurants

@@ -3,11 +3,13 @@
 import { createClient } from '@/lib/supabase/client'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Button from '@/components/ui/Button'
 import TextareaField from '@/components/ui/TextareaField'
 import InputField from '@/components/ui/InputField'
 import ErrorMessage from '@/components/ui/ErrorMessage'
+import ReasonTagSelector from '@/components/review/ReasonTagSelector'
+import RestaurantLabelSelector from '@/components/review/RestaurantLabelSelector'
 
 export type ExistingReview = {
   id: string
@@ -16,6 +18,8 @@ export type ExistingReview = {
   visit_date: string | null
   image_path: string | null
   image_url: string | null
+  reason_keys?: string[]
+  label_keys?: string[]
 }
 
 interface Props {
@@ -87,6 +91,8 @@ export default function ReviewForm({ restaurantId, existingReview, successRedire
   const supabase = createClient()
 
   const [rating, setRating] = useState<number | null>(existingReview?.rating ?? null)
+  const [reasonKeys, setReasonKeys] = useState<string[]>(existingReview?.reason_keys ?? [])
+  const [labelKeys, setLabelKeys] = useState<string[]>(existingReview?.label_keys ?? [])
   const [comment, setComment] = useState(existingReview?.comment ?? '')
   const [visitDate, setVisitDate] = useState(existingReview?.visit_date ?? '')
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -95,6 +101,19 @@ export default function ReviewForm({ restaurantId, existingReview, successRedire
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const today = getLocalToday()
+
+  const prevPolarityRef = useRef<'positive' | 'negative' | null>(
+    existingReview ? (existingReview.rating >= 3 ? 'positive' : 'negative') : null
+  )
+
+  function handleRatingChange(newRating: number) {
+    const newPolarity = newRating >= 3 ? 'positive' : 'negative'
+    if (prevPolarityRef.current !== null && prevPolarityRef.current !== newPolarity) {
+      setReasonKeys([])
+    }
+    prevPolarityRef.current = newPolarity
+    setRating(newRating)
+  }
 
   useEffect(() => {
     return () => {
@@ -190,6 +209,12 @@ export default function ReviewForm({ restaurantId, existingReview, successRedire
             .from(REVIEW_IMAGE_BUCKET)
             .remove([existingReview.image_path])
         }
+
+        await supabase.rpc('replace_review_learning_signals', {
+          p_review_id:   existingReview.id,
+          p_reason_keys: reasonKeys,
+          p_label_keys:  labelKeys,
+        })
       } else {
         const { data: insertedReview, error: insertError } = await supabase
           .from('reviews')
@@ -233,6 +258,12 @@ export default function ReviewForm({ restaurantId, existingReview, successRedire
             throw imageUpdateError
           }
         }
+
+        await supabase.rpc('replace_review_learning_signals', {
+          p_review_id:   insertedReview.id,
+          p_reason_keys: reasonKeys,
+          p_label_keys:  labelKeys,
+        })
       }
 
       if (successRedirectHref) {
@@ -267,7 +298,7 @@ export default function ReviewForm({ restaurantId, existingReview, successRedire
             <button
               key={r}
               type="button"
-              onClick={() => setRating(r)}
+              onClick={() => handleRatingChange(r)}
               className={`flex min-h-[44px] w-full items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition-all duration-150 motion-safe:active:scale-[0.98] ${
                 rating === r
                   ? RATING_ACTIVE_CLASS[r]
@@ -281,6 +312,21 @@ export default function ReviewForm({ restaurantId, existingReview, successRedire
           ))}
         </div>
       </div>
+
+      {rating !== null && (
+        <ReasonTagSelector
+          rating={rating}
+          selected={reasonKeys}
+          onChange={setReasonKeys}
+          disabled={submitting}
+        />
+      )}
+
+      <RestaurantLabelSelector
+        selected={labelKeys}
+        onChange={setLabelKeys}
+        disabled={submitting}
+      />
 
       <TextareaField
         id="comment"

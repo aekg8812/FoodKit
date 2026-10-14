@@ -5,7 +5,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { validateGooglePlaceExists } from '@/lib/places/google'
 
 export type SubmitGooglePlaceReviewResult =
-  | { ok: true; restaurantId: string }
+  | { ok: true; restaurantId: string; reviewId: string }
   | { ok: false; error: string }
 
 export async function submitGooglePlaceReviewAction(input: {
@@ -53,8 +53,8 @@ export async function submitGooglePlaceReviewAction(input: {
     if (error) {
       return { ok: false, error: '記録の保存に失敗しました。時間をおいて再度お試しください' }
     }
-    const result = data as { restaurant_id: string }
-    return { ok: true, restaurantId: result.restaurant_id }
+    const result = data as { restaurant_id: string; review_id: string }
+    return { ok: true, restaurantId: result.restaurant_id, reviewId: result.review_id }
   }
 
   // Server-side Google Place ID validation
@@ -89,6 +89,6 @@ export async function submitGooglePlaceReviewAction(input: {
     return { ok: false, error: '記録の保存に失敗しました。時間をおいて再度お試しください' }
   }
 
-  const result = data as { restaurant_id: string }
-  return { ok: true, restaurantId: result.restaurant_id }
+  const result = data as { restaurant_id: string; review_id: string }
+  return { ok: true, restaurantId: result.restaurant_id, reviewId: result.review_id }
 }

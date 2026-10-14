@@ -6,6 +6,8 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import BottomNav from '@/components/BottomNav'
+import ReasonTagSelector from '@/components/review/ReasonTagSelector'
+import RestaurantLabelSelector from '@/components/review/RestaurantLabelSelector'
 import { submitGooglePlaceReviewAction } from './actions'
 
 type Props = {
@@ -52,6 +54,8 @@ export default function GooglePlaceRecordForm({
   const today = getLocalToday()
 
   const [rating, setRating] = useState<number | null>(null)
+  const [reasonKeys, setReasonKeys] = useState<string[]>([])
+  const [labelKeys, setLabelKeys] = useState<string[]>([])
   const [comment, setComment] = useState('')
   const [visitDate, setVisitDate] = useState(today)
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -59,6 +63,17 @@ export default function GooglePlaceRecordForm({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const prevPolarityRef = useRef<'positive' | 'negative' | null>(null)
+
+  function handleRatingChange(newRating: number) {
+    const newPolarity = newRating >= 3 ? 'positive' : 'negative'
+    if (prevPolarityRef.current !== null && prevPolarityRef.current !== newPolarity) {
+      setReasonKeys([])
+    }
+    prevPolarityRef.current = newPolarity
+    setRating(newRating)
+  }
 
   useEffect(() => {
     return () => {
@@ -134,7 +149,6 @@ export default function GooglePlaceRecordForm({
       })
 
       if (!result.ok) {
-        // Delete orphaned image if RPC failed
         if (uploadedImagePath) {
           await supabase.storage.from(REVIEW_IMAGE_BUCKET).remove([uploadedImagePath])
         }
@@ -142,6 +156,13 @@ export default function GooglePlaceRecordForm({
         setSubmitting(false)
         return
       }
+
+      // Save learning signals using the authenticated client (review_id is now known)
+      await supabase.rpc('replace_review_learning_signals', {
+        p_review_id:   result.reviewId,
+        p_reason_keys: reasonKeys,
+        p_label_keys:  labelKeys,
+      })
 
       router.push(`/restaurants/${result.restaurantId}`)
     } catch {
@@ -226,7 +247,7 @@ export default function GooglePlaceRecordForm({
               <button
                 key={opt.value}
                 type="button"
-                onClick={() => setRating(opt.value)}
+                onClick={() => handleRatingChange(opt.value)}
                 className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3.5 text-left transition-colors ${
                   rating === opt.value
                     ? 'border-terra bg-[#FFF3EC]'
@@ -252,6 +273,23 @@ export default function GooglePlaceRecordForm({
             ))}
           </div>
         </div>
+
+        {/* Reason tags */}
+        {rating !== null && (
+          <ReasonTagSelector
+            rating={rating}
+            selected={reasonKeys}
+            onChange={setReasonKeys}
+            disabled={submitting}
+          />
+        )}
+
+        {/* Restaurant labels */}
+        <RestaurantLabelSelector
+          selected={labelKeys}
+          onChange={setLabelKeys}
+          disabled={submitting}
+        />
 
         {/* Comment */}
         <div>

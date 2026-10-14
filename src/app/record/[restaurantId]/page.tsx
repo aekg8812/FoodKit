@@ -102,8 +102,20 @@ export default async function RecordPage({ params }: RecordPageProps) {
     }
   }
 
+  // Load existing learning signals for edit mode
+  let signalReasonKeys: string[] = []
+  let signalLabelKeys: string[] = []
+  if (existingReviewRow) {
+    const { data: signalsData } = await supabase.rpc('get_review_learning_signals', {
+      p_review_id: existingReviewRow.id,
+    })
+    const signals = signalsData as { reason_keys: string[]; label_keys: string[] } | null
+    signalReasonKeys = signals?.reason_keys ?? []
+    signalLabelKeys  = signals?.label_keys  ?? []
+  }
+
   const existingReview: ExistingReview | null = existingReviewRow
-    ? { ...existingReviewRow, image_url: imageUrl }
+    ? { ...existingReviewRow, image_url: imageUrl, reason_keys: signalReasonKeys, label_keys: signalLabelKeys }
     : null
 
   return (

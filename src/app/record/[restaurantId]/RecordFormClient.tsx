@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
+import ReasonTagSelector from '@/components/review/ReasonTagSelector'
+import RestaurantLabelSelector from '@/components/review/RestaurantLabelSelector'
 
 export type ExistingReview = {
   id: string
@@ -13,6 +15,8 @@ export type ExistingReview = {
   visit_date: string | null
   image_path: string | null
   image_url: string | null
+  reason_keys?: string[]
+  label_keys?: string[]
 }
 
 type Restaurant = {
@@ -77,6 +81,8 @@ export default function RecordFormClient({ restaurantId, restaurant, existingRev
   const today = getLocalToday()
 
   const [rating, setRating] = useState<number | null>(existingReview?.rating ?? null)
+  const [reasonKeys, setReasonKeys] = useState<string[]>(existingReview?.reason_keys ?? [])
+  const [labelKeys, setLabelKeys] = useState<string[]>(existingReview?.label_keys ?? [])
   const [comment, setComment] = useState(existingReview?.comment ?? '')
   const [visitDate, setVisitDate] = useState(existingReview?.visit_date ?? today)
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -85,6 +91,19 @@ export default function RecordFormClient({ restaurantId, restaurant, existingRev
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const prevPolarityRef = useRef<'positive' | 'negative' | null>(
+    rating !== null ? (rating >= 3 ? 'positive' : 'negative') : null
+  )
+
+  function handleRatingChange(newRating: number) {
+    const newPolarity = newRating >= 3 ? 'positive' : 'negative'
+    if (prevPolarityRef.current !== null && prevPolarityRef.current !== newPolarity) {
+      setReasonKeys([])
+    }
+    prevPolarityRef.current = newPolarity
+    setRating(newRating)
+  }
 
   useEffect(() => {
     return () => {
@@ -170,6 +189,12 @@ export default function RecordFormClient({ restaurantId, restaurant, existingRev
         if (existingReview.image_path && existingReview.image_path !== nextImagePath) {
           await supabase.storage.from(REVIEW_IMAGE_BUCKET).remove([existingReview.image_path])
         }
+
+        await supabase.rpc('replace_review_learning_signals', {
+          p_review_id:   existingReview.id,
+          p_reason_keys: reasonKeys,
+          p_label_keys:  labelKeys,
+        })
       } else {
         const { data: insertedReview, error: insertError } = await supabase
           .from('reviews')
@@ -213,6 +238,12 @@ export default function RecordFormClient({ restaurantId, restaurant, existingRev
             throw imageUpdateError
           }
         }
+
+        await supabase.rpc('replace_review_learning_signals', {
+          p_review_id:   insertedReview.id,
+          p_reason_keys: reasonKeys,
+          p_label_keys:  labelKeys,
+        })
       }
 
       router.push(`/restaurants/${restaurantId}`)
@@ -283,7 +314,7 @@ export default function RecordFormClient({ restaurantId, restaurant, existingRev
               <button
                 key={opt.value}
                 type="button"
-                onClick={() => setRating(opt.value)}
+                onClick={() => handleRatingChange(opt.value)}
                 className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3.5 text-left transition-colors ${
                   rating === opt.value
                     ? 'border-terra bg-[#FFF3EC]'
@@ -308,6 +339,23 @@ export default function RecordFormClient({ restaurantId, restaurant, existingRev
             ))}
           </div>
         </div>
+
+        {/* Reason tags — shown only when rating is selected */}
+        {rating !== null && (
+          <ReasonTagSelector
+            rating={rating}
+            selected={reasonKeys}
+            onChange={setReasonKeys}
+            disabled={submitting}
+          />
+        )}
+
+        {/* Restaurant labels */}
+        <RestaurantLabelSelector
+          selected={labelKeys}
+          onChange={setLabelKeys}
+          disabled={submitting}
+        />
 
         {/* Comment */}
         <div>
