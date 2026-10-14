@@ -1075,6 +1075,66 @@ async function main() {
   })
 
   // ───────────────────────────────────────────────────────────────────────────
+  // NEARBY — resolve_restaurants_by_external_place_ids + security
+  // ───────────────────────────────────────────────────────────────────────────
+  await runner.section('NEARBY', async (t) => {
+    const test1Client = await signInAs('test1@foodkit.local')
+    const anonClient  = createAnonClient()
+
+    await t.check('NEARBY-01', 'resolve_restaurants_by_external_place_ids returns empty for unknown IDs', async () => {
+      const { data, error } = await test1Client.rpc('resolve_restaurants_by_external_place_ids', {
+        p_external_place_ids: ['ChIJ_nonexistent_place_xyz_qa'],
+      })
+      t.assert(!error, error?.message)
+      t.assert(Array.isArray(data), 'expected array')
+      t.assert(data.length === 0, `expected 0 rows, got ${data.length}`)
+    })
+
+    await t.check('NEARBY-02', 'resolve_restaurants_by_external_place_ids returns empty for empty input', async () => {
+      const { data, error } = await test1Client.rpc('resolve_restaurants_by_external_place_ids', {
+        p_external_place_ids: [],
+      })
+      t.assert(!error, error?.message)
+      t.assert(Array.isArray(data) && data.length === 0, 'expected empty array for empty input')
+    })
+
+    await t.check('NEARBY-03', 'anonymous cannot call resolve_restaurants_by_external_place_ids', async () => {
+      const { data } = await anonClient.rpc('resolve_restaurants_by_external_place_ids', {
+        p_external_place_ids: ['ChIJ_some_place'],
+      })
+      t.assert(!data || data.length === 0, 'anonymous should get empty result (auth guard)')
+    })
+
+    await t.check('NEARBY-04', 'resolve returns correct fields when matching restaurant exists', async () => {
+      // Insert a google_place restaurant as admin, then resolve it
+      const fakeId = `ChIJ_qa_nearby_test_${Date.now()}`
+      const { data: inserted, error: insertErr } = await admin
+        .from('restaurants')
+        .insert({
+          source: 'google_place',
+          external_place_id: fakeId,
+          created_by: users.test1.id,
+        })
+        .select('id')
+        .single()
+      t.assert(!insertErr, `insert failed: ${insertErr?.message}`)
+
+      const { data, error } = await test1Client.rpc('resolve_restaurants_by_external_place_ids', {
+        p_external_place_ids: [fakeId],
+      })
+      t.assert(!error, error?.message)
+      t.assert(Array.isArray(data) && data.length === 1, `expected 1 row, got ${data?.length}`)
+      const row = data[0]
+      t.assert(row.external_place_id === fakeId, 'external_place_id mismatch')
+      t.assert(row.restaurant_id === inserted.id, 'restaurant_id mismatch')
+      t.assert('main_image_path' in row, 'main_image_path field missing')
+
+      // Cleanup
+      await admin.from('restaurants').delete().eq('id', inserted.id)
+    })
+  })
+
+  // ───────────────────────────────────────────────────────────────────────────
   // Summary
   // ───────────────────────────────────────────────────────────────────────────
   runner.summary()

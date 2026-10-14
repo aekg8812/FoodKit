@@ -9,6 +9,18 @@ const MAX_RESULT_COUNT = 8
 const SEARCH_FIELD_MASK = 'places.id,places.displayName,places.formattedAddress'
 const VALIDATE_FIELD_MASK = 'id'
 const DETAILS_FIELD_MASK = 'displayName,formattedAddress'
+const NEARBY_FIELD_MASK = 'places.id,places.displayName,places.formattedAddress'
+const NEARBY_RADIUS_METERS = 1000
+const NEARBY_MAX_RESULT_COUNT = 8
+const NEARBY_INCLUDED_TYPES = [
+  'restaurant',
+  'cafe',
+  'bar',
+  'bakery',
+  'meal_takeaway',
+  'food_court',
+  'fast_food_restaurant',
+]
 const PLACES_API_BASE = 'https://places.googleapis.com/v1'
 const FETCH_TIMEOUT_MS = 5000
 
@@ -156,5 +168,58 @@ export async function validateGooglePlaceExists(placeId: string): Promise<boolea
     return res.ok
   } catch {
     return false
+  }
+}
+
+type PlacesNearbyResponse = {
+  places?: Array<{
+    id: string
+    displayName?: { text: string }
+    formattedAddress?: string
+  }>
+}
+
+export async function nearbyGooglePlaces(lat: number, lng: number): Promise<GooglePlace[]> {
+  if (!GOOGLE_PLACES_API_KEY) return []
+
+  try {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+
+    const res = await fetch(`${PLACES_API_BASE}/places:searchNearby`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
+        'X-Goog-FieldMask': NEARBY_FIELD_MASK,
+      },
+      body: JSON.stringify({
+        includedTypes: NEARBY_INCLUDED_TYPES,
+        locationRestriction: {
+          circle: {
+            center: { latitude: lat, longitude: lng },
+            radius: NEARBY_RADIUS_METERS,
+          },
+        },
+        rankPreference: 'DISTANCE',
+        languageCode: 'ja',
+        regionCode: 'JP',
+        maxResultCount: NEARBY_MAX_RESULT_COUNT,
+      }),
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+    clearTimeout(timer)
+
+    if (!res.ok) return []
+
+    const json = (await res.json()) as PlacesNearbyResponse
+    return (json.places ?? []).map((p) => ({
+      id: p.id,
+      displayName: p.displayName?.text ?? '',
+      formattedAddress: p.formattedAddress ?? null,
+    }))
+  } catch {
+    return []
   }
 }

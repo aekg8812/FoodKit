@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { readCachedLocation, requestCurrentLocation } from '@/lib/location/client'
 import type { CachedLocation } from '@/lib/location/client'
 import { createClient } from '@/lib/supabase/client'
+import { resolveGooglePlaceIds } from '@/lib/restaurants/resolveGooglePlaces'
 import GoogleCandidatesList from './GoogleCandidatesList'
 import FoodKitGoogleResultsList, { type FoodKitGooglePlace } from './FoodKitGoogleResultsList'
 
@@ -11,12 +12,6 @@ type GooglePlace = {
   id: string
   displayName: string
   formattedAddress: string | null
-}
-
-type ResolvedRow = {
-  external_place_id: string
-  restaurant_id: string
-  main_image_path: string | null
 }
 
 type SectionState =
@@ -69,52 +64,18 @@ async function resolveAndSplit(
 ): Promise<{ foodkit: FoodKitGooglePlace[]; googleOnly: GooglePlace[] }> {
   if (places.length === 0) return { foodkit: [], googleOnly: [] }
 
-  const placeIds = places.map((p) => p.id)
-
-  let resolved: ResolvedRow[] = []
-  try {
-    const { data } = await supabase.rpc('resolve_restaurants_by_external_place_ids', {
-      p_external_place_ids: placeIds,
-    })
-    resolved = (data as ResolvedRow[]) ?? []
-  } catch {
-    // RPC failure: degrade gracefully — show all as google-only
-    return {
-      foodkit: [],
-      googleOnly: places.filter((p) => !knownFoodkitIds.has(p.id)),
-    }
-  }
-
-  const resolveMap = new Map(resolved.map((r) => [r.external_place_id, r]))
-
-  // Batch-sign main_image_path values for resolved restaurants
-  const imagePaths = resolved
-    .map((r) => r.main_image_path)
-    .filter((p): p is string => Boolean(p))
-
-  const signedUrlMap = new Map<string, string>()
-  if (imagePaths.length > 0) {
-    const { data: signedData } = await supabase.storage
-      .from('restaurant-images')
-      .createSignedUrls(imagePaths, 3600)
-    for (const s of signedData ?? []) {
-      if (s.path && s.signedUrl && !s.error) signedUrlMap.set(s.path, s.signedUrl)
-    }
-  }
+  const placeIds = places.map((p) => p.id).filter((id) => !knownFoodkitIds.has(id))
+  const resolveMap = await resolveGooglePlaceIds(placeIds, supabase)
 
   const foodkit: FoodKitGooglePlace[] = []
   const googleOnly: GooglePlace[] = []
 
   for (const place of places) {
-    if (knownFoodkitIds.has(place.id)) continue // already shown in server section
+    if (knownFoodkitIds.has(place.id)) continue
 
     const r = resolveMap.get(place.id)
     if (r) {
-      foodkit.push({
-        place,
-        restaurantId: r.restaurant_id,
-        imageUrl: r.main_image_path ? (signedUrlMap.get(r.main_image_path) ?? null) : null,
-      })
+      foodkit.push({ place, restaurantId: r.restaurantId, imageUrl: r.imageUrl })
     } else {
       googleOnly.push(place)
     }
