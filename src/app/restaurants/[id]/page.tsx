@@ -26,6 +26,7 @@ type Restaurant = {
   budget_per_person_max_yen: number | null
   main_image_path: string | null
   created_by: string | null
+  main_image_uploaded_by: string | null
 }
 
 type RpcReviewRow = {
@@ -105,10 +106,10 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
   const state = await getUserState(supabase, user)
   if (state === 'no_onboarding') redirect('/onboarding')
 
-  const [restaurantResult, ratingCountsResult, reviewsResult, cardCountResult] = await Promise.all([
+  const [restaurantResult, ratingCountsResult, reviewsResult, cardCountResult, reviewerCheckResult] = await Promise.all([
     supabase
       .from('restaurants')
-      .select('id, name, source, external_place_id, area, genre, address, memo, budget_per_person_max_yen, main_image_path, created_by')
+      .select('id, name, source, external_place_id, area, genre, address, memo, budget_per_person_max_yen, main_image_path, created_by, main_image_uploaded_by')
       .eq('id', id)
       .maybeSingle(),
     supabase
@@ -126,6 +127,12 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
       .from('user_preference_cards')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', user.id),
+    supabase
+      .from('reviews')
+      .select('id', { count: 'exact', head: true })
+      .eq('restaurant_id', id)
+      .eq('user_id', user.id)
+      .limit(1),
   ])
 
   if (restaurantResult.error) {
@@ -136,6 +143,8 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
   if (reviewsResult.error) {
     throw new Error(`RestaurantDetailPage: RPC failed: ${reviewsResult.error.message}`)
   }
+
+  const hasUserReview = (reviewerCheckResult.count ?? 0) > 0
 
   const r = restaurantResult.data as Restaurant
   const rDisplay = await resolveRestaurantDisplay(r)
@@ -209,7 +218,14 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
     ? `${process.env.NEXT_PUBLIC_SITE_URL}/restaurants/${id}`
     : undefined
   const isOwner = r.created_by !== null && r.created_by === user.id
-  const canEdit = isOwner
+  // Pencil: only manual restaurant owners can edit metadata
+  const canEdit = isOwner && r.source !== 'google_place'
+  // Camera: owner, current uploader, or reviewer adding the first photo
+  const isUploader = r.main_image_uploaded_by !== null && r.main_image_uploaded_by === user.id
+  const canEditImage =
+    isOwner ||
+    isUploader ||
+    (r.main_image_path === null && hasUserReview)
 
   const viewerNeedsPreference = reviewTab === 'similar' && viewerCardCount < 5
 
@@ -224,6 +240,23 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
       {/* Hero image area */}
       <div className="relative h-[220px] w-full overflow-hidden">
         <RestaurantMainImage src={mainImageSignedUrl} alt={rDisplay.name} />
+
+        {/* Add photo CTA — shown when no image and user is eligible */}
+        {canEditImage && !mainImageSignedUrl && (
+          <Link
+            href={`/restaurants/${id}/image`}
+            className="absolute inset-0 flex flex-col items-center justify-center gap-2"
+            aria-label="写真を追加"
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black/20">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                <circle cx="12" cy="13" r="4" />
+              </svg>
+            </div>
+            <span className="text-sm font-bold text-white drop-shadow">写真を追加</span>
+          </Link>
+        )}
 
         {/* Overlay controls */}
         <div className="absolute inset-x-0 top-0 flex items-center justify-between px-4 pt-14">
@@ -240,6 +273,18 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                   <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+              </Link>
+            )}
+            {canEditImage && mainImageSignedUrl && (
+              <Link
+                href={`/restaurants/${id}/image`}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white"
+                aria-label="店舗の写真を編集"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                  <circle cx="12" cy="13" r="4" />
                 </svg>
               </Link>
             )}

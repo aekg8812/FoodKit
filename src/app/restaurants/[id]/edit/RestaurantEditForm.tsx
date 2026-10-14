@@ -2,17 +2,12 @@
 
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import BottomNav from '@/components/BottomNav'
 import ErrorMessage from '@/components/ui/ErrorMessage'
-import RestaurantMainImage from '@/components/RestaurantMainImage'
 import { RESTAURANT_GENRES } from '@/lib/restaurants/genres'
 import { RESTAURANT_AREAS } from '@/lib/restaurants/areas'
-
-const RESTAURANT_IMAGE_BUCKET = 'restaurant-images'
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024
-const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp']
 
 type RestaurantData = {
   id: string
@@ -25,23 +20,15 @@ type RestaurantData = {
   atmosphere_tags: string[] | null
   walk_in_available: boolean | null
   parking_available: boolean | null
-  main_image_path: string | null
 }
 
 type Props = {
   restaurant: RestaurantData
-  currentImageSignedUrl: string | null
 }
 
-function buildImagePath(restaurantId: string, file: File): string {
-  const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg'
-  return `${restaurantId}/${crypto.randomUUID()}.${ext}`
-}
-
-export default function RestaurantEditForm({ restaurant, currentImageSignedUrl }: Props) {
+export default function RestaurantEditForm({ restaurant }: Props) {
   const router = useRouter()
   const supabase = createClient()
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [name, setName] = useState(restaurant.name ?? '')
   const [genre, setGenre] = useState(restaurant.genre ?? '')
@@ -54,111 +41,32 @@ export default function RestaurantEditForm({ restaurant, currentImageSignedUrl }
   )
   const [walkIn, setWalkIn] = useState(restaurant.walk_in_available ?? false)
   const [parking, setParking] = useState(restaurant.parking_available ?? false)
-
-  // Image state
-  const [previewUrl, setPreviewUrl] = useState<string | null>(currentImageSignedUrl)
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  const [imageAction, setImageAction] = useState<'keep' | 'replace' | 'delete'>('keep')
-  const [imageError, setImageError] = useState<string | null>(null)
-
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setImageError(null)
-
-    if (!ALLOWED_MIME.includes(file.type)) {
-      setImageError('jpeg、png、webp の画像を選択してください')
-      e.target.value = ''
-      return
-    }
-    if (file.size > MAX_IMAGE_BYTES) {
-      setImageError('5MB以下の画像を選択してください')
-      e.target.value = ''
-      return
-    }
-
-    setImageFile(file)
-    setPreviewUrl(URL.createObjectURL(file))
-    setImageAction('replace')
-  }
-
-  function handleDeleteImage() {
-    setPreviewUrl(null)
-    setImageFile(null)
-    setImageAction('delete')
-    if (fileInputRef.current) fileInputRef.current.value = ''
-  }
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim()) return
     setSubmitting(true)
     setError(null)
 
     try {
-      // ── Image: replace ──────────────────────────────────────────────────
-      let newImagePath: string | null | undefined = undefined // undefined = no change
-
-      if (imageAction === 'replace' && imageFile) {
-        const uploadPath = buildImagePath(restaurant.id, imageFile)
-        const { error: uploadError } = await supabase.storage
-          .from(RESTAURANT_IMAGE_BUCKET)
-          .upload(uploadPath, imageFile, { contentType: imageFile.type })
-
-        if (uploadError) {
-          setError('写真のアップロードに失敗しました。もう一度お試しください')
-          return
-        }
-        newImagePath = uploadPath
-      }
-
-      if (imageAction === 'delete') {
-        newImagePath = null
-      }
-
-      // ── Text fields update ──────────────────────────────────────────────
-      const updatePayload: Record<string, unknown> = {
-        name: name.trim(),
-        genre: genre.trim() || null,
-        address: address.trim() || null,
-        area: area.trim() || null,
-        budget_per_person_max_yen: budget.trim() ? parseInt(budget.trim(), 10) : null,
-        walk_in_available: walkIn,
-        parking_available: parking,
-      }
-      if (newImagePath !== undefined) {
-        updatePayload.main_image_path = newImagePath
-      }
-
       const { error: updateError } = await supabase
         .from('restaurants')
-        .update(updatePayload)
+        .update({
+          name: name.trim(),
+          genre: genre.trim() || null,
+          address: address.trim() || null,
+          area: area.trim() || null,
+          budget_per_person_max_yen: budget.trim() ? parseInt(budget.trim(), 10) : null,
+          walk_in_available: walkIn,
+          parking_available: parking,
+        })
         .eq('id', restaurant.id)
 
       if (updateError) {
-        // If we just uploaded a new image but DB failed, clean up the new upload
-        if (imageAction === 'replace' && newImagePath) {
-          await supabase.storage.from(RESTAURANT_IMAGE_BUCKET).remove([newImagePath as string])
-        }
         setError('保存に失敗しました。時間をおいて再度お試しください')
         return
-      }
-
-      // ── After successful DB update: delete old image from Storage ────────
-      if (imageAction === 'replace' && restaurant.main_image_path) {
-        await supabase.storage
-          .from(RESTAURANT_IMAGE_BUCKET)
-          .remove([restaurant.main_image_path])
-        // Failure here is acceptable — orphan object, no user-visible impact
-      }
-
-      if (imageAction === 'delete' && restaurant.main_image_path) {
-        await supabase.storage
-          .from(RESTAURANT_IMAGE_BUCKET)
-          .remove([restaurant.main_image_path])
       }
 
       router.push(`/restaurants/${restaurant.id}`)
@@ -187,43 +95,6 @@ export default function RestaurantEditForm({ restaurant, currentImageSignedUrl }
       </div>
 
       <form onSubmit={(e) => void handleSubmit(e)} className="space-y-5 px-4 pt-4 pb-8">
-
-        {/* ── 店舗メイン写真 ─────────────────────────────────────────────── */}
-        <div>
-          <p className="mb-2 text-sm font-bold text-ink">店舗メイン写真</p>
-          <div className="relative h-[160px] w-full overflow-hidden rounded-2xl">
-            <RestaurantMainImage src={previewUrl} alt={name || '店舗写真'} />
-          </div>
-          {imageError && <p className="mt-1 text-xs text-red-600">{imageError}</p>}
-          <div className="mt-2 flex gap-2">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="flex h-9 items-center gap-1.5 rounded-xl border border-terra px-3 text-sm font-medium text-terra"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-              {previewUrl ? '写真を変更' : '写真を追加'}
-            </button>
-            {previewUrl && imageAction !== 'delete' && (
-              <button
-                type="button"
-                onClick={handleDeleteImage}
-                className="flex h-9 items-center gap-1.5 rounded-xl border border-edge px-3 text-sm font-medium text-ink-sub"
-              >
-                写真を削除
-              </button>
-            )}
-          </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="hidden"
-            onChange={handleFileSelect}
-          />
-        </div>
 
         {/* ── 店名 ─────────────────────────────────────────────────────── */}
         <div>
