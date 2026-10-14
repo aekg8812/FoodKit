@@ -97,6 +97,9 @@ export default function NearbyRestaurantsSection() {
     let cancelled = false
 
     async function init() {
+      // Guard against Strict Mode double-invoke and any other duplicate mounts
+      if (fetchingRef.current) return
+
       // Use cached coords silently if available
       const cached = readCachedLocation()
       if (cached) {
@@ -297,11 +300,6 @@ export default function NearbyRestaurantsSection() {
                       <p className="mt-0.5 line-clamp-1 text-xs text-ink-sub">
                         {item.formattedAddress}
                       </p>
-                    )}
-                    {item.restaurantId && (
-                      <span className="mt-1 inline-flex items-center rounded-full bg-[#FFF3EC] px-2 py-0.5 text-[10px] font-medium text-terra">
-                        FoodKit登録済
-                      </span>
                     )}
                   </div>
 

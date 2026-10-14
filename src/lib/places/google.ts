@@ -12,14 +12,17 @@ const DETAILS_FIELD_MASK = 'displayName,formattedAddress'
 const NEARBY_FIELD_MASK = 'places.id,places.displayName,places.formattedAddress'
 const NEARBY_RADIUS_METERS = 1000
 const NEARBY_MAX_RESULT_COUNT = 8
-const NEARBY_INCLUDED_TYPES = [
+// includedPrimaryTypes: matches only places whose primary function is food/drink.
+// 'restaurant' hierarchically covers subtypes (ramen_restaurant, japanese_restaurant,
+// fast_food_restaurant, etc.) — no need to enumerate them individually.
+// Avoids non-dining places (universities, shops) that appear with includedTypes.
+const NEARBY_INCLUDED_PRIMARY_TYPES = [
   'restaurant',
   'cafe',
   'bar',
   'bakery',
-  'meal_takeaway',
   'food_court',
-  'fast_food_restaurant',
+  'meal_takeaway',
 ]
 const PLACES_API_BASE = 'https://places.googleapis.com/v1'
 const FETCH_TIMEOUT_MS = 5000
@@ -194,7 +197,7 @@ export async function nearbyGooglePlaces(lat: number, lng: number): Promise<Goog
         'X-Goog-FieldMask': NEARBY_FIELD_MASK,
       },
       body: JSON.stringify({
-        includedTypes: NEARBY_INCLUDED_TYPES,
+        includedPrimaryTypes: NEARBY_INCLUDED_PRIMARY_TYPES,
         locationRestriction: {
           circle: {
             center: { latitude: lat, longitude: lng },
