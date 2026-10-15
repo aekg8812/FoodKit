@@ -125,8 +125,16 @@ AS $$
       ),
 
       -- ── 4. Restaurant match profile (full 12-label matrix, leave-self-out) ─
+      -- Scoped to restaurants VISIBLE to the caller via RLS on public.restaurants.
+      -- Invisible restaurant IDs produce 0 rows (not an insufficient row).
       -- selection_rate = NULL when match_sample = 0 (no other-user reviews).
       -- RR = match_sample / (match_sample + 5).
+      visible_restaurants AS (
+        SELECT r.id
+        FROM public.restaurants r
+        WHERE r.id = ANY(p_restaurant_ids)
+      ),
+
       rest_match_profile AS (
         SELECT
           rr.id                                 AS restaurant_id,
@@ -140,7 +148,7 @@ AS $$
           END                                   AS selection_rate,
           COALESCE(rs.match_sample, 0)::numeric
             / (COALESCE(rs.match_sample, 0) + 5)::numeric AS restaurant_reliability
-        FROM (SELECT UNNEST(p_restaurant_ids) AS id) rr
+        FROM visible_restaurants rr
         CROSS JOIN public.restaurant_labels rl
         LEFT JOIN rest_sample rs ON rs.restaurant_id = rr.id
         LEFT JOIN rest_votes rv  ON rv.restaurant_id = rr.id
@@ -240,7 +248,7 @@ AS $$
           COALESCE(ma.scored_dimension_count, 0)           AS scored_dimension_count,
           ma.positive_contributor_keys,
           ma.negative_contributor_keys
-        FROM (SELECT UNNEST(p_restaurant_ids) AS id) rr
+        FROM visible_restaurants rr
         LEFT JOIN match_agg ma ON ma.restaurant_id = rr.id
       )
 
