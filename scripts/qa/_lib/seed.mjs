@@ -94,8 +94,11 @@ export async function setPreferenceCards(admin, userIds) {
     const uid = userIds[username]
     if (!uid) continue
     const rows = keys.map(key => ({ user_id: uid, preference_card_id: keyToId[key] }))
-    const { error: insertErr } = await admin.from('user_preference_cards').insert(rows)
-    if (insertErr) throw new Error(`preference_cards insert for ${username}: ${insertErr.message}`)
+    // seed.sql already inserts these; upsert with ignoreDuplicates for idempotency
+    const { error: insertErr } = await admin
+      .from('user_preference_cards')
+      .upsert(rows, { onConflict: 'user_id,preference_card_id', ignoreDuplicates: true })
+    if (insertErr) throw new Error(`preference_cards upsert for ${username}: ${insertErr.message}`)
     const { error: updateErr } = await admin
       .from('users')
       .update({ onboarding_completed: true })
@@ -115,6 +118,14 @@ export async function createReviews(admin, userIds) {
     if (!rid) throw new Error(`restaurant not found: ${fix.restaurantName}`)
     const uid = userIds[fix.username]
     if (!uid) throw new Error(`user not found: ${fix.username}`)
+    // seed.sql already creates dev reviews; skip if (user_id, restaurant_id) already exists
+    const { data: existing } = await admin
+      .from('reviews')
+      .select('id')
+      .eq('user_id', uid)
+      .eq('restaurant_id', rid)
+      .maybeSingle()
+    if (existing) continue
     const { error: insertErr } = await admin.from('reviews').insert({
       user_id: uid,
       restaurant_id: rid,
@@ -129,6 +140,14 @@ export async function createReviews(admin, userIds) {
 }
 
 export async function createGroup(admin, userIds) {
+  // seed.sql already creates QA Group A; return its ID if found
+  const { data: existing } = await admin
+    .from('groups')
+    .select('id')
+    .eq('invite_code', GROUP_FIXTURE.invite_code)
+    .maybeSingle()
+  if (existing) return existing.id
+
   const { data: group, error } = await admin
     .from('groups')
     .insert({ name: GROUP_FIXTURE.name, invite_code: GROUP_FIXTURE.invite_code, created_by: userIds.test1 })
@@ -159,12 +178,16 @@ export async function createGroup(admin, userIds) {
 }
 
 export async function createBaseFollows(admin, userIds) {
-  // test1→test2, test1→test3 (trigger fires, notifications created — OK for fixture)
-  const { error } = await admin.from('follows').insert([
-    { follower_id: userIds.test1, followee_id: userIds.test2, status: 'accepted' },
-    { follower_id: userIds.test1, followee_id: userIds.test3, status: 'accepted' },
-  ])
-  if (error) throw new Error(`follows insert: ${error.message}`)
+  // seed.sql already creates test1→test2, test1→test3, test2→test1 follows.
+  // upsert with ignoreDuplicates for idempotency.
+  const { error } = await admin.from('follows').upsert(
+    [
+      { follower_id: userIds.test1, followee_id: userIds.test2, status: 'accepted' },
+      { follower_id: userIds.test1, followee_id: userIds.test3, status: 'accepted' },
+    ],
+    { onConflict: 'follower_id,followee_id', ignoreDuplicates: true },
+  )
+  if (error) throw new Error(`follows upsert: ${error.message}`)
 }
 
 export async function validateFixture(admin, userIds) {
