@@ -8,10 +8,12 @@ import ReviewTabsNav, { type ReviewTab } from '@/components/ReviewTabsNav'
 import ShareButton from '@/components/ShareButton'
 import RestaurantMainImage from '@/components/RestaurantMainImage'
 import RestaurantProfileSection from '@/components/restaurants/RestaurantProfileSection'
+import FoodKitMatchSection from '@/components/restaurants/FoodKitMatchSection'
 import { logPageAuthRequest } from '@/lib/diagnostics/authRequests'
 import { getUserState } from '@/lib/auth/getUserState'
 import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
 import { type RestaurantProfileRow } from '@/lib/restaurants/profile'
+import { type FoodKitMatchRow, findMatchRow } from '@/lib/restaurants/match'
 import { Suspense } from 'react'
 
 const REVIEW_PREVIEW_COUNT = 3
@@ -108,7 +110,7 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
   const state = await getUserState(supabase, user)
   if (state === 'no_onboarding') redirect('/onboarding')
 
-  const [restaurantResult, ratingCountsResult, reviewsResult, cardCountResult, reviewerCheckResult, profileResult] = await Promise.all([
+  const [restaurantResult, ratingCountsResult, reviewsResult, cardCountResult, reviewerCheckResult, profileResult, matchResult] = await Promise.all([
     supabase
       .from('restaurants')
       .select('id, name, source, external_place_id, area, genre, address, memo, budget_per_person_max_yen, main_image_path, created_by, main_image_uploaded_by')
@@ -138,6 +140,9 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
     supabase.rpc('get_restaurant_profiles', {
       p_restaurant_ids: [id],
     }),
+    supabase.rpc('get_my_foodkit_matches', {
+      p_restaurant_ids: [id],
+    }),
   ])
 
   if (restaurantResult.error) {
@@ -151,6 +156,8 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
 
   const hasUserReview = (reviewerCheckResult.count ?? 0) > 0
   const profileRows = (profileResult.data ?? []) as RestaurantProfileRow[]
+  const matchRows = (matchResult.data ?? []) as unknown as FoodKitMatchRow[]
+  const matchRow = findMatchRow(matchRows, id)
 
   const r = restaurantResult.data as Restaurant
   const rDisplay = await resolveRestaurantDisplay(r)
@@ -359,6 +366,9 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
           </Link>
         </div>
       </div>
+
+      {/* FoodKit Match Score */}
+      <FoodKitMatchSection matchRow={matchRow} />
 
       {/* Rating distribution */}
       {totalReviews > 0 && (
