@@ -264,8 +264,8 @@ declare
   v_ramen    uuid;
   v_taiwan   uuid;
 
-  -- review IDs（signals 挿入のため RETURNING で取得）
-  v_r1 uuid; v_r2 uuid; v_r3 uuid; v_r4 uuid;
+  -- review IDs（signals + marker 挿入のため RETURNING で取得）
+  v_r1 uuid; v_r2 uuid; v_r3 uuid; v_r4 uuid; v_r5 uuid;
 
   -- group ID
   v_group_id uuid;
@@ -345,9 +345,18 @@ begin
   insert into public.review_restaurant_labels (review_id, label_key)
     values (v_r4, 'date'), (v_r4, 'calm');
 
-  -- Review 5: かつ丼 豚ジロー rating 3 — signals なし（空の状態のテスト用）
+  -- Completion markers for reviews 1-4 (eligible+labels fixtures)
+  insert into public.review_learning_signal_state (review_id, schema_version)
+  values (v_r1, 1), (v_r2, 1), (v_r3, 1), (v_r4, 1);
+
+  -- Review 5: かつ丼 豚ジロー rating 3 — eligible+0-labels fixture
+  --   Has completion marker but no labels/reason_tags.
+  --   Verifies 0-label reviews count in eligible_review_count denominator.
   insert into public.reviews (restaurant_id, user_id, group_id, rating, comment, visibility, visit_date)
-  values (v_katsudon, v_t1, null, 3, 'コスパ良し。ボリューム満点', 'private', '2026-08-30');
+  values (v_katsudon, v_t1, null, 3, 'コスパ良し。ボリューム満点', 'private', '2026-08-30')
+  returning id into v_r5;
+  insert into public.review_learning_signal_state (review_id, schema_version)
+  values (v_r5, 1);
 
   -- ── test2 / test3 のレビュー（similarity 表示確認用）──────────────────
 

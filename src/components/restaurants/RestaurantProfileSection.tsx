@@ -6,8 +6,8 @@ type Props = {
 
 export default function RestaurantProfileSection({ profileRows }: Props) {
   // sample_size=0 means no one has entered labels yet — hide the section
-  const sample_size = profileRows[0]?.sample_size ?? 0
-  if (sample_size === 0) return null
+  const eligible_review_count = profileRows[0]?.eligible_review_count ?? 0
+  if (eligible_review_count === 0) return null
 
   const topLabels = getTopLabels(profileRows)
   if (topLabels.length === 0) return null

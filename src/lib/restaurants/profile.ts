@@ -5,9 +5,9 @@ export type RestaurantProfileRow = {
   category: 'occasion' | 'atmosphere' | 'experience'
   sort_order: number
   vote_count: number
-  sample_size: number
-  selection_rate: number | null  // NULL when sample_size = 0
-  confidence: number
+  eligible_review_count: number
+  raw_share: number | null  // NULL when eligible_review_count = 0
+  evidence_weight: number
 }
 
 export function groupProfileByRestaurant(
@@ -31,9 +31,9 @@ export function getTopLabels(
 ): RestaurantProfileRow[] {
   const CATEGORY_ORDER: Record<string, number> = { occasion: 1, atmosphere: 2, experience: 3 }
   return rows
-    .filter(r => r.vote_count > 0 && r.sample_size > 0 && r.selection_rate !== null)
+    .filter(r => r.vote_count > 0 && r.eligible_review_count > 0 && r.raw_share !== null)
     .sort((a, b) => {
-      const rateDiff = (b.selection_rate ?? 0) - (a.selection_rate ?? 0)
+      const rateDiff = (b.raw_share ?? 0) - (a.raw_share ?? 0)
       if (rateDiff !== 0) return rateDiff
       const catDiff = (CATEGORY_ORDER[a.category] ?? 9) - (CATEGORY_ORDER[b.category] ?? 9)
       if (catDiff !== 0) return catDiff
