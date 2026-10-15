@@ -5,6 +5,8 @@ import { getUserState } from '@/lib/auth/getUserState'
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
+import UserProfileSection from '@/components/mypage/UserProfileSection'
+import { type UserProfileRow } from '@/lib/users/profile'
 
 type RecentReviewRow = {
   id: string
@@ -49,6 +51,7 @@ export default async function MypagePage() {
     recentReviewsResult,
     preferenceCardsResult,
     followCountsResult,
+    userProfileResult,
   ] = await Promise.all([
     supabase
       .from('user_public_profiles')
@@ -71,6 +74,7 @@ export default async function MypagePage() {
       .select('preference_cards(label, sort_order)')
       .eq('user_id', user.id),
     supabase.rpc('get_user_follow_counts', { p_user_id: user.id }),
+    supabase.rpc('get_my_user_profile'),
   ])
 
   if (profileResult.error) {
@@ -89,6 +93,7 @@ export default async function MypagePage() {
 
   const recentRows = (recentReviewsResult.data ?? []) as unknown as RecentReviewRow[]
   const followCounts = followCountsResult.data?.[0] ?? { following_count: 0, follower_count: 0 }
+  const userProfileRows = (userProfileResult.data ?? []) as unknown as UserProfileRow[]
 
   const preferenceCards = (preferenceCardsResult.data ?? [])
     .map((row) => {
@@ -258,6 +263,9 @@ export default async function MypagePage() {
             </div>
           )}
         </section>
+
+        {/* FoodKitが学習したあなたの好み */}
+        <UserProfileSection profileRows={userProfileRows} />
 
         {/* これまでの記録 */}
         {reviewCount > 0 && (
