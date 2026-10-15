@@ -14,6 +14,8 @@ export async function submitGooglePlaceReviewAction(input: {
   comment: string
   visitDate: string
   imagePath: string | null
+  reasonKeys: string[]
+  labelKeys: string[]
 }): Promise<SubmitGooglePlaceReviewResult> {
   const supabase = await createClient()
 
@@ -29,10 +31,15 @@ export async function submitGooglePlaceReviewAction(input: {
     return { ok: false, error: 'お店の情報が取得できませんでした。もう一度お試しください' }
   }
 
-  const { rating, comment, visitDate, imagePath } = input
+  const { rating, comment, visitDate, imagePath, reasonKeys, labelKeys } = input
 
   if (rating < 1 || rating > 4) {
     return { ok: false, error: '評価を選択してください' }
+  }
+
+  const signalParams = {
+    p_reason_keys: reasonKeys.length > 0 ? reasonKeys : null,
+    p_label_keys:  labelKeys.length > 0  ? labelKeys  : null,
   }
 
   // Fast path: restaurant already registered
@@ -49,6 +56,7 @@ export async function submitGooglePlaceReviewAction(input: {
       p_comment: comment.trim() || null,
       p_visit_date: visitDate || null,
       p_image_path: imagePath || null,
+      ...signalParams,
     })
     if (error) {
       return { ok: false, error: '記録の保存に失敗しました。時間をおいて再度お試しください' }
@@ -74,7 +82,7 @@ export async function submitGooglePlaceReviewAction(input: {
     }
   }
 
-  // Atomic restaurant resolve/create + review upsert
+  // Atomic: restaurant resolve/create + review upsert + learning signals
   const serviceClient = createServiceClient()
   const { data, error } = await serviceClient.rpc('create_google_restaurant_review', {
     p_external_place_id: placeId,
@@ -83,6 +91,7 @@ export async function submitGooglePlaceReviewAction(input: {
     p_comment: comment.trim() || null,
     p_visit_date: visitDate || null,
     p_image_path: imagePath || null,
+    ...signalParams,
   })
 
   if (error) {

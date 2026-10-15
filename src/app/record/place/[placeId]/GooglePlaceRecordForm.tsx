@@ -146,6 +146,8 @@ export default function GooglePlaceRecordForm({
         comment,
         visitDate,
         imagePath: uploadedImagePath,
+        reasonKeys,
+        labelKeys,
       })
 
       if (!result.ok) {
@@ -156,13 +158,6 @@ export default function GooglePlaceRecordForm({
         setSubmitting(false)
         return
       }
-
-      // Save learning signals using the authenticated client (review_id is now known)
-      await supabase.rpc('replace_review_learning_signals', {
-        p_review_id:   result.reviewId,
-        p_reason_keys: reasonKeys,
-        p_label_keys:  labelKeys,
-      })
 
       router.push(`/restaurants/${result.restaurantId}`)
     } catch {

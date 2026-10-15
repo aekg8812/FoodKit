@@ -210,11 +210,12 @@ export default function ReviewForm({ restaurantId, existingReview, successRedire
             .remove([existingReview.image_path])
         }
 
-        await supabase.rpc('replace_review_learning_signals', {
+        const { error: signalsError } = await supabase.rpc('replace_review_learning_signals', {
           p_review_id:   existingReview.id,
           p_reason_keys: reasonKeys,
           p_label_keys:  labelKeys,
         })
+        if (signalsError) throw signalsError
       } else {
         const { data: insertedReview, error: insertError } = await supabase
           .from('reviews')
@@ -259,11 +260,12 @@ export default function ReviewForm({ restaurantId, existingReview, successRedire
           }
         }
 
-        await supabase.rpc('replace_review_learning_signals', {
+        const { error: signalsError } = await supabase.rpc('replace_review_learning_signals', {
           p_review_id:   insertedReview.id,
           p_reason_keys: reasonKeys,
           p_label_keys:  labelKeys,
         })
+        if (signalsError) throw signalsError
       }
 
       if (successRedirectHref) {
