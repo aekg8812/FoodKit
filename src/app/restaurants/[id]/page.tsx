@@ -154,9 +154,13 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
     throw new Error(`RestaurantDetailPage: RPC failed: ${reviewsResult.error.message}`)
   }
 
+  if (matchResult.error) {
+    console.error(`RestaurantDetailPage: get_my_foodkit_matches failed: ${matchResult.error.message}`)
+  }
+
   const hasUserReview = (reviewerCheckResult.count ?? 0) > 0
   const profileRows = (profileResult.data ?? []) as RestaurantProfileRow[]
-  const matchRows = (matchResult.data ?? []) as unknown as FoodKitMatchRow[]
+  const matchRows = matchResult.error ? [] : (matchResult.data ?? []) as unknown as FoodKitMatchRow[]
   const matchRow = findMatchRow(matchRows, id)
 
   const r = restaurantResult.data as Restaurant
