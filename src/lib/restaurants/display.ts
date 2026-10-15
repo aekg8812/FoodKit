@@ -18,7 +18,7 @@ export async function resolveRestaurantDisplay(restaurant: {
   if (restaurant.source === 'google_place' && restaurant.external_place_id) {
     const details = await fetchGoogleDetails(restaurant.external_place_id)
     return {
-      name: details?.displayName ?? '店舗情報を取得できません',
+      name: details?.displayName ?? 'Google登録店舗',
       address: details?.formattedAddress ?? null,
       isGoogle: true,
     }
