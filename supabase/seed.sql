@@ -4,7 +4,7 @@
 -- ============================================================
 
 -- ----------------------------------------------------------------
--- 1. テストユーザー
+-- 1. 開発ユーザー（V1互換シナリオ用）
 --    auth.users への INSERT で handle_new_user トリガーが発火し
 --    public.users と user_value_profiles が自動作成される
 -- ----------------------------------------------------------------
@@ -75,6 +75,80 @@ update public.users
     '22222222-2222-2222-2222-222222222222',
     '33333333-3333-3333-3333-333333333333',
     '44444444-4444-4444-4444-444444444444'
+  );
+
+-- ----------------------------------------------------------------
+-- 1b. QA テストユーザー（LOCAL QA 専用 — production には絶対に含めないこと）
+--     固定UUID により supabase db reset --local 後も同じIDでログイン可能。
+--     npm run qa:reset を実行すると preference cards / reviews / group / follows
+--     も追加されフル QA フィクスチャになる。
+-- ----------------------------------------------------------------
+insert into auth.users (
+  id,
+  instance_id,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  created_at,
+  updated_at,
+  raw_user_meta_data,
+  is_super_admin,
+  role,
+  aud,
+  confirmation_token,
+  recovery_token,
+  email_change,
+  email_change_token_new,
+  email_change_token_current,
+  phone_change,
+  phone_change_token,
+  reauthentication_token
+)
+values
+  (
+    'cccccccc-0000-0000-0000-000000000001',
+    '00000000-0000-0000-0000-000000000000',
+    'test1@foodkit.local',
+    crypt('FoodKitTest123!', gen_salt('bf')),
+    now(), now(), now(),
+    '{"name":"テストユーザー1","username":"test1"}'::jsonb,
+    false, 'authenticated', 'authenticated', '', '', '', '', '', '', '', ''
+  ),
+  (
+    'cccccccc-0000-0000-0000-000000000002',
+    '00000000-0000-0000-0000-000000000000',
+    'test2@foodkit.local',
+    crypt('FoodKitTest123!', gen_salt('bf')),
+    now(), now(), now(),
+    '{"name":"テストユーザー2","username":"test2"}'::jsonb,
+    false, 'authenticated', 'authenticated', '', '', '', '', '', '', '', ''
+  ),
+  (
+    'cccccccc-0000-0000-0000-000000000003',
+    '00000000-0000-0000-0000-000000000000',
+    'test3@foodkit.local',
+    crypt('FoodKitTest123!', gen_salt('bf')),
+    now(), now(), now(),
+    '{"name":"テストユーザー3","username":"test3"}'::jsonb,
+    false, 'authenticated', 'authenticated', '', '', '', '', '', '', '', ''
+  ),
+  (
+    'cccccccc-0000-0000-0000-000000000004',
+    '00000000-0000-0000-0000-000000000000',
+    'outsider@foodkit.local',
+    crypt('FoodKitTest123!', gen_salt('bf')),
+    now(), now(), now(),
+    '{"name":"アウトサイダー","username":"outsider"}'::jsonb,
+    false, 'authenticated', 'authenticated', '', '', '', '', '', '', '', ''
+  );
+
+-- QA ユーザーのオンボーディングを完了（outsider は未完了のまま — 意図的）
+update public.users
+  set onboarding_completed = true
+  where id in (
+    'cccccccc-0000-0000-0000-000000000001',
+    'cccccccc-0000-0000-0000-000000000002',
+    'cccccccc-0000-0000-0000-000000000003'
   );
 
 -- バリュータイプ設定

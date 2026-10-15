@@ -37,6 +37,14 @@ export const QA_USERS = [
   { email: 'outsider@foodkit.local', username: 'outsider', name: 'アウトサイダー', cards: null },
 ]
 
+// Fixed UUIDs — must match seed.sql. Stable across db resets.
+export const QA_USER_IDS = {
+  test1:    'cccccccc-0000-0000-0000-000000000001',
+  test2:    'cccccccc-0000-0000-0000-000000000002',
+  test3:    'cccccccc-0000-0000-0000-000000000003',
+  outsider: 'cccccccc-0000-0000-0000-000000000004',
+}
+
 // Reviews looked up by restaurant name at runtime — no hardcoded IDs
 export const REVIEW_FIXTURES = [
   { username: 'test1', restaurantName: 'すき家 飯塚市役所前店', rating: 4, comment: 'QA: test1 review A' },
@@ -54,26 +62,25 @@ export const GROUP_FIXTURE = {
 }
 
 export async function createQAUsers(admin) {
+  // seed.sql already created these users with fixed UUIDs on db reset.
+  // Verify each exists; if somehow absent (edge case), create with the fixed UUID.
   const created = {}
   for (const u of QA_USERS) {
-    // Clean up any previous partial run for this username
-    const { data: existing } = await admin
-      .from('users')
-      .select('id')
-      .eq('username', u.username)
-      .maybeSingle()
+    const fixedId = QA_USER_IDS[u.username]
+    const { data: { user: existing } } = await admin.auth.admin.getUserById(fixedId)
     if (existing) {
-      await admin.auth.admin.deleteUser(existing.id)
+      created[u.username] = fixedId
+    } else {
+      const { data, error } = await admin.auth.admin.createUser({
+        id: fixedId,
+        email: u.email,
+        password: QA_PASSWORD,
+        email_confirm: true,
+        user_metadata: { name: u.name, username: u.username },
+      })
+      if (error) throw new Error(`createUser ${u.username}: ${error.message}`)
+      created[u.username] = data.user.id
     }
-
-    const { data, error } = await admin.auth.admin.createUser({
-      email: u.email,
-      password: QA_PASSWORD,
-      email_confirm: true,
-      user_metadata: { name: u.name, username: u.username },
-    })
-    if (error) throw new Error(`createUser ${u.username}: ${error.message}`)
-    created[u.username] = data.user.id
   }
   return created
 }
