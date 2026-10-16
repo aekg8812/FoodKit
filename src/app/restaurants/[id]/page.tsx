@@ -154,6 +154,10 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
     throw new Error(`RestaurantDetailPage: RPC failed: ${reviewsResult.error.message}`)
   }
 
+  if (profileResult.error) {
+    console.error(`RestaurantDetailPage: get_restaurant_profiles failed: ${profileResult.error.message}`)
+  }
+
   if (matchResult.error) {
     console.error(`RestaurantDetailPage: get_my_foodkit_matches failed: ${matchResult.error.message}`)
   }

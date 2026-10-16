@@ -81,6 +81,10 @@ export default async function MypagePage() {
     throw new Error(`MypagePage: failed to load profile: ${profileResult.error.message}`)
   }
 
+  if (userProfileResult.error) {
+    console.error(`MypagePage: get_my_user_profile failed: ${userProfileResult.error.message}`)
+  }
+
   const profile = profileResult.data
   const allReviews = reviewsForStatsResult.data ?? []
   const reviewCount = allReviews.length

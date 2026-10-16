@@ -352,6 +352,11 @@ async function main() {
     const test2Client    = await signInAs('test2@foodkit.local')
     const outsiderClient = await signInAs('outsider@foodkit.local')
 
+    // Idempotency: remove any stale test2→test1 follow left by a previous run.
+    // This follow is a QA-only transient fixture, never a user-created follow.
+    await admin.from('follows').delete()
+      .eq('follower_id', test2Id).eq('followee_id', test1Id)
+
     await t.check('FOLLOW-01', 'test1→test2 base follow exists', async () => {
       const { data, error } = await test1Client
         .from('follows').select('id, status')
@@ -414,6 +419,10 @@ async function main() {
   await runner.section('NOTIF', async (t) => {
     const test1Client = await signInAs('test1@foodkit.local')
     const test2Client = await signInAs('test2@foodkit.local')
+
+    // Idempotency: remove any stale test2→test1 follow (same as FOLLOW section cleanup).
+    await admin.from('follows').delete()
+      .eq('follower_id', test2Id).eq('followee_id', test1Id)
 
     let test2FollowId
 
