@@ -447,13 +447,11 @@ export default function RecordFormClient({ restaurantId, restaurant, existingRev
           </label>
         </div>
 
-        {/* Visibility (visual only) */}
-        <div className="flex items-center justify-between border-b border-edge py-3">
-          <span className="font-black text-ink">公開範囲</span>
-          <span className="flex items-center gap-1 text-sm text-ink">
-            フォロワーに公開
-            <span className="ml-1 text-sm font-bold text-terra">変更 ›</span>
-          </span>
+        {/* Visibility notice */}
+        <div className="border-b border-edge py-3">
+          <p className="text-xs text-ink-sub">
+            投稿したレビューと写真は、FoodKitに登録しているすべてのユーザーに公開されます。現在、公開範囲は変更できません。
+          </p>
         </div>
 
         {error && (

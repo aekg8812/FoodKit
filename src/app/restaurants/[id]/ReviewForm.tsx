@@ -417,13 +417,17 @@ export default function ReviewForm({ restaurantId, existingReview, successRedire
 
       {error && <ErrorMessage message={error} />}
 
+      <p className="text-xs text-ink-sub">
+        投稿したレビューと写真は、FoodKitに登録しているすべてのユーザーに公開されます。現在、公開範囲は変更できません。
+      </p>
+
       <Button
         type="submit"
         disabled={submitting || rating === null}
       >
         {submitting
           ? '送信中...'
-          : submitLabel ?? (existingReview ? 'グループの投稿を更新' : 'グループに投稿する')}
+          : submitLabel ?? (existingReview ? '記録を更新する' : '記録する')}
       </Button>
     </form>
   )

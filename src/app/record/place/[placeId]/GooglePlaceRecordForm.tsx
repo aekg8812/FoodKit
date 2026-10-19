@@ -409,6 +409,10 @@ export default function GooglePlaceRecordForm({
           <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>
         )}
 
+        <p className="text-xs text-ink-sub">
+          投稿したレビューと写真は、FoodKitに登録しているすべてのユーザーに公開されます。現在、公開範囲は変更できません。
+        </p>
+
         <button
           type="submit"
           disabled={submitting || rating === null}
