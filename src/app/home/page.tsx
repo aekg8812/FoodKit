@@ -1,457 +1,543 @@
-import { createClient } from "@/lib/supabase/server";
-import { getUserState } from "@/lib/auth/getUserState";
-import { redirect } from "next/navigation";
-import Link from "next/link";
-import BottomNav from "@/components/BottomNav";
-import ValueTypeBadge from "@/components/ValueTypeBadge";
-import RestaurantCard from "@/components/RestaurantCard";
-import CategoryChips from "./CategoryChips";
-import TodayFilterSheet from "./TodayFilterSheet";
-import { escapeLikePattern } from "@/lib/restaurants/search";
-import {
-  distributionFromRecommendationRow,
-  sortRestaurants,
-  type ReviewRow,
-  type RestaurantRow,
-} from "@/lib/restaurants/aggregate";
-import {
-  computeMutualFollowIds,
-  type FollowRow,
-} from "@/lib/follows/queries";
-import {
-  VALUE_TYPE_LABEL,
-  type MainValueType,
-} from "@/lib/onboarding/classifyValueType";
-import { logPageAuthRequest } from "@/lib/diagnostics/authRequests";
+import Link from 'next/link'
+import Image from 'next/image'
+import { redirect } from 'next/navigation'
+import BottomNav from '@/components/BottomNav'
+import RestaurantMainImage from '@/components/RestaurantMainImage'
+import { getUserState } from '@/lib/auth/getUserState'
+import { createClient } from '@/lib/supabase/server'
+import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
 
-type RecommendationRow = {
-  restaurant_id: string;
-  name: string;
-  area: string | null;
-  genre: string | null;
-  same_type_review_count: number;
-  rating_4_count: number;
-  rating_3_count: number;
-  rating_2_count: number;
-  rating_1_count: number;
-};
+// ── Types ─────────────────────────────────────────────────────────────────
 
-type HomeImageReviewRow = {
-  restaurant_id: string;
-  image_path: string | null;
-  visit_date: string | null;
-  created_at: string;
-};
+type FolloweeRow    = { followee_id: string }
+type GroupMemberRow = { group_id: string }
+type ReviewRow      = {
+  id: string
+  restaurant_id: string
+  rating: number
+  comment: string | null
+  visit_date: string | null
+  created_at: string
+  image_path: string | null
+  user_id: string
+}
+type RestaurantRow  = { id: string; name: string | null; source: string; external_place_id: string | null; area: string | null; genre: string | null; main_image_path: string | null }
+type ProfileRow     = { id: string; username: string; name: string | null; avatar_path: string | null }
+type GroupRow       = { id: string; name: string }
+type RecRow         = {
+  restaurant_id: string
+  name: string | null
+  source: string
+  external_place_id: string | null
+  area: string | null
+  genre: string | null
+  main_image_path: string | null
+  personal_score: number
+  evidence_count: number
+  followed_evidence_count: number
+  similar_evidence_count: number
+}
 
-type FriendValueProfileRow = {
-  user_id: string;
-  main_value_type: MainValueType | null;
-};
+// ── Rating chip ────────────────────────────────────────────────────────────
 
-type OwnReviewRow = {
-  restaurant_id: string;
-};
+const SHORT_RATING: Record<number, { label: string; bg: string }> = {
+  4: { label: '常連になりたい', bg: 'bg-emerald-100 text-emerald-700' },
+  3: { label: 'また行きたい',   bg: 'bg-orange-100 text-orange-700' },
+  2: { label: '一度で十分',    bg: 'bg-sky-100 text-sky-700' },
+  1: { label: '二度と行かない', bg: 'bg-red-100 text-red-600' },
+}
 
-export default async function HomePage({
-  searchParams,
-}: {
-  searchParams: Promise<{
-    area?: string | string[];
-    genre?: string | string[];
-    budget?: string | string[];
-  }>;
-}) {
-  const params = await searchParams;
-  const getParam = (value: string | string[] | undefined) =>
-    (Array.isArray(value) ? value[0] : value)?.trim() ?? "";
-  const area = getParam(params.area);
-  const genre = getParam(params.genre);
-  const budget = getParam(params.budget);
-  const hasFilter = Boolean(area || genre || budget);
+function RatingChip({ rating }: { rating: number }) {
+  const meta = SHORT_RATING[rating]
+  if (!meta) return null
+  return (
+    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${meta.bg}`}>
+      {meta.label}
+    </span>
+  )
+}
 
-  const supabase = await createClient();
+// ── Helper ─────────────────────────────────────────────────────────────────
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  await logPageAuthRequest("/home", Boolean(user));
-  if (!user) redirect("/login");
+function evidenceBadgeText(rec: RecRow): string {
+  if (rec.similar_evidence_count > 0) {
+    return `あなたと好みが近い${rec.similar_evidence_count}人が「また行きたい」`
+  }
+  if (rec.followed_evidence_count > 0) {
+    return `フォロー中の${rec.followed_evidence_count}人が「また行きたい」`
+  }
+  return `${rec.evidence_count}件の記録から`
+}
 
-  const state = await getUserState(supabase, user);
-  if (state === "no_onboarding") redirect("/onboarding");
+// ── Page ───────────────────────────────────────────────────────────────────
 
+export default async function HomePage() {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const state = await getUserState(supabase, user)
+  if (state === 'no_onboarding') redirect('/onboarding')
+
+  // ── Phase 1: parallel independent fetches ───────────────────────────────
   const [
-    recommendationsResult,
-    valueTypeResult,
-    userResult,
-    followsResult,
-    ownReviewsResult,
+    unreadResult,
+    followeeResult,
+    recsResult,
+    groupMemberResult,
   ] = await Promise.all([
-      hasFilter
-        ? supabase.rpc("get_recommendations_filtered", {
-            p_area: area ? escapeLikePattern(area) : null,
-            p_genre: genre ? escapeLikePattern(genre) : null,
-            p_budget_range: budget || null,
-            p_limit: 10,
-          })
-        : supabase.rpc("get_recommendations_same_type", { p_limit: 10 }),
-      supabase
-        .from("user_public_value_profiles")
-        .select("main_value_type")
-        .eq("user_id", user.id)
-        .maybeSingle(),
-      supabase.from("users").select("name").eq("id", user.id).single(),
-      hasFilter
-        ? Promise.resolve({ data: [], error: null })
-        : supabase
-            .from("follows")
-            .select("follower_id, followee_id")
-            .or(`follower_id.eq.${user.id},followee_id.eq.${user.id}`)
-            .eq("status", "accepted"),
-      hasFilter
-        ? Promise.resolve({ data: [], error: null })
-        : supabase
-            .from("reviews")
-            .select("restaurant_id")
-            .eq("user_id", user.id),
-    ]);
+    supabase
+      .from('notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('recipient_user_id', user.id)
+      .is('read_at', null),
+    supabase
+      .from('follows')
+      .select('followee_id')
+      .eq('follower_id', user.id)
+      .eq('status', 'accepted'),
+    supabase.rpc('get_personal_recommendations_v2', { p_limit: 4 }),
+    supabase.from('group_members').select('group_id').eq('user_id', user.id).limit(4),
+  ])
 
-  if (recommendationsResult.error) {
-    throw new Error(
-      `HomePage: failed to load recommendations: ${recommendationsResult.error.message}`,
-    );
-  }
-  if (valueTypeResult.error) {
-    throw new Error(
-      `HomePage: failed to load value type: ${valueTypeResult.error.message}`,
-    );
-  }
-  if (followsResult.error) {
-    throw new Error(
-      `HomePage: failed to load follows: ${followsResult.error.message}`,
-    );
-  }
-  if (ownReviewsResult.error) {
-    throw new Error(
-      `HomePage: failed to load own reviews: ${ownReviewsResult.error.message}`,
-    );
-  }
+  const unreadCount    = unreadResult.count ?? 0
+  const followeeIds    = ((followeeResult.data ?? []) as FolloweeRow[]).map(f => f.followee_id)
+  const recs           = ((recsResult.data ?? []) as RecRow[])
+  const groupMemberIds = ((groupMemberResult.data ?? []) as GroupMemberRow[]).map(g => g.group_id)
 
-  const recommendationRows =
-    (recommendationsResult.data ?? []) as RecommendationRow[];
-  const userName = (userResult.data?.name as string | null | undefined) ?? null;
-  const myValueType =
-    (valueTypeResult.data?.main_value_type ?? null) as MainValueType | null;
-  const followRows = (followsResult.data ?? []) as FollowRow[];
-  const mutualFollowIds = computeMutualFollowIds(user.id, followRows);
+  // ── Phase 2: dependent on followees + group IDs ─────────────────────────
+  const [recentReviewsResult, groupDetailsResult] = await Promise.all([
+    followeeIds.length > 0
+      ? supabase
+          .from('reviews')
+          .select('id, restaurant_id, rating, comment, visit_date, created_at, image_path, user_id')
+          .in('user_id', followeeIds)
+          .order('created_at', { ascending: false })
+          .limit(3)
+      : { data: [] as ReviewRow[], error: null },
+    groupMemberIds.length > 0
+      ? supabase.from('groups').select('id, name').in('id', groupMemberIds)
+      : { data: [] as GroupRow[], error: null },
+  ])
 
-  const friendValueProfilesResult = mutualFollowIds.length
-    ? await supabase
-        .from("user_public_value_profiles")
-        .select("user_id, main_value_type")
-        .in("user_id", mutualFollowIds)
-    : { data: [], error: null };
+  const reviews = ((recentReviewsResult.data ?? []) as ReviewRow[])
+  const groups  = ((groupDetailsResult.data ?? []) as GroupRow[])
 
-  if (friendValueProfilesResult.error) {
-    throw new Error(
-      `HomePage: failed to load friend value types: ${friendValueProfilesResult.error.message}`,
-    );
+  // ── Phase 3: dependent on reviews ───────────────────────────────────────
+  const reviewRestaurantIds = [...new Set(reviews.map(r => r.restaurant_id))]
+  const reviewAuthorIds     = [...new Set(reviews.map(r => r.user_id))]
+
+  const [reviewRestaurantsResult, reviewProfilesResult] = await Promise.all([
+    reviewRestaurantIds.length > 0
+      ? supabase.from('restaurants').select('id, name, source, external_place_id, area, genre, main_image_path').in('id', reviewRestaurantIds)
+      : { data: [] as RestaurantRow[], error: null },
+    reviewAuthorIds.length > 0
+      ? supabase.from('user_public_profiles').select('id, username, name, avatar_path').in('id', reviewAuthorIds)
+      : { data: [] as ProfileRow[], error: null },
+  ])
+
+  const restaurantMap = new Map(
+    ((reviewRestaurantsResult.data ?? []) as RestaurantRow[]).map(r => [r.id, r])
+  )
+  const profileMap = new Map(
+    ((reviewProfilesResult.data ?? []) as ProfileRow[]).map(p => [p.id, p])
+  )
+
+  // ── Phase 4: sign review image URLs ─────────────────────────────────────
+  const imagePaths = reviews.flatMap(r => r.image_path ? [r.image_path] : [])
+  const signedResult = imagePaths.length > 0
+    ? await supabase.storage.from('review-images').createSignedUrls(imagePaths, 3600)
+    : { data: [], error: null }
+
+  const signedUrlMap = new Map<string, string>()
+  for (const s of signedResult.data ?? []) {
+    if (s.path && s.signedUrl && !s.error) signedUrlMap.set(s.path, s.signedUrl)
   }
 
-  const sameTypeFriendIds = myValueType
-    ? ((friendValueProfilesResult.data ?? []) as FriendValueProfileRow[])
-        .filter((profile) => profile.main_value_type === myValueType)
-        .map((profile) => profile.user_id)
-    : [];
-
-  const friendReviewsResult = sameTypeFriendIds.length
-    ? await supabase
-        .from("reviews")
-        .select("restaurant_id, rating, user_id")
-        .in("user_id", sameTypeFriendIds)
-    : { data: [], error: null };
-
-  if (friendReviewsResult.error) {
-    throw new Error(
-      `HomePage: failed to load friend reviews: ${friendReviewsResult.error.message}`,
-    );
-  }
-
-  const ownReviewedRestaurantIds = new Set(
-    ((ownReviewsResult.data ?? []) as OwnReviewRow[]).map(
-      (review) => review.restaurant_id,
-    ),
-  );
-  const friendReviews = (friendReviewsResult.data ?? []) as ReviewRow[];
-  const candidateRestaurantIds = [
+  // ── Phase 4.5: sign restaurant main images for review feed fallback ───────
+  const reviewRestaurantImagePaths = [
     ...new Set(
-      friendReviews
-        .map((review) => review.restaurant_id)
-        .filter((restaurantId) => !ownReviewedRestaurantIds.has(restaurantId)),
+      [...restaurantMap.values()]
+        .map((r) => r.main_image_path)
+        .filter((p): p is string => Boolean(p)),
     ),
-  ];
-
-  const friendRestaurantsResult = candidateRestaurantIds.length
-    ? await supabase
-        .from("restaurants")
-        .select("id, name, area, genre, created_at")
-        .in("id", candidateRestaurantIds)
-    : { data: [], error: null };
-
-  if (friendRestaurantsResult.error) {
-    throw new Error(
-      `HomePage: failed to load friend restaurants: ${friendRestaurantsResult.error.message}`,
-    );
-  }
-
-  const candidateRestaurantIdSet = new Set(candidateRestaurantIds);
-  const candidateFriendReviews = friendReviews.filter((review) =>
-    candidateRestaurantIdSet.has(review.restaurant_id),
-  );
-  const sameTypeFriendRecommendations = hasFilter
-    ? []
-    : sortRestaurants(
-    (friendRestaurantsResult.data ?? []) as RestaurantRow[],
-    candidateFriendReviews,
-    new Set(sameTypeFriendIds),
-    ).slice(0, 10);
-
-  const recommendationCards = recommendationRows.map((row) => ({
-    restaurant: {
-      id: row.restaurant_id,
-      name: row.name,
-      area: row.area,
-      genre: row.genre,
-      // A5の戻り値にはcreated_atがなく、compactカードでも参照しない。
-      created_at: "",
-    } satisfies RestaurantRow,
-    dist: distributionFromRecommendationRow(row),
-  }));
-  const topRestaurants = hasFilter ? [] : recommendationCards;
-  const todayRestaurants = hasFilter ? recommendationCards : [];
-  const countLabel = myValueType ? VALUE_TYPE_LABEL[myValueType] : "全員";
-  const friendCountLabel = myValueType
-    ? `${VALUE_TYPE_LABEL[myValueType]}の友人`
-    : "友人";
-
-  // おすすめ代表画像: 並び順は変えず、各店舗の最新レビュー写真だけをカードへ渡す
-  const recommendationRestaurantIds = [
-    ...new Set([
-      ...topRestaurants.map(({ restaurant }) => restaurant.id),
-      ...sameTypeFriendRecommendations.map(
-        ({ restaurant }) => restaurant.id,
-      ),
-      ...todayRestaurants.map(({ restaurant }) => restaurant.id),
-    ]),
-  ];
-  const imageReviewsResult = recommendationRestaurantIds.length
-    ? await supabase
-        .from("reviews")
-        .select("restaurant_id, image_path, visit_date, created_at")
-        .in("restaurant_id", recommendationRestaurantIds)
-        .not("image_path", "is", null)
-    : { data: [], error: null };
-
-  if (imageReviewsResult.error) {
-    console.error(
-      "HomePage: failed to load recommendation images",
-      imageReviewsResult.error,
-    );
-  }
-
-  const imageReviews =
-    (imageReviewsResult.data ?? []) as HomeImageReviewRow[];
-  const latestImagePathByRestaurant = new Map<string, string>();
-  imageReviews
-    .sort((a, b) => {
-      const aDate = a.visit_date ?? a.created_at;
-      const bDate = b.visit_date ?? b.created_at;
-      return new Date(bDate).getTime() - new Date(aDate).getTime();
-    })
-    .forEach((review) => {
-      if (
-        !latestImagePathByRestaurant.has(review.restaurant_id) &&
-        review.image_path
-      ) {
-        latestImagePathByRestaurant.set(review.restaurant_id, review.image_path);
-      }
-    });
-
-  const imagePaths = [...new Set(latestImagePathByRestaurant.values())];
-  const signedImagesResult = imagePaths.length
-    ? await supabase.storage
-        .from("review-images")
-        .createSignedUrls(imagePaths, 60 * 60)
-    : { data: [], error: null };
-
-  if (signedImagesResult.error) {
-    console.error("HomePage: failed to sign review images", signedImagesResult.error);
-  }
-
-  const signedImageUrls = new Map<string, string | null>();
-  for (const signedImage of signedImagesResult.data ?? []) {
-    if (signedImage.error) {
-      console.error("HomePage: failed to sign review image", {
-        path: signedImage.path,
-        message: signedImage.error,
-      });
-    }
-    if (signedImage.path) {
-      signedImageUrls.set(signedImage.path, signedImage.signedUrl);
+  ]
+  const reviewRestaurantImgUrls = new Map<string, string>()
+  if (reviewRestaurantImagePaths.length > 0) {
+    const { data: rImgData } = await supabase.storage
+      .from('restaurant-images')
+      .createSignedUrls(reviewRestaurantImagePaths, 3600)
+    for (const s of rImgData ?? []) {
+      if (s.path && s.signedUrl && !s.error) reviewRestaurantImgUrls.set(s.path, s.signedUrl)
     }
   }
-  const imageUrlByRestaurant = new Map(
-    [...latestImagePathByRestaurant.entries()].map(([restaurantId, imagePath]) => [
-      restaurantId,
-      signedImageUrls.get(imagePath) ?? null,
-    ]),
-  );
+
+  // ── Phase 5: sign restaurant main image URLs ─────────────────────────────
+  const recImagePaths = recs
+    .map(r => r.main_image_path)
+    .filter((p): p is string => Boolean(p))
+  const recImageSignedUrls = new Map<string, string>()
+  if (recImagePaths.length > 0) {
+    const { data } = await supabase.storage
+      .from('restaurant-images')
+      .createSignedUrls(recImagePaths, 3600)
+    for (const s of data ?? []) {
+      if (s.path && s.signedUrl && !s.error) recImageSignedUrls.set(s.path, s.signedUrl)
+    }
+  }
+
+  // Resolve display names for Google-sourced restaurants (review feed + recs)
+  const restaurantDisplayNames = new Map<string, string>()
+  const recDisplayNames = new Map<string, string>()
+
+  await Promise.all([
+    ...([...restaurantMap.values()] as RestaurantRow[])
+      .filter(r => r.source === 'google_place' && r.external_place_id)
+      .map(async (r) => {
+        const d = await resolveRestaurantDisplay(r)
+        restaurantDisplayNames.set(r.id, d.name)
+      }),
+    ...recs
+      .filter(r => r.source === 'google_place' && r.external_place_id)
+      .map(async (rec) => {
+        const d = await resolveRestaurantDisplay(rec)
+        recDisplayNames.set(rec.restaurant_id, d.name)
+      }),
+  ])
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
 
   return (
     <main className="min-h-screen bg-canvas pb-24">
-      {/* 挨拶 */}
-      <div className="px-6 pb-5 pt-10">
-        <p className="mb-1 text-2xl font-bold text-ink">
-          {userName ? `こんにちは、${userName}さん` : "こんにちは"}
-          <span className="ml-1.5" aria-hidden="true">
-            👋
-          </span>
-        </p>
-        <p className="text-base text-ink-sub">今日は何が食べたい?</p>
+
+      {/* ── Header ───────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between px-5 pt-10 pb-2">
+        <div className="w-10" />
+        <h1 className="text-base font-bold text-ink">ホーム</h1>
+        <Link
+          href="/notifications"
+          aria-label={`通知${unreadCount > 0 ? `（未読${unreadCount}件）` : ''}`}
+          className="relative flex h-10 w-10 items-center justify-center rounded-full"
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+          </svg>
+          {unreadCount > 0 && (
+            <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-terra" aria-hidden="true" />
+          )}
+        </Link>
       </div>
 
-      {/* 検索バー */}
-      <div className="mb-6 px-6">
-        <TodayFilterSheet area={area} genre={genre} budget={budget} />
-        <div className="mt-2 text-right">
-          <Link
-            href="/restaurants"
-            className="inline-flex min-h-[44px] items-center text-sm font-medium text-terra transition-colors hover:text-terra-deep"
+      {/* ── Search ───────────────────────────────────────────────────────── */}
+      <div className="mb-3 px-5">
+        <form action="/search/results" method="get">
+          <label className="flex items-center gap-3 rounded-2xl border border-edge bg-surface px-4 py-2.5 shadow-sm transition-shadow focus-within:ring-1 focus-within:ring-terra">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-ink-sub" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <path d="M21 21l-4.35-4.35" />
+            </svg>
+            <input
+              type="text"
+              name="q"
+              placeholder="店名・ジャンル・エリアで検索"
+              className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-sub"
+              autoComplete="off"
+            />
+          </label>
+        </form>
+      </div>
+
+      {/* ── 今日のお店 ────────────────────────────────────────────────────── */}
+      <div className="mb-4 px-5">
+        <Link
+          href="/search/today"
+          className="relative block overflow-hidden rounded-2xl shadow-sm"
+          style={{ background: '#FFF7F0', minHeight: '164px' }}
+        >
+          {/* Right: food photo (~39%) */}
+          <div
+            className="absolute inset-y-0 right-0 overflow-hidden"
+            style={{ width: '39%' }}
           >
-            店舗一覧を見る →
-          </Link>
-        </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/landing-hero-food.png"
+              alt=""
+              className="h-full w-full object-cover"
+              style={{ objectPosition: '30% center' }}
+              aria-hidden="true"
+            />
+            {/* Cream gradient — blends photo left edge into card background */}
+            <div
+              className="absolute inset-y-0 left-0 w-14"
+              style={{ background: 'linear-gradient(to right, #FFF7F0, transparent)' }}
+              aria-hidden="true"
+            />
+          </div>
+
+          {/* Photo caption — small/dim, secondary visual only */}
+          <p
+            className="absolute right-2.5 top-3 z-10 text-right text-[10px] italic leading-snug"
+            style={{ color: 'rgba(47,42,39,0.40)' }}
+            aria-hidden="true"
+          >
+            今日は<br />どんなお店に行く？
+          </p>
+
+          {/* Left content area (~63%) */}
+          <div
+            className="relative z-10 flex flex-col justify-between p-4"
+            style={{ minHeight: '164px', width: '63%' }}
+          >
+            <div>
+              <div className="flex items-center gap-1.5">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path d="M8 0 L9.2 5.8 L15 8 L9.2 10.2 L8 16 L6.8 10.2 L1 8 L6.8 5.8 Z" fill="#F97316" />
+                </svg>
+                <span className="text-sm font-bold text-ink">今日のお店</span>
+              </div>
+              <p className="mt-0.5 text-xs text-ink-sub">今の条件に合うお店を探す</p>
+            </div>
+
+            {/* Condition chips */}
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {['1人', '友達と', '安く', '近くで', 'ゆっくり'].map((chip) => (
+                <span
+                  key={chip}
+                  className="rounded-full border border-edge bg-white/80 px-2.5 py-0.5 text-[11px] text-ink"
+                >
+                  {chip}
+                </span>
+              ))}
+            </div>
+
+            {/* CTA — full-width of left column */}
+            <div className="mt-3">
+              <span className="block rounded-full bg-terra py-2.5 text-center text-sm font-bold text-white">
+                条件を設定する ›
+              </span>
+            </div>
+          </div>
+        </Link>
       </div>
 
-      {/* クイックカテゴリ */}
-      <section className="mb-8">
-        <div className="mb-3 px-6">
-          <h2 className="text-base font-semibold text-ink">カテゴリ</h2>
-        </div>
-        <CategoryChips />
-      </section>
-
-      {hasFilter && (
-        <section className="mb-8 px-6">
-          <div className="mb-4">
-            <h2 className="text-base font-semibold text-ink">今日のおすすめ</h2>
-          </div>
-          {todayRestaurants.length === 0 ? (
-            <p className="text-sm text-ink-sub">
-              条件に合う店舗が見つかりませんでした。条件を変えてお試しください。
-            </p>
-          ) : (
-            <div className="-mx-6 overflow-x-auto snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <div className="flex gap-4 pl-6 pr-4 pb-3">
-                {todayRestaurants.map(({ restaurant, dist }) => (
-                  <div key={restaurant.id} className="w-[280px] shrink-0 snap-start">
-                    <RestaurantCard
-                      restaurant={restaurant}
-                      dist={dist}
-                      countLabel={countLabel}
-                      imageUrl={imageUrlByRestaurant.get(restaurant.id) ?? undefined}
-                      variant="compact"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* おすすめ */}
-      {!hasFilter && topRestaurants.length > 0 && (
-        <section className="mb-8 px-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-base font-semibold text-ink">おすすめ</h2>
-            <Link
-              href="/restaurants"
-              className="text-sm text-terra transition-colors duration-150 hover:text-terra-deep"
-            >
-              全て見る →
+      {/* ── フォロー中の人の最近の記録 ───────────────────────────────────── */}
+      <section className="mb-4 px-5">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-base font-bold text-ink">フォロー中の人の最近の記録</h2>
+          {reviews.length > 0 && (
+            <Link href="/home/following-records" className="text-xs font-medium text-terra">
+              もっと見る ›
             </Link>
-          </div>
-
-          {myValueType && (
-            <div className="mb-4 flex flex-wrap items-center gap-2">
-              <span className="text-xs text-ink-sub">あなたのタイプ：</span>
-              <ValueTypeBadge type={myValueType} />
-            </div>
           )}
-
-          {/* -mx-6 で親 px-6 をキャンセルし画面端まで広げる */}
-          <div className="-mx-6 overflow-x-auto snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <div className="flex gap-4 pl-6 pr-4 pb-3">
-              {topRestaurants.map(({ restaurant, dist }) => (
-                <div
-                  key={restaurant.id}
-                  className="w-[280px] shrink-0 snap-start"
-                >
-                  <RestaurantCard
-                    restaurant={restaurant}
-                    dist={dist}
-                    countLabel={countLabel}
-                    imageUrl={
-                      imageUrlByRestaurant.get(restaurant.id) ?? undefined
-                    }
-                    variant="compact"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* おすすめ②（友人の「また行きたい」） */}
-      {!hasFilter && <section className="px-6">
-        <div className="mb-4">
-          <h2 className="text-base font-semibold text-ink">
-            おすすめ②（友人の「また行きたい」）
-          </h2>
         </div>
 
-        {sameTypeFriendRecommendations.length === 0 ? (
-          <p className="text-sm text-ink-sub">
-            フォローすると、ここにおすすめが表示されます
-          </p>
+        {reviews.length === 0 ? (
+          <div className="rounded-2xl border border-edge bg-surface px-5 py-6 text-center">
+            <p className="text-sm text-ink-sub">フォロー中の人の記録はまだありません</p>
+            {followeeIds.length === 0 && (
+              <Link
+                href="/mypage/follows/search"
+                className="mt-3 inline-flex min-h-9 items-center rounded-xl bg-terra px-4 text-xs font-semibold text-white"
+              >
+                ユーザーを探す
+              </Link>
+            )}
+          </div>
         ) : (
-          <div className="-mx-6 overflow-x-auto snap-x snap-mandatory [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {/* -mx-6 で親 px-6 をキャンセルし画面端まで広げる */}
-            <div className="flex gap-4 pl-6 pr-4 pb-3">
-              {sameTypeFriendRecommendations.map(({ restaurant, dist }) => (
-                <div
-                  key={restaurant.id}
-                  className="w-[280px] shrink-0 snap-start"
+          <div className="flex flex-col gap-2">
+            {reviews.map((review) => {
+              const restaurant  = restaurantMap.get(review.restaurant_id)
+              const profile     = profileMap.get(review.user_id)
+              const avatarUrl   = profile?.avatar_path
+                ? `${supabaseUrl}/storage/v1/object/public/avatars/${profile.avatar_path}`
+                : null
+              const reviewImg   = review.image_path ? (signedUrlMap.get(review.image_path) ?? null) : null
+              const restaurantImg = restaurant?.main_image_path
+                ? (reviewRestaurantImgUrls.get(restaurant.main_image_path) ?? null)
+                : null
+              const imageUrl = reviewImg ?? restaurantImg
+              const displayName = profile?.name ?? profile?.username ?? '...'
+              const initial     = Array.from(displayName.trim())[0] ?? '?'
+
+              return (
+                <Link
+                  key={review.id}
+                  href={`/records/${review.id}`}
+                  className="flex items-center gap-2.5 rounded-2xl border border-edge bg-surface px-3 py-2.5 shadow-sm transition-colors hover:bg-canvas"
                 >
-                  <RestaurantCard
-                    restaurant={restaurant}
-                    dist={dist}
-                    countLabel={friendCountLabel}
-                    imageUrl={
-                      imageUrlByRestaurant.get(restaurant.id) ?? undefined
-                    }
-                    variant="compact"
-                  />
-                </div>
-              ))}
-            </div>
+                  {/* Avatar only — no label below */}
+                  <div className="shrink-0">
+                    {avatarUrl ? (
+                      <Image
+                        src={avatarUrl}
+                        alt={displayName}
+                        width={36}
+                        height={36}
+                        className="h-9 w-9 rounded-full object-cover"
+                        unoptimized
+                      />
+                    ) : (
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-edge text-sm font-semibold text-ink-sub">
+                        {initial}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Food thumbnail (only when signed URL exists) */}
+                  {imageUrl && (
+                    <Image
+                      src={imageUrl}
+                      alt=""
+                      width={48}
+                      height={48}
+                      className="h-12 w-12 shrink-0 rounded-xl object-cover"
+                      unoptimized
+                    />
+                  )}
+
+                  {/* Text area: username / restaurant + chip / comment */}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-medium text-ink-sub">{displayName}</p>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                      {restaurant && (
+                        <span className="truncate text-sm font-bold text-ink">
+                          {restaurantDisplayNames.get(restaurant.id) ?? restaurant.name ?? '—'}
+                        </span>
+                      )}
+                      <RatingChip rating={review.rating} />
+                    </div>
+                    {review.comment && (
+                      <p className="mt-0.5 line-clamp-1 text-xs text-ink-sub">{review.comment}</p>
+                    )}
+                  </div>
+
+                  {/* Chevron */}
+                  <span className="shrink-0 text-sm text-ink-sub" aria-hidden="true">›</span>
+                </Link>
+              )
+            })}
           </div>
         )}
-      </section>}
+      </section>
+
+      {/* ── あなたへのおすすめ ────────────────────────────────────────────── */}
+      <section className="mb-4 px-5">
+        <div className="mb-2 flex items-start justify-between">
+          <div>
+            <h2 className="text-base font-bold text-ink">あなたへのおすすめ</h2>
+            <p className="mt-0.5 text-xs text-ink-sub">好みが近い人の記録をもとにおすすめしています</p>
+          </div>
+          {recs.length > 0 && (
+            <Link href="/home/recommendations" className="mt-0.5 shrink-0 text-xs font-medium text-terra">
+              もっと見る ›
+            </Link>
+          )}
+        </div>
+
+        {recs.length === 0 ? (
+          <div className="rounded-2xl border border-edge bg-surface px-5 py-6 text-center">
+            <p className="text-sm text-ink-sub">おすすめを作るための記録がまだ足りません</p>
+            <div className="mt-3 flex flex-wrap justify-center gap-2">
+              <Link
+                href="/mypage/food-preferences/edit"
+                className="inline-flex min-h-9 items-center rounded-full border border-terra px-4 text-xs font-semibold text-terra"
+              >
+                好みを設定する
+              </Link>
+              <Link
+                href="/mypage/follows/search"
+                className="inline-flex min-h-9 items-center rounded-xl bg-terra px-4 text-xs font-semibold text-white"
+              >
+                ユーザーを探す
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            {recs.slice(0, 4).map((rec) => {
+              const imageUrl = rec.main_image_path
+                ? (recImageSignedUrls.get(rec.main_image_path) ?? null)
+                : null
+              return (
+                <Link
+                  key={rec.restaurant_id}
+                  href={`/restaurants/${rec.restaurant_id}`}
+                  className="flex flex-col overflow-hidden rounded-2xl border border-edge bg-surface shadow-sm transition-opacity hover:opacity-90"
+                >
+                  {/* Restaurant image thumbnail */}
+                  <div className="relative h-[80px] w-full overflow-hidden">
+                    <RestaurantMainImage src={imageUrl} alt={recDisplayNames.get(rec.restaurant_id) ?? rec.name ?? '—'} />
+                  </div>
+
+                  <div className="flex flex-col p-2.5">
+                    {/* Restaurant name + genre */}
+                    <p className="line-clamp-2 text-sm font-bold leading-snug text-ink">
+                      {recDisplayNames.get(rec.restaurant_id) ?? rec.name ?? '—'}
+                    </p>
+                    {rec.genre && (
+                      <p className="mt-0.5 truncate text-xs text-ink-sub">{rec.genre}</p>
+                    )}
+
+                    {/* Spacer pushes evidence box to bottom */}
+                    <div className="min-h-[6px] flex-1" />
+
+                    {/* Evidence box */}
+                    <div className="mt-2 rounded-lg bg-terra/10 px-2 py-1.5">
+                      <div className="flex items-start gap-1">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0" aria-hidden="true">
+                          <circle cx="9" cy="7" r="3" />
+                          <path d="M3 21v-2a5 5 0 0 1 5-5h2" />
+                          <circle cx="17" cy="9" r="3" />
+                          <path d="M21 21v-2a5 5 0 0 0-5-5h-2" />
+                        </svg>
+                        <p className="text-[10px] leading-snug text-terra">{evidenceBadgeText(rec)}</p>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* ── グループで店を探す ────────────────────────────────────────────── */}
+      <section className="mb-4 px-5">
+        <div className="mb-2">
+          <h2 className="text-base font-bold text-ink">グループで店を探す</h2>
+          <p className="mt-0.5 text-xs text-ink-sub">みんなの好みに合うお店を見つける</p>
+        </div>
+
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {groups.map((group) => (
+            <Link
+              key={group.id}
+              href={`/groups/${group.id}`}
+              className="flex shrink-0 items-center gap-2 rounded-xl border border-edge bg-surface px-3 py-2.5 shadow-sm whitespace-nowrap"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="9" cy="7" r="3" />
+                <path d="M3 21v-2a5 5 0 0 1 5-5h2" />
+                <circle cx="17" cy="9" r="3" />
+                <path d="M21 21v-2a5 5 0 0 0-5-5h-2" />
+              </svg>
+              <span className="text-xs font-medium text-ink">{group.name}</span>
+              <span className="text-xs text-ink-sub" aria-hidden="true">›</span>
+            </Link>
+          ))}
+          <Link
+            href="/groups"
+            className="shrink-0 rounded-xl border border-terra px-3 py-2.5 text-xs font-bold text-terra whitespace-nowrap"
+          >
+            グループを見る ›
+          </Link>
+        </div>
+      </section>
 
       <BottomNav />
     </main>
-  );
+  )
 }

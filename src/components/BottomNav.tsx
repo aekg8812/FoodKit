@@ -3,47 +3,111 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
+function IconHome({ active }: { active: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 9.75L12 3l9 6.75V21a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V9.75Z" />
+      <path d="M9 22V12h6v10" />
+    </svg>
+  )
+}
+
+function IconSearch({ active }: { active: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="11" cy="11" r="7" />
+      <path d="M21 21l-4.35-4.35" />
+    </svg>
+  )
+}
+
+function IconRecord({ active }: { active: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+  )
+}
+
+function IconGroups({ active }: { active: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="9" cy="7" r="3" />
+      <path d="M3 21v-2a5 5 0 0 1 5-5h2" />
+      <circle cx="17" cy="9" r="3" />
+      <path d="M21 21v-2a5 5 0 0 0-5-5h-2" />
+    </svg>
+  )
+}
+
+function IconMypage({ active }: { active: boolean }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+    </svg>
+  )
+}
+
 const NAV_ITEMS = [
-  { href: '/home', label: 'ホーム', emoji: '🏠' },
-  { href: '/friends', label: '友人・グループ', emoji: '👥' },
-  { href: '/mypage', label: 'マイページ', emoji: '👤' },
+  { href: '/home',   label: 'ホーム',     Icon: IconHome },
+  { href: '/search', label: '検索',       Icon: IconSearch },
+  { href: '/record', label: '記録',       Icon: IconRecord },
+  { href: '/groups', label: 'グループ',   Icon: IconGroups },
+  { href: '/mypage', label: 'マイページ', Icon: IconMypage },
 ] as const
 
 export default function BottomNav() {
   const pathname = usePathname()
 
-  function isItemActive(href: string): boolean {
+  function isActive(href: string): boolean {
     if (href === '/home') {
-      // /restaurants 系はホームタブ扱い（ホームから来る動線のため）
-      return pathname === '/home' || pathname.startsWith('/restaurants')
+      return pathname === '/home' || pathname.startsWith('/restaurants') || pathname.startsWith('/notifications')
     }
-    if (href === '/friends') {
-      // グループ詳細は友人・グループタブ扱い。参加・作成フローは対象外。
+    if (href === '/search') {
+      return pathname === '/search' || pathname.startsWith('/search/')
+    }
+    if (href === '/record') {
+      return pathname === '/record' || pathname.startsWith('/record/') || pathname.startsWith('/records/')
+    }
+    if (href === '/groups') {
       return (
+        pathname === '/groups' ||
+        pathname.startsWith('/groups/') ||
         pathname === '/friends' ||
-        (pathname.startsWith('/groups/') && pathname !== '/groups/join')
+        pathname.startsWith('/friends/')
+      )
+    }
+    if (href === '/mypage') {
+      return (
+        pathname === '/mypage' ||
+        pathname.startsWith('/mypage/') ||
+        pathname === '/settings' ||
+        pathname.startsWith('/settings/')
       )
     }
     return pathname === href
   }
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-10 flex h-14 border-t border-edge bg-surface">
-      {NAV_ITEMS.map((item) => (
-        <Link
-          key={item.href}
-          href={item.href}
-          prefetch={false}
-          className={`flex flex-1 flex-col items-center justify-center gap-0.5 transition-all duration-150 ${
-            isItemActive(item.href)
-              ? 'text-terra'
-              : 'text-ink-sub hover:text-ink motion-safe:active:opacity-70'
-          }`}
-        >
-          <span className="text-base leading-none" aria-hidden="true">{item.emoji}</span>
-          <span className="text-[10px] font-medium leading-none">{item.label}</span>
-        </Link>
-      ))}
+    <nav className="fixed bottom-0 left-0 right-0 z-10 flex h-16 items-end border-t border-edge bg-surface pb-2 shadow-[0_-1px_0_0_rgba(0,0,0,0.06)]">
+      {NAV_ITEMS.map(({ href, label, Icon }) => {
+        const active = isActive(href)
+        return (
+          <Link
+            key={href}
+            href={href}
+            prefetch={false}
+            className={`flex flex-1 flex-col items-center justify-end gap-0.5 pb-0.5 transition-colors duration-150 ${
+              active ? 'text-terra' : 'text-ink-sub hover:text-ink'
+            }`}
+          >
+            <Icon active={active} />
+            <span className="text-[10px] font-medium leading-none">{label}</span>
+          </Link>
+        )
+      })}
     </nav>
   )
 }

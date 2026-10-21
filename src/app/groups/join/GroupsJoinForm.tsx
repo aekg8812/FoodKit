@@ -3,10 +3,6 @@
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import LogoutButton from '@/components/LogoutButton'
-import Button from '@/components/ui/Button'
-import InputField from '@/components/ui/InputField'
-import ErrorMessage from '@/components/ui/ErrorMessage'
 
 // Excludes visually ambiguous characters: 0/O, 1/I/L
 const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -19,7 +15,6 @@ function generateInviteCode(): string {
 }
 
 function toJapaneseError(err: unknown): string {
-  // Log raw error details for debugging before translating to user-facing message.
   if (err !== null && typeof err === 'object') {
     const { message, code, details, hint } = err as Record<string, unknown>
     console.error('[GroupsJoinForm] error:', { message, code, details, hint })
@@ -44,7 +39,7 @@ function toJapaneseError(err: unknown): string {
 type FormStep =
   | { kind: 'form' }
   | { kind: 'member_failed'; groupId: string; inviteCode: string }
-  | { kind: 'created'; inviteCode: string }
+  | { kind: 'created'; groupId: string; inviteCode: string }
 
 export default function GroupsJoinForm() {
   const router = useRouter()
@@ -85,7 +80,7 @@ export default function GroupsJoinForm() {
           inviteCode = code
           break
         }
-        if (error?.code === '23505') continue // UNIQUE violation on invite_code → regenerate
+        if (error?.code === '23505') continue
         if (error) throw error
       }
 
@@ -96,13 +91,12 @@ export default function GroupsJoinForm() {
         .insert({ group_id: groupId, user_id: user.id, role: 'member' })
 
       if (memberError) {
-        // Step 1 succeeded but step 2 failed. Preserve groupId so the user can retry step 2 only.
         setStep({ kind: 'member_failed', groupId, inviteCode })
         setCreateError('グループは作成されましたが、メンバー登録に失敗しました。もう一度お試しください')
         return
       }
 
-      setStep({ kind: 'created', inviteCode })
+      setStep({ kind: 'created', groupId, inviteCode })
     } catch (err) {
       setCreateError(toJapaneseError(err))
     } finally {
@@ -128,7 +122,7 @@ export default function GroupsJoinForm() {
 
       if (error) throw error
 
-      setStep({ kind: 'created', inviteCode })
+      setStep({ kind: 'created', groupId, inviteCode })
     } catch (err) {
       setCreateError(toJapaneseError(err))
     } finally {
@@ -147,7 +141,7 @@ export default function GroupsJoinForm() {
       })
       if (error) throw error
 
-      router.push('/onboarding')
+      router.push('/groups')
     } catch (err) {
       setJoinError(toJapaneseError(err))
     } finally {
@@ -157,113 +151,150 @@ export default function GroupsJoinForm() {
 
   if (step.kind === 'created') {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center bg-canvas px-6 py-16">
-        <section className="w-full max-w-md rounded-2xl border border-edge bg-surface p-8 shadow-sm">
-          <p className="mb-3 text-center text-3xl" aria-hidden="true">🎉</p>
-          <h1 className="mb-2 text-center text-2xl font-bold text-ink">グループを作成しました</h1>
-          <p className="mb-6 text-center text-sm text-ink-sub">
+      <div className="mx-auto max-w-md px-4 pt-4">
+        <div className="rounded-2xl border border-edge bg-surface p-8 text-center">
+          <p className="mb-3 text-4xl" aria-hidden="true">🎉</p>
+          <h2 className="mb-2 text-xl font-bold text-ink">グループを作成しました</h2>
+          <p className="mb-6 text-sm text-ink-sub">
             以下の招待コードを友人に共有してください。
           </p>
-          <div className="mb-6 rounded-2xl bg-cream px-4 py-5 text-center">
+          <div className="mb-6 rounded-2xl bg-[#F3E5D8] px-4 py-5">
             <p className="mb-1 text-xs font-medium text-ink-sub">招待コード</p>
             <span className="font-mono text-2xl font-bold tracking-widest text-ink">
               {step.inviteCode}
             </span>
           </div>
-          <Button
+          <button
             type="button"
-            onClick={() => {
-              router.push('/onboarding')
-            }}
+            onClick={() => router.push(`/groups/${step.kind === 'created' ? step.groupId : ''}`)}
+            className="w-full rounded-xl bg-terra py-3 text-sm font-bold text-white"
           >
-            オンボーディングに進む
-          </Button>
-        </section>
-      </main>
+            グループを見る
+          </button>
+        </div>
+      </div>
     )
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-canvas px-6 py-16">
-      <div className="mb-6 text-center">
-        <span className="text-3xl" aria-hidden="true">🍽️</span>
-        <p className="mt-1 text-sm font-medium text-ink-sub">FoodKit</p>
+    <div className="mx-auto max-w-md space-y-5 px-4 pt-2">
+      {/* Section 1: Create group */}
+      <div className="rounded-2xl border border-edge bg-surface p-5">
+        <div className="mb-4 flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-terra/10">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <line x1="19" y1="8" x2="19" y2="14" />
+              <line x1="16" y1="11" x2="22" y2="11" />
+            </svg>
+          </div>
+          <div>
+            <p className="font-bold text-ink">新しいグループを作る</p>
+            <p className="mt-0.5 text-xs leading-relaxed text-ink-sub">
+              一緒にお店を探すメンバーのグループを<br />作成します
+            </p>
+          </div>
+        </div>
+
+        <form onSubmit={handleCreate} className="space-y-3">
+          <div>
+            <label htmlFor="groupName" className="block text-sm font-bold text-ink mb-1.5">
+              グループ名
+            </label>
+            <input
+              id="groupName"
+              type="text"
+              required
+              value={createName}
+              onChange={(e) => setCreateName(e.target.value)}
+              placeholder="例：情報工3年ごはん"
+              className="w-full rounded-xl border border-edge bg-canvas px-4 py-3 text-sm text-ink placeholder:text-ink-sub/60 focus:border-terra focus:outline-none focus:ring-2 focus:ring-terra/20"
+            />
+          </div>
+
+          {createError && (
+            <p className="rounded-xl bg-red-50 px-4 py-2.5 text-xs text-red-600">{createError}</p>
+          )}
+
+          {step.kind === 'member_failed' ? (
+            <button
+              type="button"
+              onClick={handleRetryMember}
+              disabled={creating}
+              className="w-full rounded-xl bg-terra py-3.5 text-sm font-bold text-white disabled:opacity-60"
+            >
+              {creating ? '再試行中...' : 'メンバー登録を再試行'}
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={creating || !createName.trim()}
+              className="w-full rounded-xl bg-terra py-3.5 text-sm font-bold text-white disabled:opacity-60"
+            >
+              {creating ? '作成中...' : 'グループを作成する'}
+            </button>
+          )}
+        </form>
       </div>
 
-      <section className="w-full max-w-md space-y-6">
-        <div className="rounded-2xl border border-edge bg-surface p-8 shadow-sm">
-          <h1 className="mb-1 text-2xl font-bold text-ink">グループに参加する</h1>
-          <p className="mb-7 text-sm leading-relaxed text-ink-sub">
-            グループを新しく作るか、招待コードで既存のグループに参加してください。
-          </p>
+      {/* Divider */}
+      <div className="relative flex items-center gap-3">
+        <div className="flex-1 border-t border-edge" />
+        <span className="text-xs text-ink-sub">または</span>
+        <div className="flex-1 border-t border-edge" />
+      </div>
 
-          {/* グループ作成 */}
-          <div className="mb-7">
-            <h2 className="mb-3 text-base font-semibold text-ink">グループを作成</h2>
-            <form onSubmit={handleCreate} className="space-y-3">
-              <InputField
-                id="groupName"
-                label="グループ名"
-                type="text"
-                required
-                value={createName}
-                onChange={(e) => setCreateName(e.target.value)}
-                placeholder="例：大学の友人グループ"
-              />
-
-              {createError && <ErrorMessage message={createError} />}
-
-              {step.kind === 'member_failed' ? (
-                <Button type="button" variant="secondary" onClick={handleRetryMember} disabled={creating}>
-                  {creating ? '再試行中...' : 'メンバー登録を再試行'}
-                </Button>
-              ) : (
-                <Button type="submit" disabled={creating}>
-                  {creating ? '作成中...' : 'グループを作成'}
-                </Button>
-              )}
-            </form>
+      {/* Section 2: Join by invite code */}
+      <div className="rounded-2xl border border-edge bg-surface p-5">
+        <div className="mb-4 flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-50">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
+            </svg>
           </div>
-
-          {/* 区切り */}
-          <div className="relative mb-7">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-edge" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="bg-surface px-3 text-xs text-ink-sub">または</span>
-            </div>
-          </div>
-
-          {/* グループ参加 */}
           <div>
-            <h2 className="mb-3 text-base font-semibold text-ink">招待コードで参加</h2>
-            <form onSubmit={handleJoin} className="space-y-3">
-              <InputField
-                id="inviteCode"
-                label="招待コード"
-                type="text"
-                required
-                value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                maxLength={8}
-                className="font-mono placeholder:font-sans"
-                placeholder="ABCD1234"
-              />
-
-              {joinError && <ErrorMessage message={joinError} />}
-
-              <Button type="submit" disabled={joining}>
-                {joining ? '参加中...' : 'グループに参加'}
-              </Button>
-            </form>
+            <p className="font-bold text-ink">招待コードで参加する</p>
+            <p className="mt-0.5 text-xs leading-relaxed text-ink-sub">
+              友達から共有された招待コードを<br />入力してください
+            </p>
           </div>
         </div>
 
-        <div className="flex justify-center">
-          <LogoutButton />
-        </div>
-      </section>
-    </main>
+        <form onSubmit={handleJoin} className="space-y-3">
+          <div>
+            <label htmlFor="inviteCode" className="block text-sm font-bold text-ink mb-1.5">
+              招待コード
+            </label>
+            <input
+              id="inviteCode"
+              type="text"
+              required
+              value={joinCode}
+              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+              maxLength={8}
+              placeholder="例：ABCD1234"
+              className="w-full rounded-xl border border-edge bg-canvas px-4 py-3 font-mono text-sm text-ink placeholder:font-sans placeholder:text-ink-sub/60 focus:border-terra focus:outline-none focus:ring-2 focus:ring-terra/20"
+            />
+          </div>
+
+          {joinError && (
+            <p className="rounded-xl bg-red-50 px-4 py-2.5 text-xs text-red-600">{joinError}</p>
+          )}
+
+          <button
+            type="submit"
+            disabled={joining || !joinCode.trim()}
+            className={`w-full rounded-xl py-3.5 text-sm font-bold transition-colors ${
+              joinCode.trim()
+                ? 'bg-terra text-white'
+                : 'bg-[#F3E5D8] text-terra/60'
+            }`}
+          >
+            {joining ? '参加中...' : 'グループに参加する'}
+          </button>
+        </form>
+      </div>
+    </div>
   )
 }

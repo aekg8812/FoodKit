@@ -230,7 +230,7 @@ export default function RestaurantSearchClient() {
                 </p>
                 <Link
                   href={newRestaurantHref}
-                  className="mt-5 inline-flex min-h-[44px] items-center rounded-full bg-terra px-5 text-sm font-medium text-white transition-colors hover:bg-terra-deep"
+                  className="mt-5 inline-flex min-h-[44px] items-center rounded-xl bg-terra px-5 text-sm font-medium text-white transition-colors hover:bg-terra-deep"
                 >
                   新しく店舗を登録する
                 </Link>

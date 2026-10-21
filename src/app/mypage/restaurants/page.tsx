@@ -62,7 +62,7 @@ export default async function RegisteredRestaurantsPage() {
           </div>
           <Link
             href="/restaurants/search"
-            className="inline-flex min-h-[44px] shrink-0 items-center rounded-full bg-terra px-4 text-sm font-medium text-white transition-colors hover:bg-terra-deep"
+            className="inline-flex min-h-[44px] shrink-0 items-center rounded-xl bg-terra px-4 text-sm font-medium text-white transition-colors hover:bg-terra-deep"
           >
             ＋ 店舗を追加
           </Link>

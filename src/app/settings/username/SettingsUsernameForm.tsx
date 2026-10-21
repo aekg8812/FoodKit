@@ -96,23 +96,29 @@ export default function SettingsUsernameForm({ userId, currentUsername }: Props)
       return
     }
 
-    setLoading(false)
-    setSuccess(true)
-    router.refresh()
+    router.push('/settings')
   }
 
   return (
-    <main className="min-h-screen bg-canvas px-6 py-10">
-      <div className="mx-auto w-full max-w-md space-y-6">
+    <main className="min-h-screen bg-canvas pb-10">
+      {/* Page header */}
+      <div className="flex items-center justify-between px-5 pt-14 pb-6">
         <Link
           href="/settings"
-          className="inline-flex min-h-[44px] items-center text-sm font-medium text-ink-sub transition-colors hover:text-ink"
+          className="flex h-10 w-10 items-center justify-center rounded-full text-ink-sub transition-colors hover:bg-surface"
+          aria-label="設定に戻る"
         >
-          ← 設定に戻る
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
         </Link>
+        <h1 className="text-base font-bold text-ink">ユーザーIDを変更</h1>
+        <div className="w-10" />
+      </div>
 
-        <section className="space-y-6 rounded-3xl border border-edge bg-surface p-6">
-          <h1 className="text-2xl font-bold text-ink">ユーザーID変更</h1>
+      <div className="px-5">
+        <div className="mx-auto w-full max-w-sm space-y-5">
+          <p className="text-sm text-ink-sub">半角英数字と _ . - が使えます（{USERNAME_MAX}文字以内）</p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -156,10 +162,10 @@ export default function SettingsUsernameForm({ userId, currentUsername }: Props)
             )}
 
             <Button type="submit" loading={loading} disabled={!canSubmit}>
-              {loading ? '変更中...' : '変更する'}
+              {loading ? '変更中...' : '保存する'}
             </Button>
           </form>
-        </section>
+        </div>
       </div>
     </main>
   )

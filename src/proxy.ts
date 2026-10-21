@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { authRequestDiagnosticsEnabled } from "@/lib/diagnostics/authRequests";
 
-const PUBLIC_PATHS = ["/", "/login", "/signup"];
+const PUBLIC_PATHS = ["/", "/login", "/signup", "/forgot-password", "/reset-password"];
 
 export async function proxy(request: NextRequest) {
   const diagnosticsEnabled = authRequestDiagnosticsEnabled();
@@ -57,7 +57,9 @@ export async function proxy(request: NextRequest) {
     return redirectResponse;
   }
 
-  if (user && isPublicPath) {
+  // /reset-password must remain accessible during password recovery (active session)
+  const isResetPassword = pathname === "/reset-password" || pathname.startsWith("/reset-password/");
+  if (user && isPublicPath && !isResetPassword) {
     const redirectResponse = NextResponse.redirect(
       new URL("/home", request.url),
     );

@@ -254,7 +254,7 @@ export default function RestaurantSearchForm({
                     href={newRestaurantHref}
                     className="mt-2 inline-flex min-h-[44px] items-center text-sm font-medium text-terra transition-colors hover:text-terra-deep"
                   >
-                    新しい飲食店を登録する →
+                    新しいお店を登録する →
                   </Link>
                 </div>
               )}
@@ -269,7 +269,7 @@ export default function RestaurantSearchForm({
                   href={newRestaurantHref}
                   className="flex min-h-[44px] w-full items-center justify-center rounded-full bg-terra px-5 text-sm font-medium text-white transition-colors hover:bg-terra-deep"
                 >
-                  新しい飲食店を登録する
+                  新しいお店を登録する
                 </Link>
               }
             />

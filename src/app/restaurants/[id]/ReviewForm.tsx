@@ -3,11 +3,13 @@
 import { createClient } from '@/lib/supabase/client'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Button from '@/components/ui/Button'
 import TextareaField from '@/components/ui/TextareaField'
 import InputField from '@/components/ui/InputField'
 import ErrorMessage from '@/components/ui/ErrorMessage'
+import ReasonTagSelector from '@/components/review/ReasonTagSelector'
+import RestaurantLabelSelector from '@/components/review/RestaurantLabelSelector'
 
 export type ExistingReview = {
   id: string
@@ -16,12 +18,15 @@ export type ExistingReview = {
   visit_date: string | null
   image_path: string | null
   image_url: string | null
+  reason_keys?: string[]
+  label_keys?: string[]
 }
 
 interface Props {
   restaurantId: string
   existingReview: ExistingReview | null
   successRedirectHref?: string
+  submitLabel?: string
 }
 
 export const RATING_OPTIONS = [4, 3, 2, 1] as const
@@ -81,11 +86,13 @@ function getLocalToday(): string {
   return `${year}-${month}-${day}`
 }
 
-export default function ReviewForm({ restaurantId, existingReview, successRedirectHref }: Props) {
+export default function ReviewForm({ restaurantId, existingReview, successRedirectHref, submitLabel }: Props) {
   const router = useRouter()
   const supabase = createClient()
 
   const [rating, setRating] = useState<number | null>(existingReview?.rating ?? null)
+  const [reasonKeys, setReasonKeys] = useState<string[]>(existingReview?.reason_keys ?? [])
+  const [labelKeys, setLabelKeys] = useState<string[]>(existingReview?.label_keys ?? [])
   const [comment, setComment] = useState(existingReview?.comment ?? '')
   const [visitDate, setVisitDate] = useState(existingReview?.visit_date ?? '')
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -94,6 +101,19 @@ export default function ReviewForm({ restaurantId, existingReview, successRedire
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const today = getLocalToday()
+
+  const prevPolarityRef = useRef<'positive' | 'negative' | null>(
+    existingReview ? (existingReview.rating >= 3 ? 'positive' : 'negative') : null
+  )
+
+  function handleRatingChange(newRating: number) {
+    const newPolarity = newRating >= 3 ? 'positive' : 'negative'
+    if (prevPolarityRef.current !== null && prevPolarityRef.current !== newPolarity) {
+      setReasonKeys([])
+    }
+    prevPolarityRef.current = newPolarity
+    setRating(newRating)
+  }
 
   useEffect(() => {
     return () => {
@@ -189,6 +209,13 @@ export default function ReviewForm({ restaurantId, existingReview, successRedire
             .from(REVIEW_IMAGE_BUCKET)
             .remove([existingReview.image_path])
         }
+
+        const { error: signalsError } = await supabase.rpc('replace_review_learning_signals', {
+          p_review_id:   existingReview.id,
+          p_reason_keys: reasonKeys,
+          p_label_keys:  labelKeys,
+        })
+        if (signalsError) throw signalsError
       } else {
         const { data: insertedReview, error: insertError } = await supabase
           .from('reviews')
@@ -232,6 +259,13 @@ export default function ReviewForm({ restaurantId, existingReview, successRedire
             throw imageUpdateError
           }
         }
+
+        const { error: signalsError } = await supabase.rpc('replace_review_learning_signals', {
+          p_review_id:   insertedReview.id,
+          p_reason_keys: reasonKeys,
+          p_label_keys:  labelKeys,
+        })
+        if (signalsError) throw signalsError
       }
 
       if (successRedirectHref) {
@@ -253,7 +287,7 @@ export default function ReviewForm({ restaurantId, existingReview, successRedire
         <p className="text-xs font-medium text-ink-sub">保存先</p>
         <p className="mt-1 text-sm font-medium text-ink">あなたの記録</p>
         <p className="mt-1 text-xs leading-relaxed text-ink-sub">
-          このレビューはあなただけに表示されます（グループ共有は近日公開）。
+          この記録はあなただけに表示されます。
         </p>
       </div>
 
@@ -266,7 +300,7 @@ export default function ReviewForm({ restaurantId, existingReview, successRedire
             <button
               key={r}
               type="button"
-              onClick={() => setRating(r)}
+              onClick={() => handleRatingChange(r)}
               className={`flex min-h-[44px] w-full items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition-all duration-150 motion-safe:active:scale-[0.98] ${
                 rating === r
                   ? RATING_ACTIVE_CLASS[r]
@@ -280,6 +314,21 @@ export default function ReviewForm({ restaurantId, existingReview, successRedire
           ))}
         </div>
       </div>
+
+      {rating !== null && (
+        <ReasonTagSelector
+          rating={rating}
+          selected={reasonKeys}
+          onChange={setReasonKeys}
+          disabled={submitting}
+        />
+      )}
+
+      <RestaurantLabelSelector
+        selected={labelKeys}
+        onChange={setLabelKeys}
+        disabled={submitting}
+      />
 
       <TextareaField
         id="comment"
@@ -368,15 +417,17 @@ export default function ReviewForm({ restaurantId, existingReview, successRedire
 
       {error && <ErrorMessage message={error} />}
 
+      <p className="text-xs text-ink-sub">
+        投稿したレビューと写真は、FoodKitに登録しているすべてのユーザーに公開されます。現在、公開範囲は変更できません。
+      </p>
+
       <Button
         type="submit"
         disabled={submitting || rating === null}
       >
         {submitting
           ? '送信中...'
-          : existingReview
-            ? 'グループの投稿を更新'
-            : 'グループに投稿する'}
+          : submitLabel ?? (existingReview ? '記録を更新する' : '記録する')}
       </Button>
     </form>
   )

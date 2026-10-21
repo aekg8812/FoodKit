@@ -44,6 +44,7 @@ export default function RecordsClient({ restaurantId, userId, initialTab, initia
   const sort = searchParams.get('sort') === 'oldest' ? 'oldest' : 'newest'
 
   const [restaurantName, setRestaurantName] = useState<string | null>(null)
+  const [restaurantMeta, setRestaurantMeta] = useState<{ genre: string | null; area: string | null }>({ genre: null, area: null })
   const [reviews, setReviews] = useState<ReviewCardData[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -72,7 +73,7 @@ export default function RecordsClient({ restaurantId, userId, initialTab, initia
       const [restaurantResult, rpcResult, cardCountResult] = await Promise.all([
         supabase
           .from('restaurants')
-          .select('id, name')
+          .select('id, name, genre, area')
           .eq('id', restaurantId)
           .maybeSingle(),
         supabase.rpc('get_restaurant_reviews_v2', {
@@ -89,7 +90,9 @@ export default function RecordsClient({ restaurantId, userId, initialTab, initia
       ])
 
       if (restaurantResult.data) {
-        setRestaurantName((restaurantResult.data as { name: string }).name)
+        const r = restaurantResult.data as { name: string; genre: string | null; area: string | null }
+        setRestaurantName(r.name)
+        setRestaurantMeta({ genre: r.genre, area: r.area })
       }
 
       setViewerCardCount(cardCountResult.count ?? 0)
@@ -158,21 +161,27 @@ export default function RecordsClient({ restaurantId, userId, initialTab, initia
   }
 
   return (
-    <main className="min-h-screen bg-canvas pb-20">
+    <main className="min-h-screen bg-canvas pb-24">
       {/* Header */}
-      <div className="sticky top-0 z-10 border-b border-edge bg-surface px-4 py-3">
-        <div className="mx-auto flex max-w-md items-center gap-3">
-          <Link
-            href={`/restaurants/${restaurantId}?reviewTab=${tab}`}
-            className="shrink-0 text-sm text-ink-sub transition-colors hover:text-ink"
-          >
-            ←
-          </Link>
-          <div className="min-w-0">
-            <p className="truncate text-xs text-ink-sub">{restaurantName ?? '…'}</p>
-            <h1 className="text-sm font-semibold text-ink">この店の記録</h1>
-          </div>
+      <div className="flex items-center border-b border-edge bg-canvas px-4 pt-14 pb-3">
+        <Link
+          href={`/restaurants/${restaurantId}?reviewTab=${tab}`}
+          className="flex h-10 w-10 shrink-0 items-center justify-center text-ink"
+          aria-label="戻る"
+        >
+          <svg width="10" height="18" viewBox="0 0 10 18" fill="none" aria-hidden="true">
+            <path d="M9 1L1 9l8 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </Link>
+        <div className="min-w-0 flex-1 text-center">
+          <h1 className="truncate text-base font-bold text-ink">{restaurantName ?? '…'}</h1>
+          {(restaurantMeta.genre || restaurantMeta.area) && (
+            <p className="truncate text-xs text-ink-sub">
+              {[restaurantMeta.genre, restaurantMeta.area].filter(Boolean).join('・')}
+            </p>
+          )}
         </div>
+        <div className="w-10" />
       </div>
 
       <div className="mx-auto max-w-md px-4 pt-4">
@@ -211,7 +220,7 @@ export default function RecordsClient({ restaurantId, userId, initialTab, initia
                 </p>
                 <Link
                   href="/mypage/food-preferences/edit"
-                  className="mt-3 inline-block rounded-full bg-terra px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-terra-deep"
+                  className="mt-3 inline-block rounded-xl bg-terra px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-terra-deep"
                 >
                   好みを設定する
                 </Link>

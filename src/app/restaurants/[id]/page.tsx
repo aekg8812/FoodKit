@@ -6,19 +6,31 @@ import BackButton from '@/components/BackButton'
 import ReviewCard, { type ReviewCardData } from '@/components/ReviewCard'
 import ReviewTabsNav, { type ReviewTab } from '@/components/ReviewTabsNav'
 import ShareButton from '@/components/ShareButton'
+import RestaurantMainImage from '@/components/RestaurantMainImage'
+import RestaurantProfileSection from '@/components/restaurants/RestaurantProfileSection'
+import FoodKitMatchSection from '@/components/restaurants/FoodKitMatchSection'
 import { logPageAuthRequest } from '@/lib/diagnostics/authRequests'
 import { getUserState } from '@/lib/auth/getUserState'
+import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
+import { type RestaurantProfileRow } from '@/lib/restaurants/profile'
+import { type FoodKitMatchRow, findMatchRow } from '@/lib/restaurants/match'
 import { Suspense } from 'react'
 
 const REVIEW_PREVIEW_COUNT = 3
 
 type Restaurant = {
   id: string
-  name: string
+  name: string | null
+  source: string
+  external_place_id: string | null
   area: string | null
   genre: string | null
   address: string | null
   memo: string | null
+  budget_per_person_max_yen: number | null
+  main_image_path: string | null
+  created_by: string | null
+  main_image_uploaded_by: string | null
 }
 
 type RpcReviewRow = {
@@ -35,6 +47,8 @@ type RpcReviewRow = {
   created_at: string
 }
 
+type RatingCounts = { rating: number; count: number }[]
+
 function parseReviewTab(raw: string | undefined): ReviewTab {
   if (raw === 'similar' || raw === 'following') return raw
   return 'all'
@@ -43,6 +57,35 @@ function parseReviewTab(raw: string | undefined): ReviewTab {
 function buildMapsUrl(restaurantName: string, address: string | null): string {
   const query = address ? `${restaurantName} ${address}` : restaurantName
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
+}
+
+const RATING_LABELS: Record<number, string> = {
+  4: '常連になりたい',
+  3: 'また行きたい',
+  2: '一度で十分',
+  1: '二度と行かない',
+}
+
+const RATING_COLORS: Record<number, string> = {
+  4: 'bg-emerald-400',
+  3: 'bg-terra',
+  2: 'bg-sky-400',
+  1: 'bg-zinc-300',
+}
+
+function RatingBar({ rating, percent }: { rating: number; percent: number }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="w-[80px] shrink-0 text-xs text-ink">{RATING_LABELS[rating]}</span>
+      <div className="flex-1 overflow-hidden rounded-full bg-edge" style={{ height: '8px' }}>
+        <div
+          className={`h-full rounded-full ${RATING_COLORS[rating]}`}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+      <span className="w-[32px] shrink-0 text-right text-xs text-ink-sub">{percent}%</span>
+    </div>
+  )
 }
 
 type PageProps = {
@@ -67,21 +110,16 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
   const state = await getUserState(supabase, user)
   if (state === 'no_onboarding') redirect('/onboarding')
 
-  const { data: restaurantData, error: restaurantError } = await supabase
-    .from('restaurants')
-    .select('id, name, area, genre, address, memo')
-    .eq('id', id)
-    .maybeSingle()
-
-  if (restaurantError) {
-    throw new Error(`RestaurantDetailPage: query failed: ${restaurantError.message}`)
-  }
-  if (!restaurantData) notFound()
-
-  const r = restaurantData as Restaurant
-
-  // Viewer's preference card count (needed for similar tab empty state)
-  const [reviewsResult, cardCountResult] = await Promise.all([
+  const [restaurantResult, ratingCountsResult, reviewsResult, cardCountResult, reviewerCheckResult, profileResult, matchResult] = await Promise.all([
+    supabase
+      .from('restaurants')
+      .select('id, name, source, external_place_id, area, genre, address, memo, budget_per_person_max_yen, main_image_path, created_by, main_image_uploaded_by')
+      .eq('id', id)
+      .maybeSingle(),
+    supabase
+      .from('reviews')
+      .select('rating')
+      .eq('restaurant_id', id),
     supabase.rpc('get_restaurant_reviews_v2', {
       p_restaurant_id: id,
       p_scope: reviewTab,
@@ -93,20 +131,73 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
       .from('user_preference_cards')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', user.id),
+    supabase
+      .from('reviews')
+      .select('id', { count: 'exact', head: true })
+      .eq('restaurant_id', id)
+      .eq('user_id', user.id)
+      .limit(1),
+    supabase.rpc('get_restaurant_profiles', {
+      p_restaurant_ids: [id],
+    }),
+    supabase.rpc('get_my_foodkit_matches', {
+      p_restaurant_ids: [id],
+    }),
   ])
+
+  if (restaurantResult.error) {
+    throw new Error(`RestaurantDetailPage: query failed: ${restaurantResult.error.message}`)
+  }
+  if (!restaurantResult.data) notFound()
 
   if (reviewsResult.error) {
     throw new Error(`RestaurantDetailPage: RPC failed: ${reviewsResult.error.message}`)
   }
 
+  if (profileResult.error) {
+    console.error(`RestaurantDetailPage: get_restaurant_profiles failed: ${profileResult.error.message}`)
+  }
+
+  if (matchResult.error) {
+    console.error(`RestaurantDetailPage: get_my_foodkit_matches failed: ${matchResult.error.message}`)
+  }
+
+  const hasUserReview = (reviewerCheckResult.count ?? 0) > 0
+  const profileRows = (profileResult.data ?? []) as RestaurantProfileRow[]
+  const matchRows = matchResult.error ? [] : (matchResult.data ?? []) as unknown as FoodKitMatchRow[]
+  const matchRow = findMatchRow(matchRows, id)
+
+  const r = restaurantResult.data as Restaurant
+  const rDisplay = await resolveRestaurantDisplay(r)
   const rpcRows = (reviewsResult.data ?? []) as RpcReviewRow[]
   const viewerCardCount = cardCountResult.count ?? 0
 
+  // Compute rating distribution
+  const allRatings: number[] = (ratingCountsResult.data ?? []).map((row: { rating: number }) => row.rating)
+  const totalReviews = allRatings.length
+  const ratingCounts: Record<number, number> = { 4: 0, 3: 0, 2: 0, 1: 0 }
+  for (const rating of allRatings) {
+    if (rating >= 1 && rating <= 4) ratingCounts[rating]++
+  }
+  const ratingPercents: Record<number, number> = {
+    4: totalReviews ? Math.round((ratingCounts[4] / totalReviews) * 100) : 0,
+    3: totalReviews ? Math.round((ratingCounts[3] / totalReviews) * 100) : 0,
+    2: totalReviews ? Math.round((ratingCounts[2] / totalReviews) * 100) : 0,
+    1: totalReviews ? Math.round((ratingCounts[1] / totalReviews) * 100) : 0,
+  }
+
+  // Generate signed URL for restaurant main image (private bucket)
+  let mainImageSignedUrl: string | null = null
+  if (r.main_image_path) {
+    const { data: signedData } = await supabase.storage
+      .from('restaurant-images')
+      .createSignedUrl(r.main_image_path, 60 * 60)
+    mainImageSignedUrl = signedData?.signedUrl ?? null
+  }
+
   // Generate signed URLs for review images
   const imagePaths = [
-    ...new Set(
-      rpcRows.map((r) => r.image_path).filter((p): p is string => Boolean(p)),
-    ),
+    ...new Set(rpcRows.map((row) => row.image_path).filter((p): p is string => Boolean(p))),
   ]
   const signedImagesResult = imagePaths.length
     ? await supabase.storage.from('review-images').createSignedUrls(imagePaths, 60 * 60)
@@ -117,9 +208,8 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
     if (item.path && !item.error && item.signedUrl) signedImageUrls.set(item.path, item.signedUrl)
   }
 
-  // Avatar URLs (avatars bucket is public)
   const avatarPathsUniq = [
-    ...new Set(rpcRows.map((r) => r.avatar_path).filter((p): p is string => Boolean(p))),
+    ...new Set(rpcRows.map((row) => row.avatar_path).filter((p): p is string => Boolean(p))),
   ]
   const avatarUrlMap = new Map<string, string>()
   for (const path of avatarPathsUniq) {
@@ -143,11 +233,20 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
     created_at: row.created_at,
   }))
 
-  const mapsUrl = buildMapsUrl(r.name, r.address)
-  // pageUrl is a hint; ShareButton falls back to window.location.href when empty/relative
+  const displayAddress = rDisplay.address ?? r.address
+  const mapsUrl = buildMapsUrl(rDisplay.name, displayAddress)
   const pageUrl = process.env.NEXT_PUBLIC_SITE_URL
     ? `${process.env.NEXT_PUBLIC_SITE_URL}/restaurants/${id}`
     : undefined
+  const isOwner = r.created_by !== null && r.created_by === user.id
+  // Pencil: only manual restaurant owners can edit metadata
+  const canEdit = isOwner && r.source !== 'google_place'
+  // Camera: owner, current uploader, or reviewer adding the first photo
+  const isUploader = r.main_image_uploaded_by !== null && r.main_image_uploaded_by === user.id
+  const canEditImage =
+    isOwner ||
+    isUploader ||
+    (r.main_image_path === null && hasUserReview)
 
   const viewerNeedsPreference = reviewTab === 'similar' && viewerCardCount < 5
 
@@ -158,127 +257,260 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
   }
 
   return (
-    <main className="min-h-screen bg-canvas px-4 py-6 pb-20">
-      <div className="mx-auto max-w-md space-y-4">
-        {/* Back */}
-        <Suspense>
-          <BackButton fallbackHref="/restaurants" label="← 戻る" />
-        </Suspense>
+    <main className="min-h-screen bg-canvas pb-24">
+      {/* Hero image area */}
+      <div className="relative h-[220px] w-full overflow-hidden">
+        <RestaurantMainImage src={mainImageSignedUrl} alt={rDisplay.name} />
 
-        {/* Restaurant info */}
-        <section className="rounded-2xl border border-edge bg-surface p-5 shadow-sm">
-          <h1 className="mb-3 text-xl font-bold text-ink">{r.name}</h1>
-
-          {(r.area || r.genre || r.address || r.memo) && (
-            <dl className="space-y-2 text-sm">
-              {r.area && (
-                <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 font-medium text-ink-sub">エリア</dt>
-                  <dd className="text-ink">{r.area}</dd>
-                </div>
-              )}
-              {r.genre && (
-                <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 font-medium text-ink-sub">ジャンル</dt>
-                  <dd className="text-ink">{r.genre}</dd>
-                </div>
-              )}
-              {r.address && (
-                <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 font-medium text-ink-sub">住所</dt>
-                  <dd className="text-ink">{r.address}</dd>
-                </div>
-              )}
-              {r.memo && (
-                <div className="flex gap-2">
-                  <dt className="w-16 shrink-0 font-medium text-ink-sub">メモ</dt>
-                  <dd className="whitespace-pre-wrap text-ink">{r.memo}</dd>
-                </div>
-              )}
-            </dl>
-          )}
-
-          {/* Actions */}
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <Link
-              href={`/record/${id}`}
-              className="flex items-center gap-1.5 rounded-full bg-terra px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-terra-deep"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
+        {/* Add photo CTA — shown when no image and user is eligible */}
+        {canEditImage && !mainImageSignedUrl && (
+          <Link
+            href={`/restaurants/${id}/image`}
+            className="absolute inset-0 flex flex-col items-center justify-center gap-2"
+            aria-label="写真を追加"
+          >
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black/20">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                <circle cx="12" cy="13" r="4" />
               </svg>
-              記録する
-            </Link>
+            </div>
+            <span className="text-sm font-bold text-white drop-shadow">写真を追加</span>
+          </Link>
+        )}
 
-            <a
-              href={mapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 rounded-full border border-edge bg-surface px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-canvas"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-ink-sub">
-                <path fillRule="evenodd" d="m9.69 18.933.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 0 0 .281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 1 0 3 9c0 3.492 1.698 5.988 3.355 7.584a13.731 13.731 0 0 0 2.273 1.765 11.842 11.842 0 0 0 .976.544l.062.029.018.008.006.003ZM10 11.25a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5Z" clipRule="evenodd" />
-              </svg>
-              地図
-            </a>
-
-            <Suspense>
-              <ShareButton title={r.name} url={pageUrl} />
-            </Suspense>
-          </div>
-        </section>
-
-        {/* Reviews section */}
-        <section className="rounded-2xl border border-edge bg-surface shadow-sm">
-          <div className="px-5 pt-5">
-            <h2 className="text-base font-semibold text-ink">この店の記録</h2>
-          </div>
-
-          {/* Tab nav */}
-          <div className="mt-3 px-5">
-            <Suspense>
-              <ReviewTabsNav activeTab={reviewTab} />
-            </Suspense>
-          </div>
-
-          {/* Reviews list */}
-          <div className="space-y-3 p-5">
-            {viewerNeedsPreference ? (
-              <div className="rounded-xl bg-canvas px-4 py-6 text-center">
-                <p className="text-sm text-ink-sub">
-                  好みを設定すると、あなたと食の好みが近い人の記録を表示できます。
-                </p>
-                <Link
-                  href="/mypage/food-preferences/edit"
-                  className="mt-3 inline-block rounded-full bg-terra px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-terra-deep"
-                >
-                  好みを設定する
-                </Link>
-              </div>
-            ) : reviews.length === 0 ? (
-              <p className="py-4 text-center text-sm text-ink-sub">{emptyMessages[reviewTab]}</p>
-            ) : (
-              <>
-                {reviews.map((review) => (
-                  <ReviewCard
-                    key={review.review_id}
-                    review={review}
-                    currentUserId={user.id}
-                    detailHref={`/records/${review.review_id}`}
-                  />
-                ))}
-
-                <Link
-                  href={`/restaurants/${id}/records?reviewTab=${reviewTab}`}
-                  className="mt-1 block rounded-xl border border-edge bg-canvas px-4 py-3 text-center text-sm font-medium text-terra transition-colors hover:bg-surface"
-                >
-                  もっと見る →
-                </Link>
-              </>
+        {/* Overlay controls */}
+        <div className="absolute inset-x-0 top-0 flex items-center justify-between px-4 pt-14">
+          <Suspense>
+            <BackButton fallbackHref="/home" label="" />
+          </Suspense>
+          <div className="flex items-center gap-3">
+            {canEdit && (
+              <Link
+                href={`/restaurants/${id}/edit`}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white"
+                aria-label="店舗情報を編集"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+              </Link>
             )}
+            {canEditImage && mainImageSignedUrl && (
+              <Link
+                href={`/restaurants/${id}/image`}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white"
+                aria-label="店舗の写真を編集"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                  <circle cx="12" cy="13" r="4" />
+                </svg>
+              </Link>
+            )}
+            <Suspense>
+              <ShareButton title={rDisplay.name} url={pageUrl} />
+            </Suspense>
           </div>
-        </section>
+        </div>
       </div>
+
+      {/* Restaurant name + meta */}
+      <div className="bg-surface px-4 pt-4 pb-4">
+        <h1 className="text-xl font-black text-ink" translate={rDisplay.isGoogle ? 'no' : undefined}>{rDisplay.name}</h1>
+        {(r.area || r.genre) && (
+          <p className="mt-0.5 text-sm text-ink-sub">{[r.genre, r.area].filter(Boolean).join('・')}</p>
+        )}
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-sub">
+          {r.budget_per_person_max_yen && (
+            <span className="flex items-center gap-1">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 6v12M9 9h4.5a2 2 0 0 1 0 4H9a2 2 0 0 0 0 4h5" />
+              </svg>
+              ¥{r.budget_per_person_max_yen.toLocaleString()}以下/人
+            </span>
+          )}
+          {displayAddress && (
+            <span className="flex items-center gap-1">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="10" r="3" />
+                <path d="M12 2a8 8 0 0 1 8 8c0 5.4-8 12-8 12S4 15.4 4 10a8 8 0 0 1 8-8z" />
+              </svg>
+              <span translate={rDisplay.isGoogle ? 'no' : undefined}>{displayAddress}</span>
+            </span>
+          )}
+        </div>
+
+        {/* Action bar */}
+        <div className="mt-3 flex items-center gap-2">
+          <a
+            href={mapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex h-[38px] flex-1 items-center justify-center gap-1.5 rounded-xl border border-edge bg-canvas text-sm font-medium text-ink"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="10" r="3" />
+              <path d="M12 2a8 8 0 0 1 8 8c0 5.4-8 12-8 12S4 15.4 4 10a8 8 0 0 1 8-8z" />
+            </svg>
+            地図
+          </a>
+          <button type="button" className="flex h-[38px] flex-1 items-center justify-center gap-1.5 rounded-xl border border-edge bg-canvas text-sm font-medium text-ink">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+            </svg>
+            保存
+          </button>
+          <Link
+            href={`/record/${id}`}
+            className="flex h-[38px] flex-[2] items-center justify-center gap-1.5 rounded-xl bg-terra text-sm font-bold text-white"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            記録する
+          </Link>
+        </div>
+      </div>
+
+      {/* FoodKit Match Score */}
+      <FoodKitMatchSection matchRow={matchRow} />
+
+      {/* Rating distribution */}
+      {totalReviews > 0 && (
+        <div className="mx-4 mt-4 rounded-2xl bg-surface p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-bold text-ink">この店の記録</h2>
+            <span className="text-xs text-ink-sub">{totalReviews}人の記録</span>
+          </div>
+          <div className="space-y-2">
+            <RatingBar rating={4} percent={ratingPercents[4]} />
+            <RatingBar rating={3} percent={ratingPercents[3]} />
+            <RatingBar rating={2} percent={ratingPercents[2]} />
+            <RatingBar rating={1} percent={ratingPercents[1]} />
+          </div>
+        </div>
+      )}
+
+      {/* Restaurant profile — top labels from label votes */}
+      <RestaurantProfileSection profileRows={profileRows} />
+
+      {/* Reviews section */}
+      <div className="mx-4 mt-4 overflow-hidden rounded-2xl bg-surface">
+        {/* Tab nav */}
+        <div className="border-b border-edge px-4 pt-4">
+          <Suspense>
+            <ReviewTabsNav activeTab={reviewTab} />
+          </Suspense>
+        </div>
+
+        {/* Review list */}
+        <div className="p-4">
+          {viewerNeedsPreference ? (
+            <div className="rounded-xl bg-canvas px-4 py-6 text-center">
+              <p className="text-sm text-ink-sub">
+                好みを設定すると、あなたと食の好みが近い人の記録を表示できます。
+              </p>
+              <Link
+                href="/mypage/food-preferences/edit"
+                className="mt-3 inline-block rounded-xl bg-terra px-5 py-2 text-sm font-bold text-white"
+              >
+                好みを設定する
+              </Link>
+            </div>
+          ) : reviews.length === 0 ? (
+            <p className="py-4 text-center text-sm text-ink-sub">{emptyMessages[reviewTab]}</p>
+          ) : (
+            <>
+              <ul className="space-y-3">
+                {reviews.map((review) => (
+                  <li key={review.review_id}>
+                    <ReviewCard
+                      review={review}
+                      currentUserId={user.id}
+                      detailHref={`/records/${review.review_id}`}
+                    />
+                  </li>
+                ))}
+              </ul>
+
+              <Link
+                href={`/restaurants/${id}/records?reviewTab=${reviewTab}`}
+                className="mt-3 flex items-center justify-between rounded-xl border border-edge bg-canvas px-4 py-3 text-sm"
+              >
+                <span className="font-medium text-ink">もっと見る</span>
+                <span className="text-terra">›</span>
+              </Link>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Store info */}
+      {(r.area || r.genre || displayAddress || r.memo) && (
+        <div className="mx-4 mt-4 rounded-2xl bg-surface p-4">
+          <h2 className="mb-3 text-sm font-bold text-ink">店舗情報</h2>
+          <dl className="space-y-2.5">
+            {r.genre && (
+              <div className="flex gap-3 text-sm">
+                <dt className="flex w-[64px] shrink-0 items-center gap-1.5 text-ink-sub">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  </svg>
+                  ジャンル
+                </dt>
+                <dd className="text-ink">{r.genre}</dd>
+              </div>
+            )}
+            {r.budget_per_person_max_yen && (
+              <div className="flex gap-3 text-sm">
+                <dt className="flex w-[64px] shrink-0 items-center gap-1.5 text-ink-sub">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 6v12M9 9h4.5a2 2 0 0 1 0 4H9a2 2 0 0 0 0 4h5" />
+                  </svg>
+                  予算
+                </dt>
+                <dd className="text-ink">¥{r.budget_per_person_max_yen.toLocaleString()}以下/人</dd>
+              </div>
+            )}
+            {displayAddress && (
+              <div className="flex gap-3 text-sm">
+                <dt className="flex w-[64px] shrink-0 items-center gap-1.5 text-ink-sub">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="10" r="3" />
+                    <path d="M12 2a8 8 0 0 1 8 8c0 5.4-8 12-8 12S4 15.4 4 10a8 8 0 0 1 8-8z" />
+                  </svg>
+                  住所
+                </dt>
+                <dd className="text-ink" translate={rDisplay.isGoogle ? 'no' : undefined}>{displayAddress}</dd>
+              </div>
+            )}
+            {r.area && (
+              <div className="flex gap-3 text-sm">
+                <dt className="flex w-[64px] shrink-0 items-center gap-1.5 text-ink-sub">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="2" y1="12" x2="22" y2="12" />
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                  </svg>
+                  エリア
+                </dt>
+                <dd className="text-ink">{r.area}</dd>
+              </div>
+            )}
+            {r.memo && (
+              <div className="flex gap-3 text-sm">
+                <dt className="w-[64px] shrink-0 text-ink-sub">メモ</dt>
+                <dd className="whitespace-pre-wrap text-ink">{r.memo}</dd>
+              </div>
+            )}
+          </dl>
+        </div>
+      )}
+
       <BottomNav />
     </main>
   )

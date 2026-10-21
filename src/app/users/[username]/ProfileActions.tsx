@@ -92,8 +92,8 @@ export default function ProfileActions({
     <div className="space-y-2">
       {initialRelationship === 'mutual' ? (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <span className="inline-flex min-h-[44px] items-center justify-center rounded-full bg-cream px-5 text-sm font-medium text-amber-800">
-            友人 ✓
+          <span className="inline-flex min-h-[44px] items-center justify-center rounded-full bg-canvas px-5 text-sm font-medium text-ink-sub">
+            フォロー中
           </span>
           <button
             type="button"
@@ -101,7 +101,7 @@ export default function ProfileActions({
             disabled={loading}
             className="min-h-[44px] rounded-full border border-edge bg-surface px-5 text-sm font-medium text-ink transition-colors hover:bg-canvas disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {loading ? '処理中…' : '友人から削除'}
+            {loading ? '処理中…' : 'フォロー解除'}
           </button>
         </div>
       ) : initialRelationship === 'outgoing' ? (
@@ -123,7 +123,7 @@ export default function ProfileActions({
           type="button"
           onClick={handleFollow}
           disabled={loading}
-          className="min-h-[44px] w-full rounded-full bg-terra px-5 text-sm font-medium text-white transition-colors hover:bg-terra-deep disabled:cursor-not-allowed disabled:opacity-50"
+          className="min-h-[44px] w-full rounded-xl bg-terra px-5 text-sm font-medium text-white transition-colors hover:bg-terra-deep disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading
             ? '処理中…'
