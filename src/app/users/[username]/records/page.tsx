@@ -6,6 +6,7 @@ import BottomNav from '@/components/BottomNav'
 import BackButton from '@/components/BackButton'
 import { createClient } from '@/lib/supabase/server'
 import { getUserState } from '@/lib/auth/getUserState'
+import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
 
 type ProfileRow = {
   id: string
@@ -22,7 +23,7 @@ type ReviewRow = {
   visit_date: string | null
   created_at: string
   image_path: string | null
-  restaurants: { id: string; name: string; genre: string | null; area: string | null } | null
+  restaurants: { id: string; name: string | null; source: string; external_place_id: string | null; genre: string | null; area: string | null } | null
 }
 
 type PageProps = {
@@ -101,7 +102,7 @@ export default async function UserRecordsPage({ params, searchParams }: PageProp
 
   let query = supabase
     .from('reviews')
-    .select('id, rating, comment, visit_date, created_at, image_path, restaurants(id, name, genre, area)')
+    .select('id, rating, comment, visit_date, created_at, image_path, restaurants(id, name, source, external_place_id, genre, area)')
     .eq('user_id', profile.id)
 
   if (ratingFilter !== 'all') {
@@ -124,6 +125,19 @@ export default async function UserRecordsPage({ params, searchParams }: PageProp
   const reviews = (reviewsResult.data ?? []) as unknown as ReviewRow[]
   const totalCount = totalCountResult.count ?? 0
   const hasAnyReviews = totalCount > 0
+
+  // Resolve display names for Google-sourced restaurants
+  const restaurantDisplayNames = new Map<string, string>()
+  await Promise.all(
+    reviews
+      .flatMap((r) => (r.restaurants ? [r.restaurants] : []))
+      .filter((r, idx, arr) => arr.findIndex((x) => x.id === r.id) === idx)
+      .filter((r) => r.source === 'google_place' && r.external_place_id)
+      .map(async (r) => {
+        const d = await resolveRestaurantDisplay(r)
+        restaurantDisplayNames.set(r.id, d.name)
+      }),
+  )
 
   const imagePaths = [
     ...new Set(reviews.map((r) => r.image_path).filter((p): p is string => Boolean(p))),
@@ -284,7 +298,7 @@ export default async function UserRecordsPage({ params, searchParams }: PageProp
                     <div className="relative h-[70px] w-[70px] shrink-0 overflow-hidden rounded-xl">
                       <Image
                         src={imgUrl}
-                        alt={review.restaurants?.name ?? ''}
+                        alt={review.restaurants ? (restaurantDisplayNames.get(review.restaurants.id) ?? review.restaurants.name ?? '') : ''}
                         fill
                         sizes="70px"
                         className="object-cover"
@@ -306,7 +320,9 @@ export default async function UserRecordsPage({ params, searchParams }: PageProp
                   {/* Info */}
                   <div className="min-w-0 flex-1">
                     <p className="font-bold text-ink">
-                      {review.restaurants?.name ?? '不明な店舗'}
+                      {review.restaurants
+                        ? (restaurantDisplayNames.get(review.restaurants.id) ?? review.restaurants.name ?? '—')
+                        : '—'}
                     </p>
                     {(review.restaurants?.genre || review.restaurants?.area) && (
                       <p className="text-xs text-ink-sub">

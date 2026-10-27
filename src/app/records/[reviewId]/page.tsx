@@ -41,6 +41,31 @@ type PageProps = {
   params: Promise<{ reviewId: string }>
 }
 
+// Tag key → Japanese label mappings (matches ReasonTagSelector / RestaurantLabelSelector)
+const REASON_LABEL: Record<string, string> = {
+  taste: '味',
+  value: 'コスパ',
+  atmosphere: '雰囲気',
+  service: '接客',
+  volume: 'ボリューム',
+  access: 'アクセス',
+}
+
+const LABEL_LABEL: Record<string, string> = {
+  solo: 'ひとり向き',
+  friends: '友達向き',
+  date: 'デート向き',
+  large_group: '大人数向き',
+  calm: '落ち着く',
+  lively: 'にぎやか',
+  stylish: 'おしゃれ',
+  casual: 'カジュアル',
+  quick: 'サクッと利用',
+  long_stay: '長居しやすい',
+  hearty: 'がっつり',
+  photogenic: '写真映え',
+}
+
 const RATING_LABEL: Record<number, string> = {
   4: '常連になりたい',
   3: 'また行きたい',
@@ -198,6 +223,24 @@ export default async function RecordDetailPage({ params }: PageProps) {
     ? await resolveRestaurantDisplay(restaurant)
     : null
 
+  // Fetch evaluation/feature tags — errors are non-fatal (never crash the page)
+  type LearningSignals = { reason_keys: string[]; label_keys: string[] }
+  let reasonKeys: string[] = []
+  let labelKeys: string[] = []
+  let signalsFetchFailed = false
+  const { data: signalsRaw, error: signalsError } = await supabase.rpc(
+    'get_review_learning_signals',
+    { p_review_id: reviewId },
+  )
+  if (signalsError) {
+    console.error('RecordDetailPage: failed to fetch learning signals', signalsError)
+    signalsFetchFailed = true
+  } else if (signalsRaw) {
+    const signals = signalsRaw as LearningSignals
+    reasonKeys = signals.reason_keys ?? []
+    labelKeys = signals.label_keys ?? []
+  }
+
   return (
     <main className="min-h-screen bg-canvas pb-24">
       {/* Header */}
@@ -309,6 +352,46 @@ export default async function RecordDetailPage({ params }: PageProps) {
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink">{review.comment}</p>
           </div>
         )}
+
+        {/* Tags: evaluation reasons + restaurant features */}
+        {signalsFetchFailed ? (
+          <p className="text-xs text-ink-sub">タグの取得に失敗しました</p>
+        ) : (reasonKeys.length > 0 || labelKeys.length > 0) ? (
+          <div className="space-y-3">
+            {reasonKeys.length > 0 && (
+              <div>
+                <p className="mb-1.5 text-xs font-medium text-ink-sub">
+                  {review.rating >= 3 ? '良かったポイント' : '気になったポイント'}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {reasonKeys.map((key) => (
+                    <span
+                      key={key}
+                      className="rounded-full border border-edge bg-surface px-3 py-1 text-xs text-ink"
+                    >
+                      {REASON_LABEL[key] ?? key}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {labelKeys.length > 0 && (
+              <div>
+                <p className="mb-1.5 text-xs font-medium text-ink-sub">このお店の特徴</p>
+                <div className="flex flex-wrap gap-2">
+                  {labelKeys.map((key) => (
+                    <span
+                      key={key}
+                      className="rounded-full border border-edge bg-surface px-3 py-1 text-xs text-ink"
+                    >
+                      {LABEL_LABEL[key] ?? key}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : null}
 
         {/* Photo */}
         {imageUrl && (

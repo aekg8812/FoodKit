@@ -253,44 +253,10 @@ export default async function HomePage() {
       <div className="mb-4 px-5">
         <Link
           href="/search/today"
-          className="relative block overflow-hidden rounded-2xl shadow-sm"
+          className="block overflow-hidden rounded-2xl shadow-sm"
           style={{ background: '#FFF7F0', minHeight: '164px' }}
         >
-          {/* Right: food photo (~39%) */}
-          <div
-            className="absolute inset-y-0 right-0 overflow-hidden"
-            style={{ width: '39%' }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/images/landing-hero-food.png"
-              alt=""
-              className="h-full w-full object-cover"
-              style={{ objectPosition: '30% center' }}
-              aria-hidden="true"
-            />
-            {/* Cream gradient — blends photo left edge into card background */}
-            <div
-              className="absolute inset-y-0 left-0 w-14"
-              style={{ background: 'linear-gradient(to right, #FFF7F0, transparent)' }}
-              aria-hidden="true"
-            />
-          </div>
-
-          {/* Photo caption — small/dim, secondary visual only */}
-          <p
-            className="absolute right-2.5 top-3 z-10 text-right text-[10px] italic leading-snug"
-            style={{ color: 'rgba(47,42,39,0.40)' }}
-            aria-hidden="true"
-          >
-            今日は<br />どんなお店に行く？
-          </p>
-
-          {/* Left content area (~63%) */}
-          <div
-            className="relative z-10 flex flex-col justify-between p-4"
-            style={{ minHeight: '164px', width: '63%' }}
-          >
+          <div className="flex flex-col justify-between p-4" style={{ minHeight: '164px' }}>
             <div>
               <div className="flex items-center gap-1.5">
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">

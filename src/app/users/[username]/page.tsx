@@ -7,6 +7,7 @@ import BackButton from '@/components/BackButton'
 import { createClient } from '@/lib/supabase/server'
 import { getUserState } from '@/lib/auth/getUserState'
 import ProfileActions, { type FollowRelationship } from './ProfileActions'
+import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
 
 type PublicProfileRow = {
   id: string
@@ -41,7 +42,7 @@ type ReviewRow = {
   comment: string | null
   visit_date: string | null
   created_at: string
-  restaurants: { id: string; name: string; genre: string | null; area: string | null } | null
+  restaurants: { id: string; name: string | null; source: string; external_place_id: string | null; genre: string | null; area: string | null } | null
 }
 
 const RATING_CHIP: Record<number, { label: string; bg: string; text: string; border: string }> = {
@@ -119,7 +120,7 @@ export default async function UserProfilePage({
       followsQuery,
       supabase
         .from('reviews')
-        .select('id, rating, restaurant_id, image_path, comment, visit_date, created_at, restaurants(id, name, genre, area)')
+        .select('id, rating, restaurant_id, image_path, comment, visit_date, created_at, restaurants(id, name, source, external_place_id, genre, area)')
         .eq('user_id', profile.id)
         .order('created_at', { ascending: false })
         .limit(3),
@@ -134,6 +135,19 @@ export default async function UserProfilePage({
 
   const reviewRows = (reviewsResult.data ?? []) as unknown as ReviewRow[]
   const reviewCount = reviewCountResult.count ?? 0
+
+  // Resolve display names for Google-sourced restaurants
+  const restaurantDisplayNames = new Map<string, string>()
+  await Promise.all(
+    reviewRows
+      .flatMap((r) => (r.restaurants ? [r.restaurants] : []))
+      .filter((r, idx, arr) => arr.findIndex((x) => x.id === r.id) === idx)
+      .filter((r) => r.source === 'google_place' && r.external_place_id)
+      .map(async (r) => {
+        const d = await resolveRestaurantDisplay(r)
+        restaurantDisplayNames.set(r.id, d.name)
+      }),
+  )
 
   const imagePaths = [
     ...new Set(reviewRows.map((r) => r.image_path).filter((p): p is string => Boolean(p))),
@@ -302,7 +316,7 @@ export default async function UserProfilePage({
                       <div className="relative h-[70px] w-[70px] shrink-0 overflow-hidden rounded-xl">
                         <Image
                           src={imgUrl}
-                          alt={row.restaurants?.name ?? ''}
+                          alt={row.restaurants ? (restaurantDisplayNames.get(row.restaurants.id) ?? row.restaurants.name ?? '') : ''}
                           fill
                           sizes="70px"
                           className="object-cover"
@@ -324,7 +338,9 @@ export default async function UserProfilePage({
                     {/* Info */}
                     <div className="min-w-0 flex-1">
                       <p className="font-bold leading-tight text-ink">
-                        {row.restaurants?.name ?? '不明な店舗'}
+                        {row.restaurants
+                          ? (restaurantDisplayNames.get(row.restaurants.id) ?? row.restaurants.name ?? '—')
+                          : '—'}
                       </p>
                       {(row.restaurants?.genre || row.restaurants?.area) && (
                         <p className="mt-0.5 text-xs text-ink-sub">
