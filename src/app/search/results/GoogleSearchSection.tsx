@@ -64,13 +64,21 @@ async function resolveAndSplit(
 ): Promise<{ foodkit: FoodKitGooglePlace[]; googleOnly: GooglePlace[] }> {
   if (places.length === 0) return { foodkit: [], googleOnly: [] }
 
-  const placeIds = places.map((p) => p.id).filter((id) => !knownFoodkitIds.has(id))
+  // Deduplicate by place.id before any further processing
+  const seen = new Set<string>()
+  const uniquePlaces = places.filter((p) => {
+    if (seen.has(p.id)) return false
+    seen.add(p.id)
+    return true
+  })
+
+  const placeIds = uniquePlaces.map((p) => p.id).filter((id) => !knownFoodkitIds.has(id))
   const resolveMap = await resolveGooglePlaceIds(placeIds, supabase)
 
   const foodkit: FoodKitGooglePlace[] = []
   const googleOnly: GooglePlace[] = []
 
-  for (const place of places) {
+  for (const place of uniquePlaces) {
     if (knownFoodkitIds.has(place.id)) continue
 
     const r = resolveMap.get(place.id)
@@ -307,7 +315,7 @@ export default function GoogleSearchSection({ query, from, foodkitPlaceIds, serv
 
           {currentGoogleOnly.length > 0 ? (
             <div className={isRefreshing ? 'pointer-events-none opacity-50' : ''}>
-              <GoogleCandidatesList places={currentGoogleOnly} query={query} from={from} />
+              <GoogleCandidatesList places={currentGoogleOnly} from={from} />
             </div>
           ) : (
             showChip && (

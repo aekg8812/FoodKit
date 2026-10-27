@@ -13,11 +13,10 @@ type GooglePlace = {
 
 type Props = {
   places: GooglePlace[]
-  query: string
   from: string
 }
 
-export default function GoogleCandidatesList({ places, query, from }: Props) {
+export default function GoogleCandidatesList({ places, from }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [resolvingId, setResolvingId] = useState<string | null>(null)
@@ -41,16 +40,10 @@ export default function GoogleCandidatesList({ places, query, from }: Props) {
         if (!user) throw new Error('Authentication is required')
         await ensureRestaurantAccesses(supabase, existingId as string, user.id)
         router.push(from === 'record' ? `/record/${existingId}` : `/restaurants/${existingId}`)
-      } else if (from === 'record') {
-        // Record flow: go to the dedicated place-confirmation page
-        const params = new URLSearchParams()
-        if (query) params.set('name', query)
-        const qs = params.toString()
-        router.push(`/record/place/${encodeURIComponent(place.id)}${qs ? `?${qs}` : ''}`)
       } else {
-        // Non-record flow: standard restaurant registration form
-        const params = new URLSearchParams({ external_place_id: place.id, name: query })
-        router.push(`/restaurants/new?${params.toString()}`)
+        // Both record and non-record flows use the place-confirmation page,
+        // which auto-creates the restaurant on first review without manual input.
+        router.push(`/record/place/${encodeURIComponent(place.id)}`)
       }
     } catch {
       setError('店舗情報の取得に失敗しました。時間をおいて再度お試しください')

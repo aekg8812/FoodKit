@@ -22,7 +22,7 @@ export async function resolveGooglePlaceIds(
 
   let resolved: ResolvedRow[] = []
   try {
-    const { data } = await supabase.rpc('resolve_restaurants_by_external_place_ids', {
+    const { data } = await supabase.rpc('resolve_reviewed_restaurants_by_place_ids', {
       p_external_place_ids: placeIds,
     })
     resolved = (data as ResolvedRow[]) ?? []
