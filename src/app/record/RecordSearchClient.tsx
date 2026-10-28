@@ -58,6 +58,7 @@ export default function RecordSearchClient() {
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
+      abortRef.current?.abort()
     }
   }, [query])
 
@@ -138,12 +139,11 @@ export default function RecordSearchClient() {
         <ul
           id="record-search-results"
           className="space-y-2"
-          role="listbox"
           aria-label="候補店舗"
           aria-live="polite"
         >
           {displayState.places.map((place) => (
-            <li key={place.id} role="option" aria-selected={false}>
+            <li key={place.id}>
               <button
                 type="button"
                 onClick={() => handleSelect(place)}

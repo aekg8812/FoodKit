@@ -20,15 +20,11 @@ export async function resolveGooglePlaceIds(
 ): Promise<Map<string, GooglePlaceResolution>> {
   if (placeIds.length === 0) return new Map()
 
-  let resolved: ResolvedRow[] = []
-  try {
-    const { data } = await supabase.rpc('resolve_reviewed_restaurants_by_place_ids', {
-      p_external_place_ids: placeIds,
-    })
-    resolved = (data as ResolvedRow[]) ?? []
-  } catch {
-    return new Map()
-  }
+  const { data, error } = await supabase.rpc('resolve_reviewed_restaurants_by_place_ids', {
+    p_external_place_ids: placeIds,
+  })
+  if (error) throw error
+  const resolved: ResolvedRow[] = (data as ResolvedRow[]) ?? []
 
   const imagePaths = resolved
     .map((r) => r.main_image_path)
