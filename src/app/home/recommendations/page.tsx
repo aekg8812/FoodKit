@@ -7,6 +7,7 @@ import RestaurantMainImage from '@/components/RestaurantMainImage'
 import { getUserState } from '@/lib/auth/getUserState'
 import { createClient } from '@/lib/supabase/server'
 import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
+import { RATING_BG, RATING_TEXT } from '@/lib/rating/colors'
 
 type RecRow = {
   restaurant_id: string
@@ -161,7 +162,7 @@ export default async function RecommendationsPage() {
                             </span>
                           )}
                           {rec.rating_4_count > 0 && (
-                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700">
+                            <span className={`rounded-full px-2 py-0.5 font-medium ${RATING_BG[4]} ${RATING_TEXT[4]}`}>
                               ★4: {rec.rating_4_count}
                             </span>
                           )}

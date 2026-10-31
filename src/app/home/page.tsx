@@ -6,6 +6,7 @@ import RestaurantMainImage from '@/components/RestaurantMainImage'
 import { getUserState } from '@/lib/auth/getUserState'
 import { createClient } from '@/lib/supabase/server'
 import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
+import { RATING_BG, RATING_TEXT } from '@/lib/rating/colors'
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -41,10 +42,10 @@ type RecRow         = {
 // ── Rating chip ────────────────────────────────────────────────────────────
 
 const SHORT_RATING: Record<number, { label: string; bg: string }> = {
-  4: { label: '常連になりたい', bg: 'bg-emerald-100 text-emerald-700' },
-  3: { label: 'また行きたい',   bg: 'bg-orange-100 text-orange-700' },
-  2: { label: '一度で十分',    bg: 'bg-sky-100 text-sky-700' },
-  1: { label: '二度と行かない', bg: 'bg-red-100 text-red-600' },
+  4: { label: '常連になりたい', bg: `${RATING_BG[4]} ${RATING_TEXT[4]}` },
+  3: { label: 'また行きたい',   bg: `${RATING_BG[3]} ${RATING_TEXT[3]}` },
+  2: { label: '一度で十分',    bg: `${RATING_BG[2]} ${RATING_TEXT[2]}` },
+  1: { label: '二度と行かない', bg: `${RATING_BG[1]} ${RATING_TEXT[1]}` },
 }
 
 function RatingChip({ rating }: { rating: number }) {

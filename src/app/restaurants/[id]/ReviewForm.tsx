@@ -10,6 +10,7 @@ import InputField from '@/components/ui/InputField'
 import ErrorMessage from '@/components/ui/ErrorMessage'
 import ReasonTagSelector from '@/components/review/ReasonTagSelector'
 import RestaurantLabelSelector from '@/components/review/RestaurantLabelSelector'
+import { RATING_LABELS, RATING_ACTIVE_CLASS } from '@/lib/rating/colors'
 
 export type ExistingReview = {
   id: string
@@ -31,26 +32,11 @@ interface Props {
 
 export const RATING_OPTIONS = [4, 3, 2, 1] as const
 
-const RATING_LABELS: Record<number, string> = {
-  4: '常連になりたい',
-  3: '機会があればまた行きたい',
-  2: '一度行けば十分',
-  1: '二度と行かない',
-}
-
 const RATING_EMOJI: Record<number, string> = {
   4: '🤩',
   3: '😊',
   2: '😐',
   1: '😞',
-}
-
-// アクティブ時は分布バーと同系統の色で一貫性を持たせる
-const RATING_ACTIVE_CLASS: Record<number, string> = {
-  4: 'bg-emerald-500 text-white border-transparent',
-  3: 'bg-sky-400 text-white border-transparent',
-  2: 'bg-amber-400 text-white border-transparent',
-  1: 'bg-red-400 text-white border-transparent',
 }
 
 // レビュー画像: V1は1枚、5MB以下のJPEG・PNG・WebPに限定する

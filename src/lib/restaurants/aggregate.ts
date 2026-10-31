@@ -1,5 +1,6 @@
 // Pure computation logic for restaurant rating aggregation.
 // No React, no UI — safe to import in both Server and Client Components.
+import { RATING_BAR } from '@/lib/rating/colors'
 
 export type RestaurantRow = {
   id: string
@@ -31,12 +32,11 @@ export type RestaurantWithDist = {
   dist: Distribution
 }
 
-// rating の濃淡 — 4=濃いオレンジ → 1=薄オレンジ。分布バーに使用。
 export const RATING_COLORS: Record<1 | 2 | 3 | 4, string> = {
-  4: 'bg-orange-700',
-  3: 'bg-orange-500',
-  2: 'bg-orange-400',
-  1: 'bg-orange-200',
+  4: RATING_BAR[4],
+  3: RATING_BAR[3],
+  2: RATING_BAR[2],
+  1: RATING_BAR[1],
 }
 
 export const RATINGS = [4, 3, 2, 1] as const

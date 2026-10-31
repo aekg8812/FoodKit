@@ -15,6 +15,7 @@ import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
 import { type RestaurantProfileRow } from '@/lib/restaurants/profile'
 import { type FoodKitMatchRow, findMatchRow } from '@/lib/restaurants/match'
 import { Suspense } from 'react'
+import { RATING_LABELS, RATING_BAR } from '@/lib/rating/colors'
 
 const REVIEW_PREVIEW_COUNT = 3
 
@@ -59,27 +60,13 @@ function buildMapsUrl(restaurantName: string, address: string | null): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
 }
 
-const RATING_LABELS: Record<number, string> = {
-  4: '常連になりたい',
-  3: 'また行きたい',
-  2: '一度で十分',
-  1: '二度と行かない',
-}
-
-const RATING_COLORS: Record<number, string> = {
-  4: 'bg-emerald-400',
-  3: 'bg-terra',
-  2: 'bg-sky-400',
-  1: 'bg-zinc-300',
-}
-
 function RatingBar({ rating, percent }: { rating: number; percent: number }) {
   return (
     <div className="flex items-center gap-2">
       <span className="w-[80px] shrink-0 text-xs text-ink">{RATING_LABELS[rating]}</span>
       <div className="flex-1 overflow-hidden rounded-full bg-edge" style={{ height: '8px' }}>
         <div
-          className={`h-full rounded-full ${RATING_COLORS[rating]}`}
+          className={`h-full rounded-full ${RATING_BAR[rating]}`}
           style={{ width: `${percent}%` }}
         />
       </div>

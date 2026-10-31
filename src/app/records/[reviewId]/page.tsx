@@ -8,6 +8,7 @@ import BackButton from '@/components/BackButton'
 import { logPageAuthRequest } from '@/lib/diagnostics/authRequests'
 import { getUserState } from '@/lib/auth/getUserState'
 import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
+import { RATING_BG, RATING_TEXT, RATING_INNER_BG } from '@/lib/rating/colors'
 
 type ReviewRow = {
   id: string
@@ -81,10 +82,10 @@ const RATING_SUBLABEL: Record<number, string> = {
 }
 
 const RATING_STYLE: Record<number, { bg: string; chipBg: string; text: string; subText: string }> = {
-  4: { bg: 'bg-[#FFF3EC]', chipBg: 'bg-orange-100', text: 'text-terra', subText: 'text-terra' },
-  3: { bg: 'bg-[#FFF0F3]', chipBg: 'bg-pink-100', text: 'text-[#E05C7A]', subText: 'text-[#E05C7A]' },
-  2: { bg: 'bg-[#EFF6FF]', chipBg: 'bg-sky-100', text: 'text-sky-600', subText: 'text-sky-500' },
-  1: { bg: 'bg-[#F3F4F6]', chipBg: 'bg-zinc-200', text: 'text-zinc-600', subText: 'text-zinc-500' },
+  4: { bg: RATING_BG[4], chipBg: RATING_INNER_BG[4], text: RATING_TEXT[4], subText: RATING_TEXT[4] },
+  3: { bg: RATING_BG[3], chipBg: RATING_INNER_BG[3], text: RATING_TEXT[3], subText: RATING_TEXT[3] },
+  2: { bg: RATING_BG[2], chipBg: RATING_INNER_BG[2], text: RATING_TEXT[2], subText: RATING_TEXT[2] },
+  1: { bg: RATING_BG[1], chipBg: RATING_INNER_BG[1], text: RATING_TEXT[1], subText: RATING_TEXT[1] },
 }
 
 function RatingIllustration({ rating }: { rating: number }) {
@@ -98,16 +99,16 @@ function RatingIllustration({ rating }: { rating: number }) {
   )
   if (rating === 3) return (
     <svg width="52" height="52" viewBox="0 0 52 52" fill="none" aria-hidden="true">
-      <circle cx="26" cy="26" r="22" fill="#E05C7A" opacity="0.1" />
+      <circle cx="26" cy="26" r="22" fill="#D97706" opacity="0.1" />
       {/* Clinking glasses */}
-      <path d="M20 16 L17 28 Q17 32 21 32 L20 38" stroke="#E05C7A" strokeWidth="2" strokeLinecap="round" opacity="0.85" fill="none" />
-      <path d="M32 16 L35 28 Q35 32 31 32 L32 38" stroke="#E05C7A" strokeWidth="2" strokeLinecap="round" opacity="0.85" fill="none" />
-      <line x1="18" y1="38" x2="22" y2="38" stroke="#E05C7A" strokeWidth="2" strokeLinecap="round" opacity="0.85" />
-      <line x1="30" y1="38" x2="34" y2="38" stroke="#E05C7A" strokeWidth="2" strokeLinecap="round" opacity="0.85" />
+      <path d="M20 16 L17 28 Q17 32 21 32 L20 38" stroke="#D97706" strokeWidth="2" strokeLinecap="round" opacity="0.85" fill="none" />
+      <path d="M32 16 L35 28 Q35 32 31 32 L32 38" stroke="#D97706" strokeWidth="2" strokeLinecap="round" opacity="0.85" fill="none" />
+      <line x1="18" y1="38" x2="22" y2="38" stroke="#D97706" strokeWidth="2" strokeLinecap="round" opacity="0.85" />
+      <line x1="30" y1="38" x2="34" y2="38" stroke="#D97706" strokeWidth="2" strokeLinecap="round" opacity="0.85" />
       {/* sparkles */}
-      <line x1="26" y1="13" x2="26" y2="11" stroke="#E05C7A" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
-      <line x1="23" y1="14" x2="22" y2="12" stroke="#E05C7A" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
-      <line x1="29" y1="14" x2="30" y2="12" stroke="#E05C7A" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
+      <line x1="26" y1="13" x2="26" y2="11" stroke="#D97706" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
+      <line x1="23" y1="14" x2="22" y2="12" stroke="#D97706" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
+      <line x1="29" y1="14" x2="30" y2="12" stroke="#D97706" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
     </svg>
   )
   if (rating === 2) return (

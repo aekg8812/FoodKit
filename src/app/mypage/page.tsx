@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation'
 import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
 import UserProfileSection from '@/components/mypage/UserProfileSection'
 import { type UserProfileRow } from '@/lib/users/profile'
+import { RATING_BG, RATING_TEXT } from '@/lib/rating/colors'
 
 type RecentReviewRow = {
   id: string
@@ -22,10 +23,10 @@ type PreferenceCardRow = {
 }
 
 const RATING_CHIP: Record<number, { label: string; bg: string; text: string }> = {
-  4: { label: '常連になりたい', bg: 'bg-[#FFF3EC]', text: 'text-terra' },
-  3: { label: 'また行きたい', bg: 'bg-[#FFF0F3]', text: 'text-[#E05C7A]' },
-  2: { label: '一度で十分', bg: 'bg-[#EFF6FF]', text: 'text-sky-600' },
-  1: { label: '二度と行かない', bg: 'bg-[#F3F4F6]', text: 'text-zinc-600' },
+  4: { label: '常連になりたい', bg: RATING_BG[4], text: RATING_TEXT[4] },
+  3: { label: 'また行きたい', bg: RATING_BG[3], text: RATING_TEXT[3] },
+  2: { label: '一度で十分', bg: RATING_BG[2], text: RATING_TEXT[2] },
+  1: { label: '二度と行かない', bg: RATING_BG[1], text: RATING_TEXT[1] },
 }
 
 function formatDate(visitDate: string | null): string {

@@ -7,6 +7,7 @@ import BackButton from '@/components/BackButton'
 import { createClient } from '@/lib/supabase/server'
 import { getUserState } from '@/lib/auth/getUserState'
 import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
+import { RATING_BG, RATING_TEXT, RATING_BORDER } from '@/lib/rating/colors'
 
 type ProfileRow = {
   id: string
@@ -46,9 +47,9 @@ function parseRating(raw: string | string[] | undefined): RatingFilter {
 }
 
 const RATING_CHIP: Record<number, { label: string; bg: string; text: string; border: string }> = {
-  4: { label: '常連になりたい', bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-300' },
-  3: { label: 'また行きたい', bg: 'bg-pink-50', text: 'text-[#E05C7A]', border: 'border-pink-300' },
-  2: { label: '一度で十分', bg: 'bg-sky-50', text: 'text-sky-600', border: 'border-sky-300' },
+  4: { label: '常連になりたい', bg: RATING_BG[4], text: RATING_TEXT[4], border: RATING_BORDER[4] },
+  3: { label: 'また行きたい', bg: RATING_BG[3], text: RATING_TEXT[3], border: RATING_BORDER[3] },
+  2: { label: '一度で十分', bg: RATING_BG[2], text: RATING_TEXT[2], border: RATING_BORDER[2] },
   1: { label: '二度と行かない', bg: 'bg-zinc-100', text: 'text-zinc-600', border: 'border-zinc-300' },
 }
 
