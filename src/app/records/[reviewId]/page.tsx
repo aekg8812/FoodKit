@@ -8,7 +8,7 @@ import BackButton from '@/components/BackButton'
 import { logPageAuthRequest } from '@/lib/diagnostics/authRequests'
 import { getUserState } from '@/lib/auth/getUserState'
 import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
-import { RATING_BG, RATING_TEXT, RATING_INNER_BG } from '@/lib/rating/colors'
+import { RATING_BG, RATING_TEXT, RATING_INNER_BG, RATING_SVG_HEX } from '@/lib/rating/colors'
 
 type ReviewRow = {
   id: string
@@ -89,42 +89,43 @@ const RATING_STYLE: Record<number, { bg: string; chipBg: string; text: string; s
 }
 
 function RatingIllustration({ rating }: { rating: number }) {
+  const c = RATING_SVG_HEX[rating] ?? '#71717A'
   if (rating === 4) return (
     <svg width="52" height="52" viewBox="0 0 52 52" fill="none" aria-hidden="true">
-      <circle cx="26" cy="26" r="22" fill="#F97316" opacity="0.12" />
+      <circle cx="26" cy="26" r="22" fill={c} opacity="0.12" />
       {/* Crown */}
-      <path d="M14 34 L16 20 L22 27 L26 18 L30 27 L36 20 L38 34 Z" fill="#F97316" opacity="0.85" />
-      <rect x="13" y="34" width="26" height="3" rx="1.5" fill="#F97316" opacity="0.85" />
+      <path d="M14 34 L16 20 L22 27 L26 18 L30 27 L36 20 L38 34 Z" fill={c} opacity="0.85" />
+      <rect x="13" y="34" width="26" height="3" rx="1.5" fill={c} opacity="0.85" />
     </svg>
   )
   if (rating === 3) return (
     <svg width="52" height="52" viewBox="0 0 52 52" fill="none" aria-hidden="true">
-      <circle cx="26" cy="26" r="22" fill="#D97706" opacity="0.1" />
+      <circle cx="26" cy="26" r="22" fill={c} opacity="0.1" />
       {/* Clinking glasses */}
-      <path d="M20 16 L17 28 Q17 32 21 32 L20 38" stroke="#D97706" strokeWidth="2" strokeLinecap="round" opacity="0.85" fill="none" />
-      <path d="M32 16 L35 28 Q35 32 31 32 L32 38" stroke="#D97706" strokeWidth="2" strokeLinecap="round" opacity="0.85" fill="none" />
-      <line x1="18" y1="38" x2="22" y2="38" stroke="#D97706" strokeWidth="2" strokeLinecap="round" opacity="0.85" />
-      <line x1="30" y1="38" x2="34" y2="38" stroke="#D97706" strokeWidth="2" strokeLinecap="round" opacity="0.85" />
+      <path d="M20 16 L17 28 Q17 32 21 32 L20 38" stroke={c} strokeWidth="2" strokeLinecap="round" opacity="0.85" fill="none" />
+      <path d="M32 16 L35 28 Q35 32 31 32 L32 38" stroke={c} strokeWidth="2" strokeLinecap="round" opacity="0.85" fill="none" />
+      <line x1="18" y1="38" x2="22" y2="38" stroke={c} strokeWidth="2" strokeLinecap="round" opacity="0.85" />
+      <line x1="30" y1="38" x2="34" y2="38" stroke={c} strokeWidth="2" strokeLinecap="round" opacity="0.85" />
       {/* sparkles */}
-      <line x1="26" y1="13" x2="26" y2="11" stroke="#D97706" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
-      <line x1="23" y1="14" x2="22" y2="12" stroke="#D97706" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
-      <line x1="29" y1="14" x2="30" y2="12" stroke="#D97706" strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
+      <line x1="26" y1="13" x2="26" y2="11" stroke={c} strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
+      <line x1="23" y1="14" x2="22" y2="12" stroke={c} strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
+      <line x1="29" y1="14" x2="30" y2="12" stroke={c} strokeWidth="1.5" strokeLinecap="round" opacity="0.7" />
     </svg>
   )
   if (rating === 2) return (
     <svg width="52" height="52" viewBox="0 0 52 52" fill="none" aria-hidden="true">
-      <circle cx="26" cy="26" r="22" fill="#0EA5E9" opacity="0.1" />
+      <circle cx="26" cy="26" r="22" fill={c} opacity="0.1" />
       {/* Fork & knife */}
-      <line x1="22" y1="16" x2="22" y2="36" stroke="#0EA5E9" strokeWidth="2" strokeLinecap="round" opacity="0.8" />
-      <path d="M19 16 L19 24 Q22 26 25 24 L25 16" stroke="#0EA5E9" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.8" fill="none" />
-      <path d="M30 16 Q30 22 30 24 Q32 26 32 28 L32 36" stroke="#0EA5E9" strokeWidth="2" strokeLinecap="round" opacity="0.8" fill="none" />
+      <line x1="22" y1="16" x2="22" y2="36" stroke={c} strokeWidth="2" strokeLinecap="round" opacity="0.8" />
+      <path d="M19 16 L19 24 Q22 26 25 24 L25 16" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.8" fill="none" />
+      <path d="M30 16 Q30 22 30 24 Q32 26 32 28 L32 36" stroke={c} strokeWidth="2" strokeLinecap="round" opacity="0.8" fill="none" />
     </svg>
   )
   return (
     <svg width="52" height="52" viewBox="0 0 52 52" fill="none" aria-hidden="true">
-      <circle cx="26" cy="26" r="22" fill="#6B7280" opacity="0.08" />
+      <circle cx="26" cy="26" r="22" fill={c} opacity="0.08" />
       {/* Thumbs down */}
-      <path d="M26 34 C22 34 18 30 18 26 L18 22 L28 22 L28 18 L32 18 L32 26 C32 26 30 34 26 34Z" stroke="#6B7280" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" fill="none" />
+      <path d="M26 34 C22 34 18 30 18 26 L18 22 L28 22 L28 18 L32 18 L32 26 C32 26 30 34 26 34Z" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" fill="none" />
     </svg>
   )
 }
