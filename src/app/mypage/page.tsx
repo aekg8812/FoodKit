@@ -289,7 +289,7 @@ export default async function MypagePage() {
               <div className="grid grid-cols-4 divide-x divide-edge px-0 py-3">
                 {([4, 3, 2, 1] as const).map((rating) => (
                   <div key={rating} className="flex flex-col items-center py-1">
-                    <p className={`text-lg font-black tabular-nums ${rating === 3 ? 'text-terra' : 'text-ink'}`}>
+                    <p className={`text-lg font-black tabular-nums ${RATING_TEXT[rating]}`}>
                       {ratingCounts[rating]}
                     </p>
                     <p className="mt-0.5 text-center text-[10px] leading-tight text-ink-sub">

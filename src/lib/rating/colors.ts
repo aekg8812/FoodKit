@@ -19,7 +19,7 @@ export const RATING_BG: Record<number, string> = {
 // チップ・バッジ用：文字色
 export const RATING_TEXT: Record<number, string> = {
   4: 'text-red-700',
-  3: 'text-orange-700',
+  3: 'text-orange-500',
   2: 'text-blue-700',
   1: 'text-zinc-600',
 }
@@ -66,7 +66,7 @@ export const RATING_INNER_BG: Record<number, string> = {
 // ReviewForm ボタンアクティブ状態（bg + text + border をまとめた className）
 export const RATING_ACTIVE_CLASS: Record<number, string> = {
   4: 'bg-red-50 text-red-700 border-red-200',
-  3: 'bg-orange-50 text-orange-700 border-orange-200',
+  3: 'bg-orange-50 text-orange-500 border-orange-200',
   2: 'bg-blue-50 text-blue-700 border-blue-200',
   1: 'bg-zinc-100 text-zinc-600 border-zinc-300',
 }
