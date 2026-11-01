@@ -186,53 +186,28 @@ values
   ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '33333333-3333-3333-3333-333333333333', 'member');
 
 -- ----------------------------------------------------------------
--- 3. 店舗A / B / C（登録者: 江藤美愛）
+-- 3. QA用フィクスチャ店舗（LOCAL専用 / ローカル開発環境のみ）
+--    scripts/qa/_lib/seed.mjs の REVIEW_FIXTURES が名前で参照する 7 店舗。
+--    Google Places 統一後は source='google_place' 店舗に置き換え予定。
+--    本番 DB には適用しないこと（seed.sql はローカル専用）。
 -- ----------------------------------------------------------------
-insert into public.restaurants (id, name, area, genre, created_by, source)
-values
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb01', '東京食堂',    '渋谷',  '和食',   '11111111-1111-1111-1111-111111111111', 'manual'),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb02', '麺屋 はるか', '新宿',  'ラーメン', '11111111-1111-1111-1111-111111111111', 'manual'),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb03', 'カフェ キャンバス', '表参道', 'カフェ', '11111111-1111-1111-1111-111111111111', 'manual');
+insert into public.restaurants (name, source, created_by)
+select v.name, 'manual', null
+from (values
+  ('すき家 飯塚市役所前店'),
+  ('中華料理 鴻福家'),
+  ('かっちゃんラーメン'),
+  ('Cafe ROCCO'),
+  ('かつ丼 豚ジロー'),
+  ('ラーメン 柳麺亭'),
+  ('台湾料理 聚豊園')
+) as v(name)
+where not exists (
+  select 1 from public.restaurants r where r.name = v.name
+);
 
 -- ----------------------------------------------------------------
--- 4. restaurant_accesses
---    各店舗につき: private 行（江藤美愛）+ group 行（カップル）
---    group 行がないと同グループメンバーの can_view_review が機能しないため両方必須
--- ----------------------------------------------------------------
-insert into public.restaurant_accesses (restaurant_id, visibility, user_id, group_id, created_by)
-values
-  -- 店舗A
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb01', 'private', '11111111-1111-1111-1111-111111111111', null,                                   '11111111-1111-1111-1111-111111111111'),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb01', 'group',   null,                                   'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111'),
-  -- 店舗B
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb02', 'private', '11111111-1111-1111-1111-111111111111', null,                                   '11111111-1111-1111-1111-111111111111'),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb02', 'group',   null,                                   'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111'),
-  -- 店舗C
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb03', 'private', '11111111-1111-1111-1111-111111111111', null,                                   '11111111-1111-1111-1111-111111111111'),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb03', 'group',   null,                                   'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111');
-
--- ----------------------------------------------------------------
--- 5. レビュー（visibility='private', group_id=null）
---    江藤美愛・河野響（味重視）、河田俊太朗（接客重視）
---    タイプ別フィルタの動作確認に使えるよう意図的に分布に差をつける
--- ----------------------------------------------------------------
-insert into public.reviews (restaurant_id, user_id, group_id, rating, comment, visibility)
-values
-  -- 店舗A（東京食堂）
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb01', '11111111-1111-1111-1111-111111111111', null, 4, '落ち着いた雰囲気で味も最高。また行きたい', 'private'),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb01', '22222222-2222-2222-2222-222222222222', null, 3, '美味しいが量が少し少なめ',               'private'),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb01', '33333333-3333-3333-3333-333333333333', null, 4, '店員さんの対応がとても丁寧で居心地よかった', 'private'),
-  -- 店舗B（麺屋 はるか）
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb02', '11111111-1111-1111-1111-111111111111', null, 3, 'スープが濃厚で好みだが、麺が少し柔らかい', 'private'),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb02', '22222222-2222-2222-2222-222222222222', null, 4, 'ここのラーメンは格別。スープが絶品',       'private'),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb02', '33333333-3333-3333-3333-333333333333', null, 2, '接客が少し雑で残念。料理は普通',           'private'),
-  -- 店舗C（カフェ キャンバス）
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb03', '11111111-1111-1111-1111-111111111111', null, 4, '内装がおしゃれで長居できる。コーヒーも美味しい', 'private'),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb03', '22222222-2222-2222-2222-222222222222', null, 3, 'コーヒーは普通だが雰囲気がいい',           'private'),
-  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb03', '33333333-3333-3333-3333-333333333333', null, 3, '接客は普通、静かで落ち着ける',             'private');
-
--- ----------------------------------------------------------------
--- 6. follows
+-- 5. follows
 --    江藤美愛 ↔ 山田太郎: 相互フォロー
 --    河野響 → 山田太郎: 片方向フォロー
 -- ----------------------------------------------------------------
