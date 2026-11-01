@@ -7,13 +7,12 @@ import ReviewCard, { type ReviewCardData } from '@/components/ReviewCard'
 import ReviewTabsNav, { type ReviewTab } from '@/components/ReviewTabsNav'
 import ShareButton from '@/components/ShareButton'
 import RestaurantProfileSection from '@/components/restaurants/RestaurantProfileSection'
-import FoodKitMatchSection from '@/components/restaurants/FoodKitMatchSection'
+import SimilarUserRatingSection from '@/components/restaurants/SimilarUserRatingSection'
 import PhotoGallery, { type GalleryImage } from '@/components/restaurants/PhotoGallery'
 import { logPageAuthRequest } from '@/lib/diagnostics/authRequests'
 import { getUserState } from '@/lib/auth/getUserState'
 import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
 import { type RestaurantProfileRow } from '@/lib/restaurants/profile'
-import { type FoodKitMatchRow, findMatchRow } from '@/lib/restaurants/match'
 import { Suspense } from 'react'
 import { RATING_LABELS, RATING_BAR } from '@/lib/rating/colors'
 
@@ -97,7 +96,7 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
   const state = await getUserState(supabase, user)
   if (state === 'no_onboarding') redirect('/onboarding')
 
-  const [restaurantResult, ratingCountsResult, reviewsResult, cardCountResult, reviewerCheckResult, profileResult, matchResult, allReviewImagesResult] = await Promise.all([
+  const [restaurantResult, ratingCountsResult, reviewsResult, cardCountResult, reviewerCheckResult, profileResult, similarRatingResult, allReviewImagesResult] = await Promise.all([
     supabase
       .from('restaurants')
       .select('id, name, source, external_place_id, area, genre, address, memo, budget_per_person_max_yen, main_image_path, created_by, main_image_uploaded_by')
@@ -127,8 +126,8 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
     supabase.rpc('get_restaurant_profiles', {
       p_restaurant_ids: [id],
     }),
-    supabase.rpc('get_my_foodkit_matches', {
-      p_restaurant_ids: [id],
+    supabase.rpc('get_similar_user_rating_summary', {
+      p_restaurant_id: id,
     }),
     // All review image paths for this restaurant (newest first) — gallery only.
     // Limited to 50: Supabase PostgREST default max_rows=1000, but 50 is sufficient for a
@@ -157,8 +156,8 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
     console.error(`RestaurantDetailPage: get_restaurant_profiles failed: ${profileResult.error.message}`)
   }
 
-  if (matchResult.error) {
-    console.error(`RestaurantDetailPage: get_my_foodkit_matches failed: ${matchResult.error.message}`)
+  if (similarRatingResult.error) {
+    console.error(`RestaurantDetailPage: get_similar_user_rating_summary failed: ${similarRatingResult.error.message}`)
   }
 
   // Gallery image query failure is non-fatal: main photo + review cards still work.
@@ -168,8 +167,21 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
 
   const hasUserReview = (reviewerCheckResult.count ?? 0) > 0
   const profileRows = (profileResult.data ?? []) as RestaurantProfileRow[]
-  const matchRows = matchResult.error ? [] : (matchResult.data ?? []) as unknown as FoodKitMatchRow[]
-  const matchRow = findMatchRow(matchRows, id)
+
+  type SimilarRatingSummary = {
+    similar_reviewer_count: number
+    high_rating_reviewer_count: number
+    all_reviewer_count: number
+    all_high_rating_reviewer_count: number
+  }
+  const similarRatingRow = similarRatingResult.error
+    ? null
+    : ((similarRatingResult.data ?? [])[0] as SimilarRatingSummary | undefined) ?? null
+  const isRpcError = Boolean(similarRatingResult.error)
+  const similarReviewerCount = isRpcError ? null : (similarRatingRow?.similar_reviewer_count ?? 0)
+  const highRatingReviewerCount = isRpcError ? null : (similarRatingRow?.high_rating_reviewer_count ?? 0)
+  const allReviewerCount = isRpcError ? null : (similarRatingRow?.all_reviewer_count ?? 0)
+  const allHighRatingReviewerCount = isRpcError ? null : (similarRatingRow?.all_high_rating_reviewer_count ?? 0)
 
   const r = restaurantResult.data as Restaurant
   const rDisplay = await resolveRestaurantDisplay(r)
@@ -484,8 +496,14 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
         </div>
       </div>
 
-      {/* FoodKit Match Score */}
-      <FoodKitMatchSection matchRow={matchRow} />
+      {/* Similar users' high-rating summary with overall comparison */}
+      <SimilarUserRatingSection
+        viewerCardCount={viewerCardCount}
+        similarReviewerCount={similarReviewerCount}
+        highRatingReviewerCount={highRatingReviewerCount}
+        allReviewerCount={allReviewerCount}
+        allHighRatingReviewerCount={allHighRatingReviewerCount}
+      />
 
       {/* Rating distribution */}
       {totalReviews > 0 && (
