@@ -6,9 +6,9 @@ import BackButton from '@/components/BackButton'
 import ReviewCard, { type ReviewCardData } from '@/components/ReviewCard'
 import ReviewTabsNav, { type ReviewTab } from '@/components/ReviewTabsNav'
 import ShareButton from '@/components/ShareButton'
-import RestaurantMainImage from '@/components/RestaurantMainImage'
 import RestaurantProfileSection from '@/components/restaurants/RestaurantProfileSection'
 import FoodKitMatchSection from '@/components/restaurants/FoodKitMatchSection'
+import PhotoGallery, { type GalleryImage } from '@/components/restaurants/PhotoGallery'
 import { logPageAuthRequest } from '@/lib/diagnostics/authRequests'
 import { getUserState } from '@/lib/auth/getUserState'
 import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
@@ -97,7 +97,7 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
   const state = await getUserState(supabase, user)
   if (state === 'no_onboarding') redirect('/onboarding')
 
-  const [restaurantResult, ratingCountsResult, reviewsResult, cardCountResult, reviewerCheckResult, profileResult, matchResult] = await Promise.all([
+  const [restaurantResult, ratingCountsResult, reviewsResult, cardCountResult, reviewerCheckResult, profileResult, matchResult, allReviewImagesResult] = await Promise.all([
     supabase
       .from('restaurants')
       .select('id, name, source, external_place_id, area, genre, address, memo, budget_per_person_max_yen, main_image_path, created_by, main_image_uploaded_by')
@@ -130,6 +130,18 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
     supabase.rpc('get_my_foodkit_matches', {
       p_restaurant_ids: [id],
     }),
+    // All review image paths for this restaurant (newest first) — gallery only.
+    // Limited to 50: Supabase PostgREST default max_rows=1000, but 50 is sufficient for a
+    // mobile gallery and keeps signed-URL generation bounded.
+    // Secondary sort by id ensures stable ordering when created_at values are equal.
+    supabase
+      .from('reviews')
+      .select('image_path')
+      .eq('restaurant_id', id)
+      .not('image_path', 'is', null)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(50),
   ])
 
   if (restaurantResult.error) {
@@ -147,6 +159,11 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
 
   if (matchResult.error) {
     console.error(`RestaurantDetailPage: get_my_foodkit_matches failed: ${matchResult.error.message}`)
+  }
+
+  // Gallery image query failure is non-fatal: main photo + review cards still work.
+  if (allReviewImagesResult.error) {
+    console.error(`RestaurantDetailPage: review image fetch failed: ${allReviewImagesResult.error.message}`)
   }
 
   const hasUserReview = (reviewerCheckResult.count ?? 0) > 0
@@ -182,17 +199,118 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
     mainImageSignedUrl = signedData?.signedUrl ?? null
   }
 
-  // Generate signed URLs for review images
-  const imagePaths = [
-    ...new Set(rpcRows.map((row) => row.image_path).filter((p): p is string => Boolean(p))),
+  // Gallery image paths: only use allReviewImagesResult when the query succeeded.
+  // On error, fall back to rpcRows paths so review cards are unaffected.
+  const galleryReviewPaths: string[] = allReviewImagesResult.error
+    ? []
+    : [
+        ...new Set(
+          (allReviewImagesResult.data ?? [])
+            .map((row) => row.image_path as string)
+        ),
+      ]
+
+  // All unique review image paths for signed-URL generation:
+  // gallery paths union preview card paths (rpcRows), both deduplicated.
+  const allReviewImagePaths = [
+    ...new Set([
+      ...galleryReviewPaths,
+      ...rpcRows.map((row) => row.image_path).filter((p): p is string => Boolean(p)),
+    ]),
   ]
-  const signedImagesResult = imagePaths.length
-    ? await supabase.storage.from('review-images').createSignedUrls(imagePaths, 60 * 60)
+  const signedImagesResult = allReviewImagePaths.length
+    ? await supabase.storage.from('review-images').createSignedUrls(allReviewImagePaths, 60 * 60)
     : { data: [], error: null }
 
   const signedImageUrls = new Map<string, string>()
   for (const item of signedImagesResult.data ?? []) {
     if (item.path && !item.error && item.signedUrl) signedImageUrls.set(item.path, item.signedUrl)
+  }
+
+  // Build gallery images: main photo first, then review photos (newest first).
+  // seenKeys tracks "bucket:path" to prevent duplicates within each bucket source.
+  let galleryImages: GalleryImage[] = []
+  const seenKeys = new Set<string>()
+
+  if (mainImageSignedUrl && r.main_image_path) {
+    const key = `r:${r.main_image_path}`
+    seenKeys.add(key)
+    galleryImages.push({ key, url: mainImageSignedUrl, alt: rDisplay.name })
+  }
+  for (const path of galleryReviewPaths) {
+    const key = `rv:${path}`
+    if (seenKeys.has(key)) continue
+    const url = signedImageUrls.get(path)
+    if (url) {
+      seenKeys.add(key)
+      galleryImages.push({ key, url, alt: '記録写真' })
+    }
+  }
+
+  // eTag + size deduplication across gallery images.
+  // Handles: (a) same file in main + review buckets, (b) same file across multiple reviews.
+  // Only runs when at least one review image is in the gallery.
+  // Safe fallback: any photo whose info() fails or returns incomplete metadata is kept.
+  const reviewPathsInGallery = galleryImages
+    .filter((img) => img.key.startsWith('rv:'))
+    .map((img) => img.key.slice(3))
+
+  if (reviewPathsInGallery.length > 0) {
+    try {
+      // Track seen eTag:size combinations. Main image claims its key first (takes priority).
+      const seenETagSizes = new Set<string>()
+
+      if (r.main_image_path && mainImageSignedUrl) {
+        const { data: mainInfo, error: mainInfoError } = await supabase.storage
+          .from('restaurant-images')
+          .info(r.main_image_path)
+        const mainETag = !mainInfoError ? (mainInfo?.etag?.replace(/"/g, '') ?? null) : null
+        const mainSize = !mainInfoError ? (mainInfo?.size ?? null) : null
+        if (mainETag !== null && mainSize !== null) {
+          seenETagSizes.add(`${mainETag}:${mainSize}`)
+        }
+      }
+
+      // Fetch metadata for all review images in gallery, concurrency capped at 5 per batch.
+      const CONCURRENCY = 5
+      const reviewInfoMap = new Map<string, { etag: string; size: number } | null>()
+
+      for (let i = 0; i < reviewPathsInGallery.length; i += CONCURRENCY) {
+        const batch = reviewPathsInGallery.slice(i, i + CONCURRENCY)
+        const batchResults = await Promise.all(
+          batch.map((path) => supabase.storage.from('review-images').info(path))
+        )
+        for (let j = 0; j < batch.length; j++) {
+          const { data: infoData, error: infoError } = batchResults[j]
+          const etag = !infoError ? (infoData?.etag?.replace(/"/g, '') ?? null) : null
+          const size = !infoError ? (infoData?.size ?? null) : null
+          reviewInfoMap.set(batch[j], etag !== null && size !== null ? { etag, size } : null)
+          // null → info() failed or incomplete → photo is kept (safe fallback)
+        }
+      }
+
+      // Identify duplicate review paths: etag+size already claimed by an earlier image.
+      const duplicateReviewPaths = new Set<string>()
+      for (const path of reviewPathsInGallery) {
+        const info = reviewInfoMap.get(path)
+        if (!info) continue // missing info → keep
+        const key = `${info.etag}:${info.size}`
+        if (seenETagSizes.has(key)) {
+          duplicateReviewPaths.add(path)
+        } else {
+          seenETagSizes.add(key) // first occurrence claims the key
+        }
+      }
+
+      if (duplicateReviewPaths.size > 0) {
+        galleryImages = galleryImages.filter((img) => {
+          if (!img.key.startsWith('rv:')) return true
+          return !duplicateReviewPaths.has(img.key.slice(3))
+        })
+      }
+    } catch (err) {
+      console.error('RestaurantDetailPage: gallery dedup failed:', err)
+    }
   }
 
   const avatarPathsUniq = [
@@ -245,60 +363,64 @@ export default async function RestaurantDetailPage({ params, searchParams }: Pag
 
   return (
     <main className="min-h-screen bg-canvas pb-24">
-      {/* Hero image area */}
-      <div className="relative h-[220px] w-full overflow-hidden">
-        <RestaurantMainImage src={mainImageSignedUrl} alt={rDisplay.name} />
+      {/* Photo gallery area */}
+      <div className="relative w-full">
+        <PhotoGallery images={galleryImages} restaurantName={rDisplay.name} />
 
-        {/* Add photo CTA — shown when no image and user is eligible */}
-        {canEditImage && !mainImageSignedUrl && (
-          <Link
-            href={`/restaurants/${id}/image`}
-            className="absolute inset-0 flex flex-col items-center justify-center gap-2"
-            aria-label="写真を追加"
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black/20">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                <circle cx="12" cy="13" r="4" />
-              </svg>
-            </div>
-            <span className="text-sm font-bold text-white drop-shadow">写真を追加</span>
-          </Link>
-        )}
-
-        {/* Overlay controls */}
-        <div className="absolute inset-x-0 top-0 flex items-center justify-between px-4 pt-14">
-          <Suspense>
-            <BackButton fallbackHref="/home" label="" />
-          </Suspense>
-          <div className="flex items-center gap-3">
-            {canEdit && (
-              <Link
-                href={`/restaurants/${id}/edit`}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white"
-                aria-label="店舗情報を編集"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                </svg>
-              </Link>
-            )}
-            {canEditImage && mainImageSignedUrl && (
-              <Link
-                href={`/restaurants/${id}/image`}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white"
-                aria-label="店舗の写真を編集"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        {/* Overlay — positioned over the main image zone (top 220px) only */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[220px]">
+          {/* Add photo CTA — only when no photos at all */}
+          {canEditImage && galleryImages.length === 0 && (
+            <Link
+              href={`/restaurants/${id}/image`}
+              className="pointer-events-auto absolute inset-0 flex flex-col items-center justify-center gap-2"
+              aria-label="写真を追加"
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black/20">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
                   <circle cx="12" cy="13" r="4" />
                 </svg>
-              </Link>
-            )}
+              </div>
+              <span className="text-sm font-bold text-white drop-shadow">写真を追加</span>
+            </Link>
+          )}
+
+          {/* Nav / edit controls */}
+          <div className="pointer-events-auto absolute inset-x-0 top-0 flex items-center justify-between px-4 pt-14">
             <Suspense>
-              <ShareButton title={rDisplay.name} url={pageUrl} />
+              <BackButton fallbackHref="/home" label="" />
             </Suspense>
+            <div className="flex items-center gap-3">
+              {canEdit && (
+                <Link
+                  href={`/restaurants/${id}/edit`}
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white"
+                  aria-label="店舗情報を編集"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                  </svg>
+                </Link>
+              )}
+              {/* Camera: always show when eligible and any photo exists */}
+              {canEditImage && galleryImages.length > 0 && (
+                <Link
+                  href={`/restaurants/${id}/image`}
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white"
+                  aria-label="店舗の写真を編集"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                    <circle cx="12" cy="13" r="4" />
+                  </svg>
+                </Link>
+              )}
+              <Suspense>
+                <ShareButton title={rDisplay.name} url={pageUrl} />
+              </Suspense>
+            </div>
           </div>
         </div>
       </div>
