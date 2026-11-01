@@ -6,6 +6,7 @@ import RestaurantMainImage from '@/components/RestaurantMainImage'
 import { getUserState } from '@/lib/auth/getUserState'
 import { createClient } from '@/lib/supabase/server'
 import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
+import { RATING_BG, RATING_TEXT } from '@/lib/rating/colors'
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -41,10 +42,10 @@ type RecRow         = {
 // ── Rating chip ────────────────────────────────────────────────────────────
 
 const SHORT_RATING: Record<number, { label: string; bg: string }> = {
-  4: { label: '常連になりたい', bg: 'bg-emerald-100 text-emerald-700' },
-  3: { label: 'また行きたい',   bg: 'bg-orange-100 text-orange-700' },
-  2: { label: '一度で十分',    bg: 'bg-sky-100 text-sky-700' },
-  1: { label: '二度と行かない', bg: 'bg-red-100 text-red-600' },
+  4: { label: '常連になりたい', bg: `${RATING_BG[4]} ${RATING_TEXT[4]}` },
+  3: { label: 'また行きたい',   bg: `${RATING_BG[3]} ${RATING_TEXT[3]}` },
+  2: { label: '一度で十分',    bg: `${RATING_BG[2]} ${RATING_TEXT[2]}` },
+  1: { label: '二度と行かない', bg: `${RATING_BG[1]} ${RATING_TEXT[1]}` },
 }
 
 function RatingChip({ rating }: { rating: number }) {
@@ -232,8 +233,8 @@ export default async function HomePage() {
 
       {/* ── Search ───────────────────────────────────────────────────────── */}
       <div className="mb-3 px-5">
-        <form action="/search/results" method="get">
-          <label className="flex items-center gap-3 rounded-2xl border border-edge bg-surface px-4 py-2.5 shadow-sm transition-shadow focus-within:ring-1 focus-within:ring-terra">
+        <form action="/search/results" method="get" className="flex gap-2">
+          <label className="flex flex-1 items-center gap-3 rounded-2xl border border-edge bg-surface px-4 py-2.5 shadow-sm transition-shadow focus-within:ring-1 focus-within:ring-terra">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-ink-sub" aria-hidden="true">
               <circle cx="11" cy="11" r="7" />
               <path d="M21 21l-4.35-4.35" />
@@ -246,6 +247,16 @@ export default async function HomePage() {
               autoComplete="off"
             />
           </label>
+          <button
+            type="submit"
+            className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-2xl bg-terra text-white"
+            aria-label="検索"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <path d="M21 21l-4.35-4.35" />
+            </svg>
+          </button>
         </form>
       </div>
 
@@ -253,44 +264,10 @@ export default async function HomePage() {
       <div className="mb-4 px-5">
         <Link
           href="/search/today"
-          className="relative block overflow-hidden rounded-2xl shadow-sm"
+          className="block overflow-hidden rounded-2xl shadow-sm"
           style={{ background: '#FFF7F0', minHeight: '164px' }}
         >
-          {/* Right: food photo (~39%) */}
-          <div
-            className="absolute inset-y-0 right-0 overflow-hidden"
-            style={{ width: '39%' }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/images/landing-hero-food.png"
-              alt=""
-              className="h-full w-full object-cover"
-              style={{ objectPosition: '30% center' }}
-              aria-hidden="true"
-            />
-            {/* Cream gradient — blends photo left edge into card background */}
-            <div
-              className="absolute inset-y-0 left-0 w-14"
-              style={{ background: 'linear-gradient(to right, #FFF7F0, transparent)' }}
-              aria-hidden="true"
-            />
-          </div>
-
-          {/* Photo caption — small/dim, secondary visual only */}
-          <p
-            className="absolute right-2.5 top-3 z-10 text-right text-[10px] italic leading-snug"
-            style={{ color: 'rgba(47,42,39,0.40)' }}
-            aria-hidden="true"
-          >
-            今日は<br />どんなお店に行く？
-          </p>
-
-          {/* Left content area (~63%) */}
-          <div
-            className="relative z-10 flex flex-col justify-between p-4"
-            style={{ minHeight: '164px', width: '63%' }}
-          >
+          <div className="flex flex-col justify-between p-4" style={{ minHeight: '164px' }}>
             <div>
               <div className="flex items-center gap-1.5">
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">

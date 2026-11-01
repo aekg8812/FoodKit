@@ -49,6 +49,11 @@ export async function createRestaurantAction(
 
   const externalPlaceId = input.externalPlaceId.trim()
 
+  // Manual registration (no Google Place ID) is no longer supported.
+  if (!externalPlaceId) {
+    return { ok: false, error: 'Google Place IDが必要です。お店を検索して選択してください' }
+  }
+
   if (externalPlaceId) {
     // Step 3: Check if this external_place_id is already registered
     const { data: existingId } = await supabase.rpc(

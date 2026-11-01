@@ -6,6 +6,7 @@ import BottomNav from '@/components/BottomNav'
 import BackButton from '@/components/BackButton'
 import { getUserState } from '@/lib/auth/getUserState'
 import { createClient } from '@/lib/supabase/server'
+import { RATING_BG, RATING_TEXT } from '@/lib/rating/colors'
 
 type ReviewRow = {
   id: string
@@ -21,9 +22,9 @@ type RestaurantRow = { id: string; name: string; area: string | null; genre: str
 type ProfileRow = { id: string; username: string; name: string | null; avatar_path: string | null }
 
 const RATING_CHIP: Record<number, { label: string; bg: string; text: string }> = {
-  4: { label: '常連になりたい', bg: 'bg-emerald-50', text: 'text-emerald-700' },
-  3: { label: 'また行きたい', bg: 'bg-pink-50', text: 'text-[#E05C7A]' },
-  2: { label: '一度で十分', bg: 'bg-sky-50', text: 'text-sky-600' },
+  4: { label: '常連になりたい', bg: RATING_BG[4], text: RATING_TEXT[4] },
+  3: { label: 'また行きたい', bg: RATING_BG[3], text: RATING_TEXT[3] },
+  2: { label: '一度で十分', bg: RATING_BG[2], text: RATING_TEXT[2] },
   1: { label: '二度と行かない', bg: 'bg-zinc-100', text: 'text-zinc-600' },
 }
 

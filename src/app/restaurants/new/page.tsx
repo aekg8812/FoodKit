@@ -43,12 +43,16 @@ export default async function RestaurantNewPage({
   const from = typeof requestedParams.from === 'string' ? requestedParams.from : ''
   const successDestination = from === 'record' ? ('record' as const) : ('restaurant' as const)
 
-  // Resolve external_place_id: if an existing restaurant already has this place ID,
-  // ensure access and redirect directly (skips the registration form).
   const rawExternalPlaceId =
     typeof requestedParams.external_place_id === 'string'
       ? requestedParams.external_place_id.trim()
       : ''
+
+  // Manual registration (no external_place_id) is no longer supported.
+  // Route the user back to the appropriate search entry point.
+  if (!rawExternalPlaceId) {
+    redirect(from === 'record' ? '/record' : '/search')
+  }
 
   if (rawExternalPlaceId) {
     const { data: existingId } = await supabase.rpc(

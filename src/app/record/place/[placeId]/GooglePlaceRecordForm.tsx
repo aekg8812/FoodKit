@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import BottomNav from '@/components/BottomNav'
 import ReasonTagSelector from '@/components/review/ReasonTagSelector'
 import RestaurantLabelSelector from '@/components/review/RestaurantLabelSelector'
+import { RATING_BG, RATING_TEXT, RATING_ACCENT_BORDER, RATING_ACCENT_DOT } from '@/lib/rating/colors'
 import { submitGooglePlaceReviewAction } from './actions'
 
 type Props = {
@@ -245,21 +246,21 @@ export default function GooglePlaceRecordForm({
                 onClick={() => handleRatingChange(opt.value)}
                 className={`flex w-full items-center gap-3 rounded-2xl border px-4 py-3.5 text-left transition-colors ${
                   rating === opt.value
-                    ? 'border-terra bg-[#FFF3EC]'
+                    ? `${RATING_ACCENT_BORDER[opt.value]} ${RATING_BG[opt.value]}`
                     : 'border-edge bg-surface hover:bg-canvas'
                 }`}
               >
                 <div
                   className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                    rating === opt.value ? 'border-terra' : 'border-edge'
+                    rating === opt.value ? RATING_ACCENT_BORDER[opt.value] : 'border-edge'
                   }`}
                 >
                   {rating === opt.value && (
-                    <div className="h-2.5 w-2.5 rounded-full bg-terra" />
+                    <div className={`h-2.5 w-2.5 rounded-full ${RATING_ACCENT_DOT[opt.value]}`} />
                   )}
                 </div>
                 <div>
-                  <p className={`font-bold ${rating === opt.value ? 'text-terra' : 'text-ink'}`}>
+                  <p className={`font-bold ${rating === opt.value ? RATING_TEXT[opt.value] : 'text-ink'}`}>
                     {opt.label}
                   </p>
                   <p className="text-xs text-ink-sub">{opt.sub}</p>

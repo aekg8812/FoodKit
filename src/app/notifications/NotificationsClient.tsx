@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
+import { RATING_BG, RATING_TEXT } from '@/lib/rating/colors'
 
 type NotificationRow = {
   id: string
@@ -36,10 +37,10 @@ type ProcessedNotification = NotificationRow & {
 type TabValue = 'all' | 'unread'
 
 const RATING_CHIP: Record<number, { label: string; bg: string; text: string; icon: string }> = {
-  4: { label: '常連になりたい', bg: 'bg-emerald-50', text: 'text-emerald-700', icon: '👑' },
-  3: { label: 'また行きたい', bg: 'bg-pink-50', text: 'text-[#E05C7A]', icon: '❤' },
-  2: { label: '一度で十分', bg: 'bg-sky-50', text: 'text-sky-600', icon: '🍴' },
-  1: { label: '二度と行かない', bg: 'bg-zinc-100', text: 'text-zinc-600', icon: '🚫' },
+  4: { label: '常連になりたい', bg: RATING_BG[4], text: RATING_TEXT[4], icon: '👑' },
+  3: { label: 'また行きたい', bg: RATING_BG[3], text: RATING_TEXT[3], icon: '❤' },
+  2: { label: '一度で十分', bg: RATING_BG[2], text: RATING_TEXT[2], icon: '🍴' },
+  1: { label: '二度と行かない', bg: RATING_BG[1], text: RATING_TEXT[1], icon: '🚫' },
 }
 
 function notificationMessage(n: ProcessedNotification): string {

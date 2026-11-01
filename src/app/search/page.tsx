@@ -26,8 +26,8 @@ export default async function SearchPage() {
 
       {/* Search bar */}
       <div className="px-5 pb-3">
-        <form action="/search/results" method="GET">
-          <label className="flex items-center gap-2.5 rounded-2xl border border-edge bg-surface px-4 py-3">
+        <form action="/search/results" method="GET" className="flex gap-2">
+          <label className="flex flex-1 items-center gap-2.5 rounded-2xl border border-edge bg-surface px-4 py-3">
             <svg
               width="16"
               height="16"
@@ -51,6 +51,26 @@ export default async function SearchPage() {
               autoComplete="off"
             />
           </label>
+          <button
+            type="submit"
+            className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-2xl bg-terra text-white"
+            aria-label="検索"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="11" cy="11" r="7" />
+              <path d="M21 21l-4.35-4.35" />
+            </svg>
+          </button>
         </form>
         <p className="mt-2 text-sm text-ink-sub">
           行きたいお店を直接探すか、今日の条件から探せます
@@ -63,95 +83,56 @@ export default async function SearchPage() {
           className="overflow-hidden rounded-2xl"
           style={{ backgroundColor: "#FEF5EC" }}
         >
-          {/* Top portion: left text + right photo */}
-          <div className="relative flex" style={{ minHeight: "168px" }}>
-            {/* Left content */}
-            <div
-              className="flex flex-col justify-start p-4 pr-2"
-              style={{ width: "62%" }}
-            >
-              {/* Heading with orange spark icon */}
-              <div className="mb-2 flex items-center gap-1.5">
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 18 18"
-                  fill="none"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M2 9 L7 4"
-                    stroke="#F97316"
-                    strokeWidth="2.2"
-                    strokeLinecap="round"
-                  />
-                  <path
-                    d="M1.5 13 L8 6.5"
-                    stroke="#F97316"
-                    strokeWidth="2.2"
-                    strokeLinecap="round"
-                  />
-                  <path
-                    d="M5 15.5 L11 9.5"
-                    stroke="#F97316"
-                    strokeWidth="2.2"
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <h2 className="text-[19px] font-black leading-tight text-ink">
-                  今日のお店を探す
-                </h2>
-              </div>
-              {/* Description */}
-              <p className="text-xs leading-relaxed text-ink-sub">
-                予算・人数・移動時間・雰囲気などから、
-                <br />
-                今の条件に合うお店をおすすめします
-              </p>
-              {/* Condition chips */}
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {["友達と", "¥2,000以下", "近くで", "ゆっくり"].map((label) => (
-                  <span
-                    key={label}
-                    className="rounded-full border border-edge bg-white/90 px-2.5 py-1 text-xs font-medium text-ink-sub"
-                  >
-                    {label}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Right: food photo — fills remaining width + full height */}
-            <div
-              className="absolute right-0 top-0 bottom-0 overflow-hidden"
-              style={{ width: "42%" }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/images/landing-hero-food.png"
-                alt=""
-                className="h-full w-full object-cover object-center"
+          {/* Top portion */}
+          <div className="p-4" style={{ minHeight: "168px" }}>
+            {/* Heading with orange spark icon */}
+            <div className="mb-2 flex items-center gap-1.5">
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 18 18"
+                fill="none"
                 aria-hidden="true"
-              />
-              {/* Gradient: cream → transparent from left edge of photo */}
-              <div
-                className="absolute inset-0"
-                style={{
-                  background:
-                    "linear-gradient(to right, #FEF5EC 0%, rgba(254,245,236,0.55) 35%, transparent 70%)",
-                }}
-              />
-              {/* Overlay copy */}
-              <div className="absolute top-3 right-3">
-                <p
-                  className="text-right text-[10px] font-bold italic leading-snug text-white"
-                  style={{ textShadow: "0 1px 4px rgba(0,0,0,0.55)" }}
+              >
+                <path
+                  d="M2 9 L7 4"
+                  stroke="#F97316"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M1.5 13 L8 6.5"
+                  stroke="#F97316"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M5 15.5 L11 9.5"
+                  stroke="#F97316"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <h2 className="text-[19px] font-black leading-tight text-ink">
+                今日のお店を探す
+              </h2>
+            </div>
+            {/* Description */}
+            <p className="text-xs leading-relaxed text-ink-sub">
+              予算・人数・移動時間・雰囲気などから、
+              <br />
+              今の条件に合うお店をおすすめします
+            </p>
+            {/* Condition chips */}
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {["友達と", "¥2,000以下", "近くで", "ゆっくり"].map((label) => (
+                <span
+                  key={label}
+                  className="rounded-full border border-edge bg-white/90 px-2.5 py-1 text-xs font-medium text-ink-sub"
                 >
-                  {/* 今日は
-                  <br />
-                  どんなお店に行く？ */}
-                </p>
-              </div>
+                  {label}
+                </span>
+              ))}
             </div>
           </div>
 

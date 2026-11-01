@@ -236,7 +236,7 @@ export default function SignupPage() {
                   id="username"
                   type="text"
                   required
-                  placeholder="例：kawata"
+                  placeholder="例：tanaka"
                   value={username}
                   onChange={(e) => setUsername(e.target.value.trim())}
                   maxLength={USERNAME_MAX}

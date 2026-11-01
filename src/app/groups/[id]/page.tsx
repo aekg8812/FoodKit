@@ -7,6 +7,8 @@ import BackButton from '@/components/BackButton'
 import GroupMenu, { type GroupMenuMember } from '@/components/groups/GroupMenu'
 import { getUserState } from '@/lib/auth/getUserState'
 import { createClient } from '@/lib/supabase/server'
+import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
+import { RATING_BG, RATING_TEXT } from '@/lib/rating/colors'
 
 type GroupRow = {
   id: string
@@ -43,7 +45,7 @@ type ReviewRow = {
   image_path: string | null
   user_id: string
   restaurant_id: string
-  restaurants: { id: string; name: string; genre: string | null } | null
+  restaurants: { id: string; name: string | null; source: string; external_place_id: string | null; genre: string | null } | null
 }
 
 type GroupDetailPageProps = {
@@ -51,10 +53,10 @@ type GroupDetailPageProps = {
 }
 
 const RATING_CHIP: Record<number, { label: string; bg: string; text: string }> = {
-  4: { label: '常連になりたい', bg: 'bg-emerald-50', text: 'text-emerald-700' },
-  3: { label: 'また行きたい', bg: 'bg-pink-50', text: 'text-[#E05C7A]' },
-  2: { label: '一度で十分', bg: 'bg-sky-50', text: 'text-sky-600' },
-  1: { label: '二度と行かない', bg: 'bg-zinc-100', text: 'text-zinc-600' },
+  4: { label: '常連になりたい', bg: RATING_BG[4], text: RATING_TEXT[4] },
+  3: { label: 'また行きたい', bg: RATING_BG[3], text: RATING_TEXT[3] },
+  2: { label: '一度で十分', bg: RATING_BG[2], text: RATING_TEXT[2] },
+  1: { label: '二度と行かない', bg: RATING_BG[1], text: RATING_TEXT[1] },
 }
 
 function memberCountToPartyLabel(count: number): string {
@@ -109,7 +111,7 @@ export default async function GroupDetailPage({ params }: GroupDetailPageProps) 
     memberUserIds.length > 0
       ? supabase
           .from('reviews')
-          .select('id, rating, comment, visit_date, created_at, image_path, user_id, restaurant_id, restaurants(id, name, genre)')
+          .select('id, rating, comment, visit_date, created_at, image_path, user_id, restaurant_id, restaurants(id, name, source, external_place_id, genre)')
           .in('user_id', memberUserIds)
           .order('created_at', { ascending: false })
           .limit(5)
@@ -144,6 +146,19 @@ export default async function GroupDetailPage({ params }: GroupDetailPageProps) 
   ).slice(0, 5)
 
   const memberReviews = (memberReviewsResult.data ?? []) as unknown as ReviewRow[]
+
+  // Resolve display names for Google-sourced restaurants
+  const restaurantDisplayNames = new Map<string, string>()
+  await Promise.all(
+    memberReviews
+      .flatMap((r) => (r.restaurants ? [r.restaurants] : []))
+      .filter((r, idx, arr) => arr.findIndex((x) => x.id === r.id) === idx)
+      .filter((r) => r.source === 'google_place' && r.external_place_id)
+      .map(async (r) => {
+        const d = await resolveRestaurantDisplay(r)
+        restaurantDisplayNames.set(r.id, d.name)
+      }),
+  )
 
   // Signed URLs for review images
   const reviewImagePaths = [
@@ -335,7 +350,9 @@ export default async function GroupDetailPage({ params }: GroupDetailPageProps) 
                     <div className="min-w-0 flex-1">
                       <p className="text-xs text-ink-sub">{author?.name ?? author?.username ?? ''}さん</p>
                       <p className="font-bold text-terra leading-tight">
-                        {review.restaurants?.name ?? '不明な店舗'}
+                        {review.restaurants
+                          ? (restaurantDisplayNames.get(review.restaurants.id) ?? review.restaurants.name ?? '—')
+                          : '—'}
                       </p>
                       {chip && (
                         <span className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold ${chip.bg} ${chip.text}`}>

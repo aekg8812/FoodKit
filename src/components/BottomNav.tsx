@@ -63,7 +63,7 @@ export default function BottomNav() {
 
   function isActive(href: string): boolean {
     if (href === '/home') {
-      return pathname === '/home' || pathname.startsWith('/restaurants') || pathname.startsWith('/notifications')
+      return pathname === '/home' || pathname.startsWith('/notifications')
     }
     if (href === '/search') {
       return pathname === '/search' || pathname.startsWith('/search/')

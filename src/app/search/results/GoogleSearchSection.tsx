@@ -14,6 +14,10 @@ type GooglePlace = {
   formattedAddress: string | null
 }
 
+type ResolveResult =
+  | { ok: true; foodkit: FoodKitGooglePlace[]; googleOnly: GooglePlace[] }
+  | { ok: false }
+
 type SectionState =
   | { kind: 'loading' }
   | {
@@ -28,6 +32,7 @@ type SectionState =
       prevFoodkit: FoodKitGooglePlace[]
       prevGoogleOnly: GooglePlace[]
     }
+  | { kind: 'split_error' }
 
 type Props = {
   query: string
@@ -61,16 +66,30 @@ async function resolveAndSplit(
   places: GooglePlace[],
   supabase: ReturnType<typeof createClient>,
   knownFoodkitIds: Set<string>,
-): Promise<{ foodkit: FoodKitGooglePlace[]; googleOnly: GooglePlace[] }> {
-  if (places.length === 0) return { foodkit: [], googleOnly: [] }
+): Promise<ResolveResult> {
+  if (places.length === 0) return { ok: true, foodkit: [], googleOnly: [] }
 
-  const placeIds = places.map((p) => p.id).filter((id) => !knownFoodkitIds.has(id))
-  const resolveMap = await resolveGooglePlaceIds(placeIds, supabase)
+  // Deduplicate by place.id before any further processing
+  const seen = new Set<string>()
+  const uniquePlaces = places.filter((p) => {
+    if (seen.has(p.id)) return false
+    seen.add(p.id)
+    return true
+  })
+
+  const placeIds = uniquePlaces.map((p) => p.id).filter((id) => !knownFoodkitIds.has(id))
+
+  let resolveMap: Awaited<ReturnType<typeof resolveGooglePlaceIds>>
+  try {
+    resolveMap = await resolveGooglePlaceIds(placeIds, supabase)
+  } catch {
+    return { ok: false }
+  }
 
   const foodkit: FoodKitGooglePlace[] = []
   const googleOnly: GooglePlace[] = []
 
-  for (const place of places) {
+  for (const place of uniquePlaces) {
     if (knownFoodkitIds.has(place.id)) continue
 
     const r = resolveMap.get(place.id)
@@ -81,7 +100,7 @@ async function resolveAndSplit(
     }
   }
 
-  return { foodkit, googleOnly }
+  return { ok: true, foodkit, googleOnly }
 }
 
 export default function GoogleSearchSection({ query, from, foodkitPlaceIds, serverEmpty }: Props) {
@@ -101,10 +120,10 @@ export default function GoogleSearchSection({ query, from, foodkitPlaceIds, serv
         try {
           const places = await fetchGooglePlaces(query, cached, ac.signal)
           if (cancelled) return
-          const { foodkit, googleOnly } = await resolveAndSplit(places, supabaseRef.current, ids)
-          if (!cancelled) {
-            setState({ kind: 'ready', foodkit, googleOnly, usingCurrentLocation: true, showChip: false })
-          }
+          const result = await resolveAndSplit(places, supabaseRef.current, ids)
+          if (cancelled) return
+          if (!result.ok) { setState({ kind: 'split_error' }); return }
+          setState({ kind: 'ready', foodkit: result.foodkit, googleOnly: result.googleOnly, usingCurrentLocation: true, showChip: false })
         } catch {
           if (!cancelled) setState({ kind: 'ready', foodkit: [], googleOnly: [], usingCurrentLocation: false, showChip: false })
         }
@@ -128,19 +147,19 @@ export default function GoogleSearchSection({ query, from, foodkitPlaceIds, serv
           if (cancelled) return
           const places = await fetchGooglePlaces(query, loc, ac.signal)
           if (cancelled) return
-          const { foodkit, googleOnly } = await resolveAndSplit(places, supabaseRef.current, ids)
-          if (!cancelled) {
-            setState({ kind: 'ready', foodkit, googleOnly, usingCurrentLocation: true, showChip: false })
-          }
+          const result = await resolveAndSplit(places, supabaseRef.current, ids)
+          if (cancelled) return
+          if (!result.ok) { setState({ kind: 'split_error' }); return }
+          setState({ kind: 'ready', foodkit: result.foodkit, googleOnly: result.googleOnly, usingCurrentLocation: true, showChip: false })
         } catch {
           if (cancelled) return
           try {
             const places = await fetchGooglePlaces(query, null, ac.signal)
             if (cancelled) return
-            const { foodkit, googleOnly } = await resolveAndSplit(places, supabaseRef.current, ids)
-            if (!cancelled) {
-              setState({ kind: 'ready', foodkit, googleOnly, usingCurrentLocation: false, showChip: false })
-            }
+            const result = await resolveAndSplit(places, supabaseRef.current, ids)
+            if (cancelled) return
+            if (!result.ok) { setState({ kind: 'split_error' }); return }
+            setState({ kind: 'ready', foodkit: result.foodkit, googleOnly: result.googleOnly, usingCurrentLocation: false, showChip: false })
           } catch {
             if (!cancelled) setState({ kind: 'ready', foodkit: [], googleOnly: [], usingCurrentLocation: false, showChip: false })
           }
@@ -150,10 +169,10 @@ export default function GoogleSearchSection({ query, from, foodkitPlaceIds, serv
         try {
           const places = await fetchGooglePlaces(query, null, ac.signal)
           if (cancelled) return
-          const { foodkit, googleOnly } = await resolveAndSplit(places, supabaseRef.current, ids)
-          if (!cancelled) {
-            setState({ kind: 'ready', foodkit, googleOnly, usingCurrentLocation: false, showChip })
-          }
+          const result = await resolveAndSplit(places, supabaseRef.current, ids)
+          if (cancelled) return
+          if (!result.ok) { setState({ kind: 'split_error' }); return }
+          setState({ kind: 'ready', foodkit: result.foodkit, googleOnly: result.googleOnly, usingCurrentLocation: false, showChip })
         } catch {
           if (!cancelled) setState({ kind: 'ready', foodkit: [], googleOnly: [], usingCurrentLocation: false, showChip })
         }
@@ -177,8 +196,12 @@ export default function GoogleSearchSection({ query, from, foodkitPlaceIds, serv
     try {
       const loc = await requestCurrentLocation()
       const places = await fetchGooglePlaces(query, loc, new AbortController().signal)
-      const { foodkit, googleOnly } = await resolveAndSplit(places, supabaseRef.current, foodkitIdsRef.current)
-      setState({ kind: 'ready', foodkit, googleOnly, usingCurrentLocation: true, showChip: false })
+      const result = await resolveAndSplit(places, supabaseRef.current, foodkitIdsRef.current)
+      if (!result.ok) {
+        setState({ kind: 'split_error' })
+      } else {
+        setState({ kind: 'ready', foodkit: result.foodkit, googleOnly: result.googleOnly, usingCurrentLocation: true, showChip: false })
+      }
     } catch {
       setState({ kind: 'ready', foodkit: prevFoodkit, googleOnly: prevGoogleOnly, usingCurrentLocation: false, showChip: false })
     } finally {
@@ -199,6 +222,18 @@ export default function GoogleSearchSection({ query, from, foodkitPlaceIds, serv
             <div key={i} className="h-[66px] animate-pulse rounded-2xl bg-surface" />
           ))}
         </div>
+      </div>
+    )
+  }
+
+  // RPC failure: FoodKit classification failed — show clear error rather than misclassifying
+  if (state.kind === 'split_error') {
+    return (
+      <div className="mt-6 rounded-xl bg-red-50 px-4 py-4" role="alert">
+        <p className="text-sm font-medium text-red-600">お店の情報を取得できませんでした</p>
+        <p className="mt-1 text-xs text-red-500">
+          しばらくしてから再度お試しください
+        </p>
       </div>
     )
   }
@@ -307,7 +342,7 @@ export default function GoogleSearchSection({ query, from, foodkitPlaceIds, serv
 
           {currentGoogleOnly.length > 0 ? (
             <div className={isRefreshing ? 'pointer-events-none opacity-50' : ''}>
-              <GoogleCandidatesList places={currentGoogleOnly} query={query} from={from} />
+              <GoogleCandidatesList places={currentGoogleOnly} from={from} />
             </div>
           ) : (
             showChip && (
