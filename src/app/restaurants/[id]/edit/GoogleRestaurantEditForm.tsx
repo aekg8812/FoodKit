@@ -2,15 +2,15 @@
 
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import BottomNav from '@/components/BottomNav'
 import ErrorMessage from '@/components/ui/ErrorMessage'
 import RestaurantMainImage from '@/components/RestaurantMainImage'
 import { updateGoogleRestaurantImageAction } from './actions'
+import { compressImageIfNeeded, ImageFormatError, ImageTooLargeError } from '@/lib/image/compress'
 
 const RESTAURANT_IMAGE_BUCKET = 'restaurant-images'
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp']
 
 type Props = {
@@ -41,34 +41,67 @@ export default function GoogleRestaurantEditForm({
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imageAction, setImageAction] = useState<'keep' | 'replace' | 'delete'>('keep')
   const [imageError, setImageError] = useState<string | null>(null)
+  const [imageCompressing, setImageCompressing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const compressionTokenRef = useRef(0)
+  const objectUrlRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
+    }
+  }, [])
+
+  function revokeObjectUrl() {
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current)
+      objectUrlRef.current = null
+    }
+  }
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    e.target.value = ''
     setImageError(null)
 
     if (!ALLOWED_MIME.includes(file.type)) {
       setImageError('jpeg、png、webp の画像を選択してください')
-      e.target.value = ''
-      return
-    }
-    if (file.size > MAX_IMAGE_BYTES) {
-      setImageError('5MB以下の画像を選択してください')
-      e.target.value = ''
       return
     }
 
-    setImageFile(file)
-    setPreviewUrl(URL.createObjectURL(file))
-    setImageAction('replace')
+    const token = ++compressionTokenRef.current
+    setImageFile(null)
+    setImageCompressing(true)
+
+    compressImageIfNeeded(file).then((compressed) => {
+      if (compressionTokenRef.current !== token) return
+      revokeObjectUrl()
+      const url = URL.createObjectURL(compressed)
+      objectUrlRef.current = url
+      setImageFile(compressed)
+      setPreviewUrl(url)
+      setImageAction('replace')
+      setImageCompressing(false)
+    }).catch((err: unknown) => {
+      if (compressionTokenRef.current !== token) return
+      const msg = err instanceof ImageFormatError || err instanceof ImageTooLargeError
+        ? (err as Error).message
+        : '画像の処理に失敗しました'
+      setImageError(msg)
+      setImageFile(null)
+      setImageCompressing(false)
+    })
   }
 
   function handleDeleteImage() {
+    compressionTokenRef.current++
+    revokeObjectUrl()
     setPreviewUrl(null)
     setImageFile(null)
     setImageAction('delete')
+    setImageCompressing(false)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
@@ -162,6 +195,7 @@ export default function GoogleRestaurantEditForm({
           <div className="relative h-[160px] w-full overflow-hidden rounded-2xl">
             <RestaurantMainImage src={previewUrl} alt={displayName} />
           </div>
+          {imageCompressing && <p className="mt-1 text-xs text-ink-sub">画像を圧縮しています...</p>}
           {imageError && <p className="mt-1 text-xs text-red-600">{imageError}</p>}
           <div className="mt-2 flex gap-2">
             <button
@@ -197,10 +231,10 @@ export default function GoogleRestaurantEditForm({
 
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || imageCompressing}
           className="flex h-[56px] w-full items-center justify-center rounded-xl bg-terra text-base font-bold text-white disabled:opacity-50"
         >
-          {submitting ? '保存中...' : hasChanges ? '保存する' : '戻る'}
+          {imageCompressing ? '画像を処理中...' : submitting ? '保存中...' : hasChanges ? '保存する' : '戻る'}
         </button>
       </form>
 

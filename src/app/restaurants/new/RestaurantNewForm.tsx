@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import BottomNav from '@/components/BottomNav'
 import ErrorMessage from '@/components/ui/ErrorMessage'
@@ -15,9 +15,9 @@ import {
   type RestaurantSearchResult,
 } from '@/lib/restaurants/search'
 import { createRestaurantAction } from './actions'
+import { compressImageIfNeeded, ImageFormatError, ImageTooLargeError } from '@/lib/image/compress'
 
 const RESTAURANT_IMAGE_BUCKET = 'restaurant-images'
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp']
 
 type FormStep =
@@ -107,29 +107,52 @@ export default function RestaurantNewForm({
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
   const [imageError, setImageError] = useState<string | null>(null)
+  const [imageCompressing, setImageCompressing] = useState(false)
+  const compressionTokenRef = useRef(0)
+
+  useEffect(() => {
+    return () => {
+      if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
+    }
+  }, [imagePreviewUrl])
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    e.target.value = ''
     setImageError(null)
     if (!ALLOWED_MIME.includes(file.type)) {
       setImageError('jpeg、png、webp の画像を選択してください')
-      e.target.value = ''
       return
     }
-    if (file.size > MAX_IMAGE_BYTES) {
-      setImageError('5MB以下の画像を選択してください')
-      e.target.value = ''
-      return
-    }
-    setImageFile(file)
-    setImagePreviewUrl(URL.createObjectURL(file))
+    const token = ++compressionTokenRef.current
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
+    setImageFile(null)
+    setImagePreviewUrl(null)
+    setImageCompressing(true)
+    compressImageIfNeeded(file).then((compressed) => {
+      if (compressionTokenRef.current !== token) return
+      setImageFile(compressed)
+      setImagePreviewUrl(URL.createObjectURL(compressed))
+      setImageCompressing(false)
+    }).catch((err: unknown) => {
+      if (compressionTokenRef.current !== token) return
+      const msg = err instanceof ImageFormatError || err instanceof ImageTooLargeError
+        ? (err as Error).message
+        : '画像の処理に失敗しました'
+      setImageError(msg)
+      setImageFile(null)
+      setImageCompressing(false)
+    })
   }
 
   function handleClearImage() {
+    compressionTokenRef.current++
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
     setImageFile(null)
     setImagePreviewUrl(null)
     setImageError(null)
+    setImageCompressing(false)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
@@ -612,6 +635,7 @@ export default function RestaurantNewForm({
               </button>
             )}
 
+            {imageCompressing && <p className="mt-1 text-xs text-ink-sub">画像を圧縮しています...</p>}
             {imageError && <p className="mt-1 text-xs text-red-600">{imageError}</p>}
 
             <input
@@ -623,7 +647,7 @@ export default function RestaurantNewForm({
             />
 
             <p className="mt-2 text-xs text-ink-sub">
-              ※ jpeg・png・webp、5MB以下。外観・内観・料理など。
+              ※ jpeg・png・webp（大きい画像は自動圧縮）。外観・内観・料理など。
             </p>
           </div>
 
@@ -631,10 +655,10 @@ export default function RestaurantNewForm({
 
           <button
             type="submit"
-            disabled={submitting || !name.trim()}
+            disabled={submitting || imageCompressing || !name.trim()}
             className="flex h-[56px] w-full items-center justify-center gap-1.5 rounded-xl bg-terra text-base font-bold text-white disabled:opacity-50"
           >
-            {submitting ? '登録中...' : 'このお店を登録する'}
+            {imageCompressing ? '画像を処理中...' : submitting ? '登録中...' : 'このお店を登録する'}
             {!submitting && (
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
                 <path d="M9 18l6-6-6-6" />

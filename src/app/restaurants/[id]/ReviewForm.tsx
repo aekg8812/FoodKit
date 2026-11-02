@@ -11,6 +11,7 @@ import ErrorMessage from '@/components/ui/ErrorMessage'
 import ReasonTagSelector from '@/components/review/ReasonTagSelector'
 import RestaurantLabelSelector from '@/components/review/RestaurantLabelSelector'
 import { RATING_LABELS, RATING_ACTIVE_CLASS } from '@/lib/rating/colors'
+import { compressImageIfNeeded, ImageFormatError, ImageTooLargeError } from '@/lib/image/compress'
 
 export type ExistingReview = {
   id: string
@@ -39,9 +40,7 @@ const RATING_EMOJI: Record<number, string> = {
   1: '😞',
 }
 
-// レビュー画像: V1は1枚、5MB以下のJPEG・PNG・WebPに限定する
 const REVIEW_IMAGE_BUCKET = 'review-images'
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 
 function logError(err: unknown) {
@@ -84,6 +83,7 @@ export default function ReviewForm({ restaurantId, existingReview, successRedire
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
   const [removeExistingImage, setRemoveExistingImage] = useState(false)
+  const [imageCompressing, setImageCompressing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const today = getLocalToday()
@@ -91,6 +91,7 @@ export default function ReviewForm({ restaurantId, existingReview, successRedire
   const prevPolarityRef = useRef<'positive' | 'negative' | null>(
     existingReview ? (existingReview.rating >= 3 ? 'positive' : 'negative') : null
   )
+  const compressionTokenRef = useRef(0)
 
   function handleRatingChange(newRating: number) {
     const newPolarity = newRating >= 3 ? 'positive' : 'negative'
@@ -120,22 +121,39 @@ export default function ReviewForm({ restaurantId, existingReview, successRedire
       setError('JPEG・PNG・WebP形式の画像を選んでください')
       return
     }
-    if (file.size > MAX_IMAGE_SIZE) {
-      setError('画像は5MB以下にしてください')
-      return
-    }
 
-    setImageFile(file)
-    setImagePreviewUrl(URL.createObjectURL(file))
-    setRemoveExistingImage(false)
+    const token = ++compressionTokenRef.current
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
+    setImageFile(null)
+    setImagePreviewUrl(null)
     setError(null)
+    setImageCompressing(true)
+
+    compressImageIfNeeded(file).then((compressed) => {
+      if (compressionTokenRef.current !== token) return
+      setImageFile(compressed)
+      setImagePreviewUrl(URL.createObjectURL(compressed))
+      setRemoveExistingImage(false)
+      setImageCompressing(false)
+    }).catch((err: unknown) => {
+      if (compressionTokenRef.current !== token) return
+      const msg = err instanceof ImageFormatError || err instanceof ImageTooLargeError
+        ? (err as Error).message
+        : '画像の処理に失敗しました'
+      setError(msg)
+      setImageFile(null)
+      setImageCompressing(false)
+    })
   }
 
   function removeImage() {
+    compressionTokenRef.current++
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
     setImageFile(null)
     setImagePreviewUrl(null)
     setRemoveExistingImage(true)
     setError(null)
+    setImageCompressing(false)
   }
 
   function buildImagePath(userId: string, reviewId: string, file: File) {
@@ -388,7 +406,7 @@ export default function ReviewForm({ restaurantId, existingReview, successRedire
               ＋
             </span>
             <span className="text-sm font-medium text-ink">写真を追加</span>
-            <span className="mt-1 text-xs text-ink-sub">JPEG・PNG・WebP、5MBまで</span>
+            <span className="mt-1 text-xs text-ink-sub">JPEG・PNG・WebP（大きい画像は自動圧縮）</span>
           </label>
         )}
         <input
@@ -401,6 +419,10 @@ export default function ReviewForm({ restaurantId, existingReview, successRedire
         />
       </div>
 
+      {imageCompressing && (
+        <p className="text-xs text-ink-sub">画像を圧縮しています...</p>
+      )}
+
       {error && <ErrorMessage message={error} />}
 
       <p className="text-xs text-ink-sub">
@@ -409,7 +431,7 @@ export default function ReviewForm({ restaurantId, existingReview, successRedire
 
       <Button
         type="submit"
-        disabled={submitting || rating === null}
+        disabled={submitting || imageCompressing || rating === null}
       >
         {submitting
           ? '送信中...'

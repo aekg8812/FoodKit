@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Suspense } from 'react'
 import BottomNav from '@/components/BottomNav'
 import BackButton from '@/components/BackButton'
+import DeleteRecordButton from './DeleteRecordButton'
 import { logPageAuthRequest } from '@/lib/diagnostics/authRequests'
 import { getUserState } from '@/lib/auth/getUserState'
 import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
@@ -246,20 +247,24 @@ export default async function RecordDetailPage({ params }: PageProps) {
   return (
     <main className="min-h-screen bg-canvas pb-24">
       {/* Header */}
-      <div className="flex items-center border-b border-edge bg-canvas px-4 pt-14 pb-3">
+      <div className="relative flex items-center border-b border-edge bg-canvas px-4 pt-14 pb-3">
+        {/* Left: back button */}
         <Suspense>
           <BackButton fallbackHref={review.restaurant_id ? `/restaurants/${review.restaurant_id}` : '/home'} label="" />
         </Suspense>
-        <h1 className="flex-1 text-center text-base font-bold text-ink">記録詳細</h1>
-        {isOwn ? (
-          <Link
-            href={`/records/${reviewId}/edit`}
-            className="flex h-10 items-center justify-center px-1 text-sm font-bold text-terra"
-          >
-            編集
-          </Link>
-        ) : (
-          <div className="w-10" />
+        {/* Center: title — absolute so it stays screen-centered regardless of button widths */}
+        <h1 className="pointer-events-none absolute inset-x-0 text-center text-base font-bold text-ink">記録詳細</h1>
+        {/* Right: edit + delete (own records only) */}
+        {isOwn && (
+          <div className="ml-auto flex items-center">
+            <Link
+              href={`/records/${reviewId}/edit`}
+              className="flex h-11 items-center justify-center px-2 text-sm font-bold text-terra"
+            >
+              編集
+            </Link>
+            <DeleteRecordButton reviewId={reviewId} imagePath={review.image_path} />
+          </div>
         )}
       </div>
 
