@@ -2,14 +2,14 @@
 
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import BottomNav from '@/components/BottomNav'
 import ErrorMessage from '@/components/ui/ErrorMessage'
 import RestaurantMainImage from '@/components/RestaurantMainImage'
+import { compressImageIfNeeded, ImageFormatError, ImageTooLargeError } from '@/lib/image/compress'
 
 const RESTAURANT_IMAGE_BUCKET = 'restaurant-images'
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp']
 
 type Props = {
@@ -45,39 +45,72 @@ export default function RestaurantImageForm({
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [pendingDelete, setPendingDelete] = useState(false)
   const [imageError, setImageError] = useState<string | null>(null)
+  const [imageCompressing, setImageCompressing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const compressionTokenRef = useRef(0)
+  const objectUrlRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
+    }
+  }, [])
+
+  function revokeObjectUrl() {
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current)
+      objectUrlRef.current = null
+    }
+  }
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    e.target.value = ''
     setImageError(null)
     setPendingDelete(false)
 
     if (!ALLOWED_MIME.includes(file.type)) {
       setImageError('jpeg、png、webp の画像を選択してください')
-      e.target.value = ''
-      return
-    }
-    if (file.size > MAX_IMAGE_BYTES) {
-      setImageError('5MB以下の画像を選択してください')
-      e.target.value = ''
       return
     }
 
-    setImageFile(file)
-    setPreviewUrl(URL.createObjectURL(file))
+    const token = ++compressionTokenRef.current
+    setImageFile(null)
+    setImageCompressing(true)
+
+    compressImageIfNeeded(file).then((compressed) => {
+      if (compressionTokenRef.current !== token) return
+      revokeObjectUrl()
+      const url = URL.createObjectURL(compressed)
+      objectUrlRef.current = url
+      setImageFile(compressed)
+      setPreviewUrl(url)
+      setImageCompressing(false)
+    }).catch((err: unknown) => {
+      if (compressionTokenRef.current !== token) return
+      const msg = err instanceof ImageFormatError || err instanceof ImageTooLargeError
+        ? (err as Error).message
+        : '画像の処理に失敗しました'
+      setImageError(msg)
+      setImageFile(null)
+      setImageCompressing(false)
+    })
   }
 
   function handleCancelSelect() {
+    compressionTokenRef.current++
+    revokeObjectUrl()
     setImageFile(null)
     setPreviewUrl(currentImageSignedUrl)
     setImageError(null)
+    setImageCompressing(false)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   async function handleAddOrReplace() {
-    if (!imageFile || submitting) return
+    if (!imageFile || submitting || imageCompressing) return
     setSubmitting(true)
     setError(null)
 
@@ -214,7 +247,8 @@ export default function RestaurantImageForm({
           <div className="relative h-[200px] w-full overflow-hidden rounded-2xl">
             <RestaurantMainImage src={previewUrl} alt={restaurantName} />
           </div>
-          {imageError && <p className="mt-1.5 text-xs text-red-600">{imageError}</p>}
+          {imageCompressing && <p className="mt-1.5 text-xs text-ink-sub">画像を圧縮しています...</p>}
+        {imageError && <p className="mt-1.5 text-xs text-red-600">{imageError}</p>}
         </div>
 
         {/* Image actions */}
@@ -297,10 +331,10 @@ export default function RestaurantImageForm({
           <button
             type="button"
             onClick={() => void handleAddOrReplace()}
-            disabled={submitting}
+            disabled={submitting || imageCompressing}
             className="flex h-[56px] w-full items-center justify-center rounded-xl bg-terra text-base font-bold text-white disabled:opacity-50"
           >
-            {submitting ? '保存中...' : '保存する'}
+            {imageCompressing ? '画像を処理中...' : submitting ? '保存中...' : '保存する'}
           </button>
         )}
 

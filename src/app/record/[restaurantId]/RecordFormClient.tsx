@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import ReasonTagSelector from '@/components/review/ReasonTagSelector'
 import RestaurantLabelSelector from '@/components/review/RestaurantLabelSelector'
 import { RATING_BG, RATING_TEXT, RATING_ACCENT_BORDER, RATING_ACCENT_DOT } from '@/lib/rating/colors'
+import { compressImageIfNeeded, ImageFormatError, ImageTooLargeError } from '@/lib/image/compress'
 
 export type ExistingReview = {
   id: string
@@ -42,7 +43,6 @@ const RATING_OPTIONS: { value: number; label: string; sub: string }[] = [
 ]
 
 const REVIEW_IMAGE_BUCKET = 'review-images'
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const MAX_COMMENT = 200
 
@@ -89,6 +89,7 @@ export default function RecordFormClient({ restaurantId, restaurant, existingRev
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
   const [removeExistingImage, setRemoveExistingImage] = useState(false)
+  const [imageCompressing, setImageCompressing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -96,6 +97,7 @@ export default function RecordFormClient({ restaurantId, restaurant, existingRev
   const prevPolarityRef = useRef<'positive' | 'negative' | null>(
     rating !== null ? (rating >= 3 ? 'positive' : 'negative') : null
   )
+  const compressionTokenRef = useRef(0)
 
   function handleRatingChange(newRating: number) {
     const newPolarity = newRating >= 3 ? 'positive' : 'negative'
@@ -124,21 +126,39 @@ export default function RecordFormClient({ restaurantId, restaurant, existingRev
       setError('JPEG・PNG・WebP形式の画像を選んでください')
       return
     }
-    if (file.size > MAX_IMAGE_SIZE) {
-      setError('画像は5MB以下にしてください')
-      return
-    }
-    setImageFile(file)
-    setImagePreviewUrl(URL.createObjectURL(file))
-    setRemoveExistingImage(false)
+
+    const token = ++compressionTokenRef.current
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
+    setImageFile(null)
+    setImagePreviewUrl(null)
     setError(null)
+    setImageCompressing(true)
+
+    compressImageIfNeeded(file).then((compressed) => {
+      if (compressionTokenRef.current !== token) return
+      setImageFile(compressed)
+      setImagePreviewUrl(URL.createObjectURL(compressed))
+      setRemoveExistingImage(false)
+      setImageCompressing(false)
+    }).catch((err: unknown) => {
+      if (compressionTokenRef.current !== token) return
+      const msg = err instanceof ImageFormatError || err instanceof ImageTooLargeError
+        ? (err as Error).message
+        : '画像の処理に失敗しました'
+      setError(msg)
+      setImageFile(null)
+      setImageCompressing(false)
+    })
   }
 
   function removeImage() {
+    compressionTokenRef.current++
+    if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
     setImageFile(null)
     setImagePreviewUrl(null)
     setRemoveExistingImage(true)
     setError(null)
+    setImageCompressing(false)
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -455,6 +475,10 @@ export default function RecordFormClient({ restaurantId, restaurant, existingRev
           </p>
         </div>
 
+        {imageCompressing && (
+          <p className="rounded-xl bg-canvas px-4 py-3 text-sm text-ink-sub">画像を圧縮しています...</p>
+        )}
+
         {error && (
           <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>
         )}
@@ -462,7 +486,7 @@ export default function RecordFormClient({ restaurantId, restaurant, existingRev
         {/* Submit */}
         <button
           type="submit"
-          disabled={submitting || rating === null}
+          disabled={submitting || imageCompressing || rating === null}
           className="flex h-[56px] w-full items-center justify-center rounded-xl bg-terra text-base font-bold text-white disabled:opacity-50"
         >
           {submitting ? '記録中...' : '記録する'}

@@ -308,7 +308,7 @@ export default async function GroupDetailPage({ params }: GroupDetailPageProps) 
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-bold text-ink">メンバーの最近の記録</h2>
               <Link
-                href={`/groups/${groupId}/recommendations`}
+                href={`/groups/${groupId}/records`}
                 className="text-xs text-terra"
               >
                 もっと見る ›
