@@ -9,12 +9,13 @@ import UserProfileSection from '@/components/mypage/UserProfileSection'
 import { type UserProfileRow } from '@/lib/users/profile'
 import { RATING_BG, RATING_TEXT } from '@/lib/rating/colors'
 
-type RecentReviewRow = {
+type RecentVisitRow = {
   id: string
   rating: number
   comment: string | null
   visit_date: string | null
   image_path: string | null
+  created_at: string
   restaurants: { id: string; name: string | null; source: string; external_place_id: string | null; main_image_path: string | null } | null
 }
 
@@ -64,9 +65,10 @@ export default async function MypagePage() {
       .select('id, rating, restaurant_id')
       .eq('user_id', user.id),
     supabase
-      .from('reviews')
-      .select('id, rating, comment, visit_date, image_path, restaurants(id, name, source, external_place_id, main_image_path)')
+      .from('restaurant_visits')
+      .select('id, rating, comment, visit_date, image_path, created_at, restaurants(id, name, source, external_place_id, main_image_path)')
       .eq('user_id', user.id)
+      .order('visit_date', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false })
       .order('id', { ascending: false })
       .limit(3),
@@ -96,7 +98,7 @@ export default async function MypagePage() {
     if (r.rating >= 1 && r.rating <= 4) ratingCounts[r.rating]++
   }
 
-  const recentRows = (recentReviewsResult.data ?? []) as unknown as RecentReviewRow[]
+  const recentRows = (recentReviewsResult.data ?? []) as unknown as RecentVisitRow[]
   const followCounts = followCountsResult.data?.[0] ?? { following_count: 0, follower_count: 0 }
   const userProfileRows = (userProfileResult.data ?? []) as unknown as UserProfileRow[]
 
@@ -107,7 +109,6 @@ export default async function MypagePage() {
     })
     .filter((c): c is { label: string; sort_order: number } => c !== null)
     .sort((a, b) => a.sort_order - b.sort_order)
-    .slice(0, 5)
 
   // Signed URLs for recent review images
   const imagePaths = [
@@ -240,7 +241,7 @@ export default async function MypagePage() {
               <h2 className="font-bold text-ink">あなたの好み</h2>
               <p className="text-xs text-ink-sub">店選びで大切にしていること</p>
             </div>
-            <Link href="/mypage/food-preferences" className="text-sm font-medium text-terra">
+            <Link href="/mypage/food-preferences/edit" className="text-sm font-medium text-terra">
               編集 ›
             </Link>
           </div>
@@ -335,7 +336,7 @@ export default async function MypagePage() {
                 return (
                   <Link
                     key={review.id}
-                    href={`/records/${review.id}`}
+                    href={`/visits/${review.id}`}
                     className="flex items-center gap-3 p-3 hover:bg-canvas"
                   >
                     {/* Thumbnail */}

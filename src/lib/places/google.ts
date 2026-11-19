@@ -104,6 +104,34 @@ export async function searchGooglePlaces(
   }
 }
 
+export async function getGooglePlaceLocation(placeId: string): Promise<{ lat: number; lng: number } | null> {
+  if (!GOOGLE_PLACES_API_KEY) return null
+  if (!placeId.trim()) return null
+  try {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+    const res = await fetch(
+      `${PLACES_API_BASE}/places/${encodeURIComponent(placeId)}?languageCode=ja&regionCode=JP`,
+      {
+        method: 'GET',
+        headers: {
+          'X-Goog-Api-Key': GOOGLE_PLACES_API_KEY,
+          'X-Goog-FieldMask': 'location',
+        },
+        cache: 'no-store',
+        signal: controller.signal,
+      },
+    )
+    clearTimeout(timer)
+    if (!res.ok) return null
+    const json = (await res.json()) as { location?: { latitude: number; longitude: number } }
+    if (!json.location) return null
+    return { lat: json.location.latitude, lng: json.location.longitude }
+  } catch {
+    return null
+  }
+}
+
 export async function getGooglePlaceDetails(placeId: string): Promise<{
   displayName: string | null
   formattedAddress: string | null

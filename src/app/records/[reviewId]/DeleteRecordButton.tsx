@@ -5,11 +5,33 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 type Props = {
-  reviewId: string
+  visitId: string | null
+  restaurantId: string
   imagePath: string | null
 }
 
-export default function DeleteRecordButton({ reviewId, imagePath }: Props) {
+type DeleteVisitResult = {
+  deleted: boolean
+  review_deleted: boolean
+  was_representative: boolean
+  deleted_image_path: string | null
+  new_rep_visit_id?: string
+}
+
+async function safeDeleteImage(
+  supabase: ReturnType<typeof import('@/lib/supabase/client').createClient>,
+  path: string,
+) {
+  const [{ count: visitRefs }, { count: reviewRefs }] = await Promise.all([
+    supabase.from('restaurant_visits').select('id', { count: 'exact', head: true }).eq('image_path', path),
+    supabase.from('reviews').select('id', { count: 'exact', head: true }).eq('image_path', path),
+  ])
+  if ((visitRefs ?? 1) === 0 && (reviewRefs ?? 1) === 0) {
+    await supabase.storage.from('review-images').remove([path]).catch(() => {})
+  }
+}
+
+export default function DeleteRecordButton({ visitId, restaurantId, imagePath }: Props) {
   const router = useRouter()
   const supabase = createClient()
 
@@ -29,27 +51,38 @@ export default function DeleteRecordButton({ reviewId, imagePath }: Props) {
   }
 
   async function handleDelete() {
+    if (!visitId) {
+      setError('この記録は削除できません。')
+      return
+    }
+
     setDeleting(true)
     setError(null)
 
-    const { data, error: deleteError } = await supabase
-      .from('reviews')
-      .delete()
-      .eq('id', reviewId)
-      .select('id')
+    const { data, error: rpcError } = await supabase.rpc('delete_visit', {
+      p_visit_id: visitId,
+    })
 
-    if (deleteError || !data || data.length !== 1) {
+    if (rpcError) {
       setError('記録を削除できませんでした。時間をおいて再度お試しください')
       setDeleting(false)
       return
     }
 
-    // Storage image deletion is best-effort — orphan is acceptable
-    if (imagePath) {
-      await supabase.storage.from('review-images').remove([imagePath])
+    const result = data as DeleteVisitResult
+
+    // Safe image cleanup — only after confirmed DB deletion
+    if (result.deleted_image_path) {
+      await safeDeleteImage(supabase, result.deleted_image_path)
     }
 
-    router.push('/mypage/records')
+    if (result.review_deleted) {
+      // Last visit deleted → no more visits for this restaurant
+      router.push('/mypage/records')
+    } else {
+      // Visits remain → show remaining visit history for this restaurant
+      router.push(`/mypage/records/${restaurantId}`)
+    }
   }
 
   return (
@@ -57,8 +90,9 @@ export default function DeleteRecordButton({ reviewId, imagePath }: Props) {
       <button
         type="button"
         onClick={openDialog}
+        disabled={!visitId}
         aria-label="記録を削除"
-        className="flex h-11 w-11 items-center justify-center text-ink-sub"
+        className="flex h-11 w-11 items-center justify-center text-ink-sub disabled:opacity-40"
       >
         <svg
           width="20"
@@ -94,9 +128,7 @@ export default function DeleteRecordButton({ reviewId, imagePath }: Props) {
             </p>
 
             {error && (
-              <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">
-                {error}
-              </p>
+              <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>
             )}
 
             <div className="mt-6 grid grid-cols-2 gap-3">

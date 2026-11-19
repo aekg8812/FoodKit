@@ -226,6 +226,22 @@ export default async function RecordDetailPage({ params }: PageProps) {
     ? await resolveRestaurantDisplay(restaurant)
     : null
 
+  // For own records: look up representative visit (order matches upsert_visit representative logic)
+  let repVisitId: string | null = null
+  if (isOwn && review.restaurant_id) {
+    const { data: repVisit } = await supabase
+      .from('restaurant_visits')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('restaurant_id', review.restaurant_id)
+      .order('visit_date', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    repVisitId = (repVisit as { id: string } | null)?.id ?? null
+  }
+
   // Fetch evaluation/feature tags — errors are non-fatal (never crash the page)
   type LearningSignals = { reason_keys: string[]; label_keys: string[] }
   let reasonKeys: string[] = []
@@ -257,13 +273,19 @@ export default async function RecordDetailPage({ params }: PageProps) {
         {/* Right: edit + delete (own records only) */}
         {isOwn && (
           <div className="ml-auto flex items-center">
-            <Link
-              href={`/records/${reviewId}/edit`}
-              className="flex h-11 items-center justify-center px-2 text-sm font-bold text-terra"
-            >
-              編集
-            </Link>
-            <DeleteRecordButton reviewId={reviewId} imagePath={review.image_path} />
+            {repVisitId && (
+              <Link
+                href={`/visits/${repVisitId}/edit`}
+                className="flex h-11 items-center justify-center px-2 text-sm font-bold text-terra"
+              >
+                編集
+              </Link>
+            )}
+            <DeleteRecordButton
+              visitId={repVisitId}
+              restaurantId={review.restaurant_id}
+              imagePath={review.image_path}
+            />
           </div>
         )}
       </div>

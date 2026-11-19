@@ -28,7 +28,7 @@ export default async function FoodPreferencesEditPage() {
       .eq('user_id', user.id),
   ])
 
-  if (cardsResult.error || !cardsResult.data) redirect('/mypage/food-preferences')
+  if (cardsResult.error || !cardsResult.data) redirect('/mypage')
 
   const initialKeys = (selectionResult.data ?? [])
     .map((row) => {
@@ -40,10 +40,9 @@ export default async function FoodPreferencesEditPage() {
 
   return (
     <div className="min-h-screen bg-canvas">
-      <div className="px-6 pt-6">
-        <div className="mx-auto w-full max-w-md">
-          <PageHeader title="好みを編集" back={{ href: '/mypage/food-preferences' }} />
-        </div>
+      {/* Page header — only header; PreferenceCardsForm no longer renders its own */}
+      <div className="px-4 pt-14 pb-2">
+        <PageHeader title="好みを編集" back={{ href: '/mypage' }} />
       </div>
       <PreferenceCardsForm
         cards={cardsResult.data}

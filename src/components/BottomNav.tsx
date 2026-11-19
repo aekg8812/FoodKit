@@ -12,11 +12,11 @@ function IconHome({ active }: { active: boolean }) {
   )
 }
 
-function IconSearch({ active }: { active: boolean }) {
+function IconLogbook({ active }: { active: boolean }) {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="11" cy="11" r="7" />
-      <path d="M21 21l-4.35-4.35" />
+      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
     </svg>
   )
 }
@@ -51,11 +51,11 @@ function IconMypage({ active }: { active: boolean }) {
 }
 
 const NAV_ITEMS = [
-  { href: '/home',   label: 'ホーム',     Icon: IconHome },
-  { href: '/search', label: '検索',       Icon: IconSearch },
-  { href: '/record', label: '記録',       Icon: IconRecord },
-  { href: '/groups', label: 'グループ',   Icon: IconGroups },
-  { href: '/mypage', label: 'マイページ', Icon: IconMypage },
+  { href: '/home',    label: 'ホーム',     Icon: IconHome },
+  { href: '/logbook', label: '記録帳',     Icon: IconLogbook },
+  { href: '/record',  label: '記録',       Icon: IconRecord },
+  { href: '/groups',  label: 'グループ',   Icon: IconGroups },
+  { href: '/mypage',  label: 'マイページ', Icon: IconMypage },
 ] as const
 
 export default function BottomNav() {
@@ -65,8 +65,8 @@ export default function BottomNav() {
     if (href === '/home') {
       return pathname === '/home' || pathname.startsWith('/notifications')
     }
-    if (href === '/search') {
-      return pathname === '/search' || pathname.startsWith('/search/')
+    if (href === '/logbook') {
+      return pathname === '/logbook' || pathname.startsWith('/logbook/')
     }
     if (href === '/record') {
       return pathname === '/record' || pathname.startsWith('/record/') || pathname.startsWith('/records/')

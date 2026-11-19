@@ -41,3 +41,14 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 supabase/.temp/
+
+# design reference files (local only, not needed in repo)
+docs/design/
+design-reference/
+
+# Windows zone identifier metadata files
+*.Zone.Identifier
+
+# DB backup files
+*_backup*.sql
+*_backup*.dump

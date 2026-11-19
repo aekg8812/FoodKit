@@ -54,6 +54,9 @@ export default function GooglePlaceRecordForm({
   const supabase = createClient()
   const today = getLocalToday()
 
+  // Idempotency key — fixed per form mount to prevent double-submission
+  const idempotencyKeyRef = useRef<string>(crypto.randomUUID())
+
   const [rating, setRating] = useState<number | null>(null)
   const [reasonKeys, setReasonKeys] = useState<string[]>([])
   const [labelKeys, setLabelKeys] = useState<string[]>([])
@@ -129,7 +132,11 @@ export default function GooglePlaceRecordForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (rating === null) return
-    if (visitDate && visitDate > today) {
+    if (!visitDate) {
+      setError('訪問日を選択してください')
+      return
+    }
+    if (visitDate > today) {
       setError('未来の日付は選択できません')
       return
     }
@@ -139,7 +146,7 @@ export default function GooglePlaceRecordForm({
     let uploadedImagePath: string | null = null
 
     try {
-      // Upload image first (before calling RPC so we have the path)
+      // Upload image first so we can pass the path atomically to the RPC
       if (imageFile) {
         const {
           data: { user },
@@ -152,7 +159,7 @@ export default function GooglePlaceRecordForm({
             : imageFile.type === 'image/webp'
               ? 'webp'
               : 'jpg'
-        uploadedImagePath = `${user.id}/${crypto.randomUUID()}.${ext}`
+        uploadedImagePath = `${user.id}/visits/${crypto.randomUUID()}.${ext}`
 
         const { error: uploadError } = await supabase.storage
           .from(REVIEW_IMAGE_BUCKET)
@@ -169,22 +176,19 @@ export default function GooglePlaceRecordForm({
         imagePath: uploadedImagePath,
         reasonKeys,
         labelKeys,
+        clientIdempotencyKey: idempotencyKeyRef.current,
       })
 
       if (!result.ok) {
-        if (uploadedImagePath) {
-          await supabase.storage.from(REVIEW_IMAGE_BUCKET).remove([uploadedImagePath])
-        }
+        // Don't delete uploadedImagePath — the server action may have succeeded with a lost response
         setError(result.error)
         setSubmitting(false)
         return
       }
 
-      router.push(`/restaurants/${result.restaurantId}`)
+      router.push(`/visits/${result.visitId}`)
     } catch {
-      if (uploadedImagePath) {
-        await supabase.storage.from(REVIEW_IMAGE_BUCKET).remove([uploadedImagePath])
-      }
+      // Don't delete uploadedImagePath — the action may have succeeded with a lost response
       setError('エラーが発生しました。時間をおいて再度お試しください')
       setSubmitting(false)
     }
@@ -381,9 +385,9 @@ export default function GooglePlaceRecordForm({
         </div>
 
         {/* Visit date */}
-        <div className="flex items-center justify-between border-b border-edge py-3">
-          <span className="font-black text-ink">訪問日</span>
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-ink">
+        <div className="flex items-center justify-between overflow-hidden border-b border-edge py-3">
+          <span className="shrink-0 font-black text-ink">訪問日</span>
+          <label className="relative flex cursor-pointer items-center gap-2 text-sm text-ink">
             <span>{visitDate ? formatVisitDate(visitDate) : '未設定'}</span>
             <svg
               width="16"
@@ -405,7 +409,7 @@ export default function GooglePlaceRecordForm({
               height="14"
               viewBox="0 0 8 14"
               fill="none"
-              className="text-terra"
+              className="shrink-0 text-terra"
               aria-hidden="true"
             >
               <path
@@ -421,7 +425,7 @@ export default function GooglePlaceRecordForm({
               value={visitDate}
               max={today}
               onChange={(e) => setVisitDate(e.target.value)}
-              className="sr-only"
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
             />
           </label>
         </div>

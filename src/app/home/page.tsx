@@ -2,72 +2,67 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
-import RestaurantMainImage from '@/components/RestaurantMainImage'
 import { getUserState } from '@/lib/auth/getUserState'
 import { createClient } from '@/lib/supabase/server'
 import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
-import { RATING_BG, RATING_TEXT } from '@/lib/rating/colors'
+import {
+  RATING_BG,
+  RATING_TEXT,
+  RATING_BORDER,
+  RATING_LABELS,
+} from '@/lib/rating/colors'
+import RatingBadgeIcon from '@/app/logbook/RatingBadgeIcon'
 
-// ── Types ─────────────────────────────────────────────────────────────────
+// ── Types ──────────────────────────────────────────────────────────────────
 
-type FolloweeRow    = { followee_id: string }
-type GroupMemberRow = { group_id: string }
-type ReviewRow      = {
+type HomeStats = {
+  this_month_count: number
+  again_count: number
+  new_places_count: number
+}
+
+type FolloweeRow = { followee_id: string }
+type ReviewRow = {
   id: string
   restaurant_id: string
   rating: number
   comment: string | null
-  visit_date: string | null
-  created_at: string
   image_path: string | null
   user_id: string
 }
-type RestaurantRow  = { id: string; name: string | null; source: string; external_place_id: string | null; area: string | null; genre: string | null; main_image_path: string | null }
-type ProfileRow     = { id: string; username: string; name: string | null; avatar_path: string | null }
-type GroupRow       = { id: string; name: string }
-type RecRow         = {
-  restaurant_id: string
+type RestaurantRow = {
+  id: string
   name: string | null
   source: string
   external_place_id: string | null
   area: string | null
   genre: string | null
   main_image_path: string | null
-  personal_score: number
-  evidence_count: number
-  followed_evidence_count: number
-  similar_evidence_count: number
+}
+type ProfileRow = { id: string; username: string; name: string | null }
+
+const LABEL_LABEL: Record<string, string> = {
+  solo: 'ひとり向き',
+  friends: '友達向き',
+  date: 'デート向き',
+  large_group: '大人数向き',
+  calm: '落ち着く',
+  lively: 'にぎやか',
+  stylish: 'おしゃれ',
+  casual: 'カジュアル',
+  quick: 'サクッと利用',
+  long_stay: '長居しやすい',
+  hearty: 'がっつり',
+  photogenic: '写真映え',
 }
 
-// ── Rating chip ────────────────────────────────────────────────────────────
-
-const SHORT_RATING: Record<number, { label: string; bg: string }> = {
-  4: { label: '常連になりたい', bg: `${RATING_BG[4]} ${RATING_TEXT[4]}` },
-  3: { label: 'また行きたい',   bg: `${RATING_BG[3]} ${RATING_TEXT[3]}` },
-  2: { label: '一度で十分',    bg: `${RATING_BG[2]} ${RATING_TEXT[2]}` },
-  1: { label: '二度と行かない', bg: `${RATING_BG[1]} ${RATING_TEXT[1]}` },
-}
-
-function RatingChip({ rating }: { rating: number }) {
-  const meta = SHORT_RATING[rating]
-  if (!meta) return null
-  return (
-    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${meta.bg}`}>
-      {meta.label}
-    </span>
-  )
-}
-
-// ── Helper ─────────────────────────────────────────────────────────────────
-
-function evidenceBadgeText(rec: RecRow): string {
-  if (rec.similar_evidence_count > 0) {
-    return `あなたと好みが近い${rec.similar_evidence_count}人が「また行きたい」`
-  }
-  if (rec.followed_evidence_count > 0) {
-    return `フォロー中の${rec.followed_evidence_count}人が「また行きたい」`
-  }
-  return `${rec.evidence_count}件の記録から`
+const REASON_LABEL: Record<string, string> = {
+  taste: '味',
+  value: 'コスパ',
+  atmosphere: '雰囲気',
+  service: '接客',
+  volume: 'ボリューム',
+  access: 'アクセス',
 }
 
 // ── Page ───────────────────────────────────────────────────────────────────
@@ -81,439 +76,557 @@ export default async function HomePage() {
   const state = await getUserState(supabase, user)
   if (state === 'no_onboarding') redirect('/onboarding')
 
-  // ── Phase 1: parallel independent fetches ───────────────────────────────
-  const [
-    unreadResult,
-    followeeResult,
-    recsResult,
-    groupMemberResult,
-  ] = await Promise.all([
-    supabase
-      .from('notifications')
-      .select('id', { count: 'exact', head: true })
-      .eq('recipient_user_id', user.id)
-      .is('read_at', null),
+  // ── Parallel fetches ──────────────────────────────────────────────────
+  const [statsResult, followeeResult] = await Promise.all([
+    supabase.rpc('get_home_stats'),
     supabase
       .from('follows')
       .select('followee_id')
       .eq('follower_id', user.id)
       .eq('status', 'accepted'),
-    supabase.rpc('get_personal_recommendations_v2', { p_limit: 4 }),
-    supabase.from('group_members').select('group_id').eq('user_id', user.id).limit(4),
   ])
 
-  const unreadCount    = unreadResult.count ?? 0
-  const followeeIds    = ((followeeResult.data ?? []) as FolloweeRow[]).map(f => f.followee_id)
-  const recs           = ((recsResult.data ?? []) as RecRow[])
-  const groupMemberIds = ((groupMemberResult.data ?? []) as GroupMemberRow[]).map(g => g.group_id)
+  const rawStats = (statsResult.data as unknown as HomeStats[] | null)?.[0]
+  const statsError = statsResult.error
+  const stats: HomeStats = {
+    this_month_count: Number(rawStats?.this_month_count ?? 0),
+    again_count: Number(rawStats?.again_count ?? 0),
+    new_places_count: Number(rawStats?.new_places_count ?? 0),
+  }
 
-  // ── Phase 2: dependent on followees + group IDs ─────────────────────────
-  const [recentReviewsResult, groupDetailsResult] = await Promise.all([
-    followeeIds.length > 0
-      ? supabase
-          .from('reviews')
-          .select('id, restaurant_id, rating, comment, visit_date, created_at, image_path, user_id')
-          .in('user_id', followeeIds)
-          .order('created_at', { ascending: false })
-          .limit(3)
-      : { data: [] as ReviewRow[], error: null },
-    groupMemberIds.length > 0
-      ? supabase.from('groups').select('id, name').in('id', groupMemberIds)
-      : { data: [] as GroupRow[], error: null },
-  ])
+  const followeeIds = ((followeeResult.data ?? []) as FolloweeRow[]).map(
+    (f) => f.followee_id,
+  )
 
-  const reviews = ((recentReviewsResult.data ?? []) as ReviewRow[])
-  const groups  = ((groupDetailsResult.data ?? []) as GroupRow[])
+  // ── Reviews from followees ────────────────────────────────────────────
+  const { data: reviewData } = followeeIds.length > 0
+    ? await supabase
+        .from('reviews')
+        .select('id, restaurant_id, rating, comment, image_path, user_id')
+        .in('user_id', followeeIds)
+        .order('created_at', { ascending: false })
+        .limit(3)
+    : { data: [] as ReviewRow[] }
 
-  // ── Phase 3: dependent on reviews ───────────────────────────────────────
-  const reviewRestaurantIds = [...new Set(reviews.map(r => r.restaurant_id))]
-  const reviewAuthorIds     = [...new Set(reviews.map(r => r.user_id))]
+  const reviews = (reviewData ?? []) as ReviewRow[]
 
-  const [reviewRestaurantsResult, reviewProfilesResult] = await Promise.all([
+  // ── Restaurant + profile data ─────────────────────────────────────────
+  const reviewRestaurantIds = [...new Set(reviews.map((r) => r.restaurant_id))]
+  const reviewAuthorIds = [...new Set(reviews.map((r) => r.user_id))]
+
+  const [restaurantsResult, profilesResult] = await Promise.all([
     reviewRestaurantIds.length > 0
-      ? supabase.from('restaurants').select('id, name, source, external_place_id, area, genre, main_image_path').in('id', reviewRestaurantIds)
-      : { data: [] as RestaurantRow[], error: null },
+      ? supabase
+          .from('restaurants')
+          .select('id, name, source, external_place_id, area, genre, main_image_path')
+          .in('id', reviewRestaurantIds)
+      : { data: [] as RestaurantRow[] },
     reviewAuthorIds.length > 0
-      ? supabase.from('user_public_profiles').select('id, username, name, avatar_path').in('id', reviewAuthorIds)
-      : { data: [] as ProfileRow[], error: null },
+      ? supabase
+          .from('user_public_profiles')
+          .select('id, username, name')
+          .in('id', reviewAuthorIds)
+      : { data: [] as ProfileRow[] },
   ])
 
   const restaurantMap = new Map(
-    ((reviewRestaurantsResult.data ?? []) as RestaurantRow[]).map(r => [r.id, r])
+    ((restaurantsResult.data ?? []) as RestaurantRow[]).map((r) => [r.id, r]),
   )
   const profileMap = new Map(
-    ((reviewProfilesResult.data ?? []) as ProfileRow[]).map(p => [p.id, p])
+    ((profilesResult.data ?? []) as ProfileRow[]).map((p) => [p.id, p]),
   )
 
-  // ── Phase 4: sign review image URLs ─────────────────────────────────────
-  const imagePaths = reviews.flatMap(r => r.image_path ? [r.image_path] : [])
-  const signedResult = imagePaths.length > 0
-    ? await supabase.storage.from('review-images').createSignedUrls(imagePaths, 3600)
-    : { data: [], error: null }
+  // ── Tags ──────────────────────────────────────────────────────────────
+  const reviewIds = reviews.map((r) => r.id)
+  const [reasonTagsResult, labelTagsResult] = reviewIds.length > 0
+    ? await Promise.all([
+        supabase
+          .from('review_reason_tags')
+          .select('review_id, reason_key')
+          .in('review_id', reviewIds),
+        supabase
+          .from('review_restaurant_labels')
+          .select('review_id, label_key')
+          .in('review_id', reviewIds),
+      ])
+    : [{ data: [] }, { data: [] }]
 
-  const signedUrlMap = new Map<string, string>()
-  for (const s of signedResult.data ?? []) {
-    if (s.path && s.signedUrl && !s.error) signedUrlMap.set(s.path, s.signedUrl)
+  const reasonTagMap = new Map<string, string[]>()
+  for (const t of (reasonTagsResult.data ?? []) as { review_id: string; reason_key: string }[]) {
+    const arr = reasonTagMap.get(t.review_id) ?? []
+    arr.push(t.reason_key)
+    reasonTagMap.set(t.review_id, arr)
+  }
+  const labelTagMap = new Map<string, string[]>()
+  for (const t of (labelTagsResult.data ?? []) as { review_id: string; label_key: string }[]) {
+    const arr = labelTagMap.get(t.review_id) ?? []
+    arr.push(t.label_key)
+    labelTagMap.set(t.review_id, arr)
   }
 
-  // ── Phase 4.5: sign restaurant main images for review feed fallback ───────
-  const reviewRestaurantImagePaths = [
+  // ── Sign image URLs ───────────────────────────────────────────────────
+  const reviewImagePaths = reviews.flatMap((r) => r.image_path ? [r.image_path] : [])
+  const restaurantImagePaths = [
     ...new Set(
       [...restaurantMap.values()]
         .map((r) => r.main_image_path)
         .filter((p): p is string => Boolean(p)),
     ),
   ]
-  const reviewRestaurantImgUrls = new Map<string, string>()
-  if (reviewRestaurantImagePaths.length > 0) {
-    const { data: rImgData } = await supabase.storage
-      .from('restaurant-images')
-      .createSignedUrls(reviewRestaurantImagePaths, 3600)
-    for (const s of rImgData ?? []) {
-      if (s.path && s.signedUrl && !s.error) reviewRestaurantImgUrls.set(s.path, s.signedUrl)
-    }
-  }
 
-  // ── Phase 5: sign restaurant main image URLs ─────────────────────────────
-  const recImagePaths = recs
-    .map(r => r.main_image_path)
-    .filter((p): p is string => Boolean(p))
-  const recImageSignedUrls = new Map<string, string>()
-  if (recImagePaths.length > 0) {
-    const { data } = await supabase.storage
-      .from('restaurant-images')
-      .createSignedUrls(recImagePaths, 3600)
-    for (const s of data ?? []) {
-      if (s.path && s.signedUrl && !s.error) recImageSignedUrls.set(s.path, s.signedUrl)
-    }
-  }
-
-  // Resolve display names for Google-sourced restaurants (review feed + recs)
-  const restaurantDisplayNames = new Map<string, string>()
-  const recDisplayNames = new Map<string, string>()
-
-  await Promise.all([
-    ...([...restaurantMap.values()] as RestaurantRow[])
-      .filter(r => r.source === 'google_place' && r.external_place_id)
-      .map(async (r) => {
-        const d = await resolveRestaurantDisplay(r)
-        restaurantDisplayNames.set(r.id, d.name)
-      }),
-    ...recs
-      .filter(r => r.source === 'google_place' && r.external_place_id)
-      .map(async (rec) => {
-        const d = await resolveRestaurantDisplay(rec)
-        recDisplayNames.set(rec.restaurant_id, d.name)
-      }),
+  const [signedReviews, signedRestaurants] = await Promise.all([
+    reviewImagePaths.length > 0
+      ? supabase.storage.from('review-images').createSignedUrls(reviewImagePaths, 3600)
+      : { data: [] },
+    restaurantImagePaths.length > 0
+      ? supabase.storage.from('restaurant-images').createSignedUrls(restaurantImagePaths, 3600)
+      : { data: [] },
   ])
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+  const signedReviewMap = new Map<string, string>()
+  for (const s of signedReviews.data ?? []) {
+    if (s.path && s.signedUrl && !s.error) signedReviewMap.set(s.path, s.signedUrl)
+  }
+  const signedRestaurantMap = new Map<string, string>()
+  for (const s of signedRestaurants.data ?? []) {
+    if (s.path && s.signedUrl && !s.error) signedRestaurantMap.set(s.path, s.signedUrl)
+  }
 
+  // ── Resolve display names for Google-sourced restaurants ─────────────
+  const displayNameMap = new Map<string, string>()
+  await Promise.all(
+    [...restaurantMap.values()]
+      .filter((r) => r.source === 'google_place' && r.external_place_id)
+      .map(async (r) => {
+        const d = await resolveRestaurantDisplay(r)
+        displayNameMap.set(r.id, d.name)
+      }),
+  )
+
+  // ── Render ────────────────────────────────────────────────────────────
   return (
-    <main className="min-h-screen bg-canvas pb-24">
+    <main className="min-h-dvh bg-canvas pb-24">
+      <div className="mx-auto max-w-md px-4">
 
-      {/* ── Header ───────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-5 pt-10 pb-2">
-        <div className="w-10" />
-        <h1 className="text-base font-bold text-ink">ホーム</h1>
-        <Link
-          href="/notifications"
-          aria-label={`通知${unreadCount > 0 ? `（未読${unreadCount}件）` : ''}`}
-          className="relative flex h-10 w-10 items-center justify-center rounded-full"
+        {/* ── Page title ───────────────────────────────────────────────── */}
+        <h1 className="pb-4 pt-6 text-center text-[20px] font-extrabold leading-tight text-ink">
+          ホーム
+        </h1>
+
+        {/* ── Hero card ────────────────────────────────────────────────── */}
+        <div
+          className="relative overflow-hidden"
+          style={{
+            borderRadius: 24,
+            background: 'linear-gradient(140deg, #FFE9CE 0%, #FFF3E4 50%, #FFF7EE 100%)',
+            minHeight: 172,
+            boxShadow: '0 2px 10px rgba(98,55,31,0.07)',
+          }}
         >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-          </svg>
-          {unreadCount > 0 && (
-            <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-terra" aria-hidden="true" />
-          )}
-        </Link>
-      </div>
-
-      {/* ── Search ───────────────────────────────────────────────────────── */}
-      <div className="mb-3 px-5">
-        <form action="/search/results" method="get" className="flex gap-2">
-          <label className="flex flex-1 items-center gap-3 rounded-2xl border border-edge bg-surface px-4 py-2.5 shadow-sm transition-shadow focus-within:ring-1 focus-within:ring-terra">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-ink-sub" aria-hidden="true">
-              <circle cx="11" cy="11" r="7" />
-              <path d="M21 21l-4.35-4.35" />
-            </svg>
-            <input
-              type="text"
-              name="q"
-              placeholder="店名・ジャンル・エリアで検索"
-              className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-sub"
-              autoComplete="off"
-            />
-          </label>
-          <button
-            type="submit"
-            className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-2xl bg-terra text-white"
-            aria-label="検索"
+          {/* ── Wave decoration — right side, organic curves ─────────── */}
+          <svg
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 h-full w-full"
+            viewBox="0 0 343 172"
+            preserveAspectRatio="none"
+            xmlns="http://www.w3.org/2000/svg"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="7" />
-              <path d="M21 21l-4.35-4.35" />
-            </svg>
-          </button>
-        </form>
-      </div>
+            {/* Outermost wave */}
+            <path
+              d="M343,172 L160,172 Q200,120 250,80 Q290,50 343,10 Z"
+              fill="#F4B96A"
+              fillOpacity="0.20"
+            />
+            {/* Middle wave */}
+            <path
+              d="M343,172 L210,172 Q245,135 278,108 Q308,85 343,45 Z"
+              fill="#F4A84E"
+              fillOpacity="0.17"
+            />
+            {/* Inner wave */}
+            <path
+              d="M343,172 L258,172 Q280,150 300,132 Q320,115 343,88 Z"
+              fill="#F4993A"
+              fillOpacity="0.14"
+            />
+          </svg>
 
-      {/* ── 今日のお店 ────────────────────────────────────────────────────── */}
-      <div className="mb-4 px-5">
-        <Link
-          href="/search/today"
-          className="block overflow-hidden rounded-2xl shadow-sm"
-          style={{ background: '#FFF7F0', minHeight: '164px' }}
-        >
-          <div className="flex flex-col justify-between p-4" style={{ minHeight: '164px' }}>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                  <path d="M8 0 L9.2 5.8 L15 8 L9.2 10.2 L8 16 L6.8 10.2 L1 8 L6.8 5.8 Z" fill="#F97316" />
-                </svg>
-                <span className="text-sm font-bold text-ink">今日のお店</span>
-              </div>
-              <p className="mt-0.5 text-xs text-ink-sub">今の条件に合うお店を探す</p>
-            </div>
+          {/* Sparkle — top right */}
+          <svg
+            aria-hidden="true"
+            className="pointer-events-none absolute top-5 right-6"
+            width="26"
+            height="26"
+            viewBox="0 0 26 26"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <line x1="13" y1="1" x2="13" y2="9"  stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeOpacity="0.5" />
+            <line x1="20" y1="4" x2="17" y2="10" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeOpacity="0.38" />
+            <line x1="6"  y1="4" x2="9"  y2="10" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeOpacity="0.38" />
+          </svg>
 
-            {/* Condition chips */}
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {['1人', '友達と', '安く', '近くで', 'ゆっくり'].map((chip) => (
-                <span
-                  key={chip}
-                  className="rounded-full border border-edge bg-white/80 px-2.5 py-0.5 text-[11px] text-ink"
-                >
-                  {chip}
-                </span>
-              ))}
-            </div>
-
-            {/* CTA — full-width of left column */}
-            <div className="mt-3">
-              <span className="block rounded-full bg-terra py-2.5 text-center text-sm font-bold text-white">
-                条件を設定する ›
-              </span>
-            </div>
-          </div>
-        </Link>
-      </div>
-
-      {/* ── フォロー中の人の最近の記録 ───────────────────────────────────── */}
-      <section className="mb-4 px-5">
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-base font-bold text-ink">フォロー中の人の最近の記録</h2>
-          {reviews.length > 0 && (
-            <Link href="/home/following-records" className="text-xs font-medium text-terra">
-              もっと見る ›
+          {/* Content */}
+          <div className="relative z-10 p-5">
+            <h2
+              className="font-extrabold leading-snug text-ink"
+              style={{ fontSize: 25 }}
+            >
+              今日のごはんを<br />記録しよう
+            </h2>
+            <p className="mt-2 text-[13px] leading-relaxed text-ink-sub">
+              お店や食事の記録を残して、<br />あとで見返せます
+            </p>
+            <Link
+              href="/record"
+              className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-full bg-terra px-6 text-[15px] font-bold text-white active:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terra focus-visible:ring-offset-2"
+              style={{
+                minWidth: 158,
+                boxShadow: '0 2px 8px rgba(249,115,22,0.32)',
+              }}
+            >
+              {/* Pencil icon */}
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+              </svg>
+              記録する
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
+                <path d="M9 18l6-6-6-6" />
+              </svg>
             </Link>
-          )}
+          </div>
         </div>
 
-        {reviews.length === 0 ? (
-          <div className="rounded-2xl border border-edge bg-surface px-5 py-6 text-center">
-            <p className="text-sm text-ink-sub">フォロー中の人の記録はまだありません</p>
-            {followeeIds.length === 0 && (
+        {/* ── Stats cards — 3 columns ───────────────────────────────────── */}
+        {/*
+          Explicit inline grid to guarantee 3-column layout regardless of
+          CSS cascade order in Tailwind v4.
+        */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: 8,
+            marginTop: 12,
+          }}
+        >
+          {/* 今月の記録 */}
+          <div
+            className="flex flex-col border border-edge bg-surface"
+            style={{ borderRadius: 16, padding: '10px 10px 12px', boxShadow: '0 1px 6px rgba(98,55,31,0.05)' }}
+          >
+            {/* Calendar icon */}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="18" rx="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8"  y1="2" x2="8"  y2="6" />
+              <line x1="3"  y1="10" x2="21" y2="10" />
+            </svg>
+            <p className="mt-1.5 text-[11px] font-semibold leading-snug text-ink-sub">
+              今月の記録
+            </p>
+            {statsError ? (
+              <p className="mt-1 text-[11px] text-ink-sub/60">—</p>
+            ) : (
+              <p className="mt-1 text-[26px] font-extrabold leading-none tabular-nums text-ink">
+                {stats.this_month_count}
+                <span className="ml-0.5 text-[12px] font-semibold">件</span>
+              </p>
+            )}
+          </div>
+
+          {/* また行きたい */}
+          <div
+            className="flex flex-col border border-edge bg-surface"
+            style={{ borderRadius: 16, padding: '10px 10px 12px', boxShadow: '0 1px 6px rgba(98,55,31,0.05)' }}
+          >
+            {/* Heart icon */}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+            </svg>
+            <p className="mt-1.5 text-[11px] font-semibold leading-snug text-ink-sub">
+              また行きたい
+            </p>
+            {statsError ? (
+              <p className="mt-1 text-[11px] text-ink-sub/60">—</p>
+            ) : (
+              <p className="mt-1 text-[26px] font-extrabold leading-none tabular-nums text-ink">
+                {stats.again_count}
+                <span className="ml-0.5 text-[12px] font-semibold">件</span>
+              </p>
+            )}
+          </div>
+
+          {/* 新しく行った店 */}
+          <div
+            className="flex flex-col border border-edge bg-surface"
+            style={{ borderRadius: 16, padding: '10px 10px 12px', boxShadow: '0 1px 6px rgba(98,55,31,0.05)' }}
+          >
+            {/* Pin icon */}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+            <p className="mt-1.5 text-[11px] font-semibold leading-snug text-ink-sub">
+              新しく行った店
+            </p>
+            {statsError ? (
+              <p className="mt-1 text-[11px] text-ink-sub/60">—</p>
+            ) : (
+              <p className="mt-1 text-[26px] font-extrabold leading-none tabular-nums text-ink">
+                {stats.new_places_count}
+                <span className="ml-0.5 text-[12px] font-semibold">件</span>
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* ── Feed section ─────────────────────────────────────────────── */}
+        <section className="mt-5" aria-labelledby="feed-heading">
+
+          {/* Section header */}
+          <div className="mb-3 flex items-center gap-1.5">
+            {/* Users icon */}
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#F97316"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            <h2
+              id="feed-heading"
+              className="flex-1 text-[18px] font-extrabold text-terra"
+            >
+              みんなの最近の記録
+            </h2>
+            {reviews.length > 0 && (
               <Link
-                href="/mypage/follows/search"
-                className="mt-3 inline-flex min-h-9 items-center rounded-xl bg-terra px-4 text-xs font-semibold text-white"
+                href="/home/following-records"
+                className="shrink-0 text-[12px] font-semibold text-ink-sub"
               >
-                ユーザーを探す
+                すべて見る &rsaquo;
               </Link>
             )}
           </div>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {reviews.map((review) => {
-              const restaurant  = restaurantMap.get(review.restaurant_id)
-              const profile     = profileMap.get(review.user_id)
-              const avatarUrl   = profile?.avatar_path
-                ? `${supabaseUrl}/storage/v1/object/public/avatars/${profile.avatar_path}`
-                : null
-              const reviewImg   = review.image_path ? (signedUrlMap.get(review.image_path) ?? null) : null
-              const restaurantImg = restaurant?.main_image_path
-                ? (reviewRestaurantImgUrls.get(restaurant.main_image_path) ?? null)
-                : null
-              const imageUrl = reviewImg ?? restaurantImg
-              const displayName = profile?.name ?? profile?.username ?? '...'
-              const initial     = Array.from(displayName.trim())[0] ?? '?'
 
-              return (
-                <Link
-                  key={review.id}
-                  href={`/records/${review.id}`}
-                  className="flex items-center gap-2.5 rounded-2xl border border-edge bg-surface px-3 py-2.5 shadow-sm transition-colors hover:bg-canvas"
-                >
-                  {/* Avatar only — no label below */}
-                  <div className="shrink-0">
-                    {avatarUrl ? (
-                      <Image
-                        src={avatarUrl}
-                        alt={displayName}
-                        width={36}
-                        height={36}
-                        className="h-9 w-9 rounded-full object-cover"
-                        unoptimized
-                      />
-                    ) : (
-                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-edge text-sm font-semibold text-ink-sub">
-                        {initial}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Food thumbnail (only when signed URL exists) */}
-                  {imageUrl && (
-                    <Image
-                      src={imageUrl}
-                      alt=""
-                      width={48}
-                      height={48}
-                      className="h-12 w-12 shrink-0 rounded-xl object-cover"
-                      unoptimized
-                    />
-                  )}
-
-                  {/* Text area: username / restaurant + chip / comment */}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-medium text-ink-sub">{displayName}</p>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                      {restaurant && (
-                        <span className="truncate text-sm font-bold text-ink">
-                          {restaurantDisplayNames.get(restaurant.id) ?? restaurant.name ?? '—'}
-                        </span>
-                      )}
-                      <RatingChip rating={review.rating} />
-                    </div>
-                    {review.comment && (
-                      <p className="mt-0.5 line-clamp-1 text-xs text-ink-sub">{review.comment}</p>
-                    )}
-                  </div>
-
-                  {/* Chevron */}
-                  <span className="shrink-0 text-sm text-ink-sub" aria-hidden="true">›</span>
-                </Link>
-              )
-            })}
-          </div>
-        )}
-      </section>
-
-      {/* ── あなたへのおすすめ ────────────────────────────────────────────── */}
-      <section className="mb-4 px-5">
-        <div className="mb-2 flex items-start justify-between">
-          <div>
-            <h2 className="text-base font-bold text-ink">あなたへのおすすめ</h2>
-            <p className="mt-0.5 text-xs text-ink-sub">好みが近い人の記録をもとにおすすめしています</p>
-          </div>
-          {recs.length > 0 && (
-            <Link href="/home/recommendations" className="mt-0.5 shrink-0 text-xs font-medium text-terra">
-              もっと見る ›
-            </Link>
-          )}
-        </div>
-
-        {recs.length === 0 ? (
-          <div className="rounded-2xl border border-edge bg-surface px-5 py-6 text-center">
-            <p className="text-sm text-ink-sub">おすすめを作るための記録がまだ足りません</p>
-            <div className="mt-3 flex flex-wrap justify-center gap-2">
-              <Link
-                href="/mypage/food-preferences/edit"
-                className="inline-flex min-h-9 items-center rounded-full border border-terra px-4 text-xs font-semibold text-terra"
-              >
-                好みを設定する
-              </Link>
-              <Link
-                href="/mypage/follows/search"
-                className="inline-flex min-h-9 items-center rounded-xl bg-terra px-4 text-xs font-semibold text-white"
-              >
-                ユーザーを探す
-              </Link>
+          {/* Feed cards */}
+          {reviews.length === 0 ? (
+            <div
+              className="border border-edge bg-surface px-5 py-8 text-center"
+              style={{ borderRadius: 18 }}
+            >
+              {followeeIds.length === 0 ? (
+                <>
+                  <p className="text-[14px] font-semibold text-ink">
+                    みんなの記録は準備中です
+                  </p>
+                  <p className="mt-1.5 text-[12px] leading-relaxed text-ink-sub">
+                    フォローするユーザーを追加すると、<br />
+                    ここに最近の記録が表示されます。
+                  </p>
+                  <Link
+                    href="/mypage/follows/search"
+                    className="mt-4 inline-flex h-10 items-center rounded-xl bg-terra px-5 text-[13px] font-bold text-white"
+                  >
+                    ユーザーを探す
+                  </Link>
+                </>
+              ) : (
+                <p className="text-[13px] text-ink-sub">
+                  フォロー中のユーザーの記録はまだありません
+                </p>
+              )}
             </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {recs.slice(0, 4).map((rec) => {
-              const imageUrl = rec.main_image_path
-                ? (recImageSignedUrls.get(rec.main_image_path) ?? null)
-                : null
-              return (
-                <Link
-                  key={rec.restaurant_id}
-                  href={`/restaurants/${rec.restaurant_id}`}
-                  className="flex flex-col overflow-hidden rounded-2xl border border-edge bg-surface shadow-sm transition-opacity hover:opacity-90"
-                >
-                  {/* Restaurant image thumbnail */}
-                  <div className="relative h-[80px] w-full overflow-hidden">
-                    <RestaurantMainImage src={imageUrl} alt={recDisplayNames.get(rec.restaurant_id) ?? rec.name ?? '—'} />
-                  </div>
+          ) : (
+            <div className="flex flex-col gap-2.5">
+              {reviews.map((review) => {
+                const restaurant = restaurantMap.get(review.restaurant_id)
+                const profile = profileMap.get(review.user_id)
+                const displayName = profile?.name ?? profile?.username ?? '...'
 
-                  <div className="flex flex-col p-2.5">
-                    {/* Restaurant name + genre */}
-                    <p className="line-clamp-2 text-sm font-bold leading-snug text-ink">
-                      {recDisplayNames.get(rec.restaurant_id) ?? rec.name ?? '—'}
-                    </p>
-                    {rec.genre && (
-                      <p className="mt-0.5 truncate text-xs text-ink-sub">{rec.genre}</p>
-                    )}
+                const reviewImg = review.image_path
+                  ? (signedReviewMap.get(review.image_path) ?? null)
+                  : null
+                const restaurantImg = restaurant?.main_image_path
+                  ? (signedRestaurantMap.get(restaurant.main_image_path) ?? null)
+                  : null
+                const imageUrl = reviewImg ?? restaurantImg
 
-                    {/* Spacer pushes evidence box to bottom */}
-                    <div className="min-h-[6px] flex-1" />
+                const restaurantName = restaurant
+                  ? (displayNameMap.get(restaurant.id) ?? restaurant.name ?? '—')
+                  : '—'
 
-                    {/* Evidence box */}
-                    <div className="mt-2 rounded-lg bg-terra/10 px-2 py-1.5">
-                      <div className="flex items-start gap-1">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0" aria-hidden="true">
-                          <circle cx="9" cy="7" r="3" />
-                          <path d="M3 21v-2a5 5 0 0 1 5-5h2" />
-                          <circle cx="17" cy="9" r="3" />
-                          <path d="M21 21v-2a5 5 0 0 0-5-5h-2" />
-                        </svg>
-                        <p className="text-[10px] leading-snug text-terra">{evidenceBadgeText(rec)}</p>
+                const reasonKeys = reasonTagMap.get(review.id) ?? []
+                const labelKeys = labelTagMap.get(review.id) ?? []
+                const reasonTags = reasonKeys.map((k) => REASON_LABEL[k]).filter(Boolean)
+                const labelTags = labelKeys.map((k) => LABEL_LABEL[k]).filter(Boolean)
+                const displayTags = [...labelTags, ...reasonTags].slice(0, 2)
+
+                const metaLine = [
+                  displayName,
+                  restaurant?.genre,
+                  restaurant?.area,
+                ].filter(Boolean).join('・')
+
+                return (
+                  <article
+                    key={review.id}
+                    className="relative isolate overflow-hidden border border-edge bg-surface"
+                    style={{
+                      borderRadius: 18,
+                      boxShadow: '0 1px 6px rgba(98,55,31,0.05)',
+                    }}
+                  >
+                    {/* Full-card tap target */}
+                    <Link
+                      href={`/records/${review.id}`}
+                      className="absolute inset-0 z-0 transition-colors hover:bg-black/[0.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terra/40 focus-visible:ring-offset-1"
+                      aria-label={`${restaurantName}の記録を見る`}
+                      style={{ borderRadius: 18 }}
+                    />
+
+                    <div className="pointer-events-none flex gap-3 p-3">
+                      {/* Photo — 88×88, matches VisitCardItem */}
+                      <div
+                        className="relative shrink-0 overflow-hidden bg-[#F3E5D8]"
+                        style={{ width: 88, height: 88, borderRadius: 14 }}
+                      >
+                        {imageUrl ? (
+                          <Image
+                            src={imageUrl}
+                            alt={`${restaurantName}の食事写真`}
+                            fill
+                            sizes="88px"
+                            className="object-cover"
+                            unoptimized
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <svg
+                              width="22"
+                              height="22"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="#C9A98A"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              aria-hidden="true"
+                            >
+                              <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
+                              <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
+                              <line x1="6" y1="1" x2="6" y2="4" />
+                              <line x1="10" y1="1" x2="10" y2="4" />
+                              <line x1="14" y1="1" x2="14" y2="4" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Info */}
+                      <div className="min-w-0 flex-1 py-0.5">
+                        {/* Row 1: restaurant name + rating badge — name takes flex-1, badge shrinks */}
+                        <div className="flex items-start gap-2">
+                          <p
+                            className="min-w-0 flex-1 line-clamp-2 text-[15px] font-bold leading-snug text-ink"
+                            translate={
+                              restaurant?.source === 'google_place' ? 'no' : undefined
+                            }
+                          >
+                            {restaurantName}
+                          </p>
+                          <span
+                            className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-bold ${RATING_BG[review.rating]} ${RATING_TEXT[review.rating]} ${RATING_BORDER[review.rating]}`}
+                          >
+                            <RatingBadgeIcon rating={review.rating} />
+                            {RATING_LABELS[review.rating]}
+                          </span>
+                        </div>
+
+                        {/* Row 2: author · genre · area */}
+                        {metaLine && (
+                          <div className="mt-0.5 flex items-center gap-1">
+                            <svg
+                              width="11"
+                              height="11"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              className="shrink-0 text-ink-sub"
+                              aria-hidden="true"
+                            >
+                              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                              <circle cx="12" cy="7" r="4" />
+                            </svg>
+                            <p className="truncate text-[11px] text-ink-sub">
+                              {metaLine}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Row 3: comment */}
+                        {review.comment && (
+                          <p className="mt-0.5 line-clamp-2 text-[12px] leading-relaxed text-ink-sub">
+                            {review.comment}
+                          </p>
+                        )}
+
+                        {/* Row 4: tags */}
+                        {displayTags.length > 0 && (
+                          <div className="mt-1.5 flex flex-wrap gap-1.5">
+                            {displayTags.map((tag, i) => (
+                              <span
+                                key={i}
+                                className="rounded-full bg-[#FFF0E1] px-2.5 py-0.5 text-[11px] font-semibold text-terra/80"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
-                </Link>
-              )
-            })}
-          </div>
-        )}
-      </section>
+                  </article>
+                )
+              })}
+            </div>
+          )}
+        </section>
 
-      {/* ── グループで店を探す ────────────────────────────────────────────── */}
-      <section className="mb-4 px-5">
-        <div className="mb-2">
-          <h2 className="text-base font-bold text-ink">グループで店を探す</h2>
-          <p className="mt-0.5 text-xs text-ink-sub">みんなの好みに合うお店を見つける</p>
-        </div>
-
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {groups.map((group) => (
-            <Link
-              key={group.id}
-              href={`/groups/${group.id}`}
-              className="flex shrink-0 items-center gap-2 rounded-xl border border-edge bg-surface px-3 py-2.5 shadow-sm whitespace-nowrap"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <circle cx="9" cy="7" r="3" />
-                <path d="M3 21v-2a5 5 0 0 1 5-5h2" />
-                <circle cx="17" cy="9" r="3" />
-                <path d="M21 21v-2a5 5 0 0 0-5-5h-2" />
-              </svg>
-              <span className="text-xs font-medium text-ink">{group.name}</span>
-              <span className="text-xs text-ink-sub" aria-hidden="true">›</span>
-            </Link>
-          ))}
-          <Link
-            href="/groups"
-            className="shrink-0 rounded-xl border border-terra px-3 py-2.5 text-xs font-bold text-terra whitespace-nowrap"
-          >
-            グループを見る ›
-          </Link>
-        </div>
-      </section>
-
+      </div>
       <BottomNav />
     </main>
   )
