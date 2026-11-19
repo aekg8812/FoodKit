@@ -10,17 +10,6 @@ import RestaurantLabelSelector from '@/components/review/RestaurantLabelSelector
 import { RATING_BG, RATING_TEXT, RATING_ACCENT_BORDER, RATING_ACCENT_DOT } from '@/lib/rating/colors'
 import { compressImageIfNeeded, ImageFormatError, ImageTooLargeError } from '@/lib/image/compress'
 
-export type ExistingReview = {
-  id: string
-  rating: number
-  comment: string | null
-  visit_date: string | null
-  image_path: string | null
-  image_url: string | null
-  reason_keys?: string[]
-  label_keys?: string[]
-}
-
 type Restaurant = {
   id: string
   name: string
@@ -32,7 +21,6 @@ type Restaurant = {
 type Props = {
   restaurantId: string
   restaurant: Restaurant
-  existingReview: ExistingReview | null
 }
 
 const RATING_OPTIONS: { value: number; label: string; sub: string }[] = [
@@ -62,9 +50,9 @@ function formatVisitDate(iso: string): string {
   return `${y}年${m}月${day}日`
 }
 
-function buildImagePath(userId: string, reviewId: string, file: File): string {
+function buildVisitImagePath(userId: string, file: File): string {
   const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg'
-  return `${userId}/${reviewId}/${crypto.randomUUID()}.${ext}`
+  return `${userId}/visits/${crypto.randomUUID()}.${ext}`
 }
 
 function logError(err: unknown) {
@@ -76,27 +64,27 @@ function logError(err: unknown) {
   }
 }
 
-export default function RecordFormClient({ restaurantId, restaurant, existingReview }: Props) {
+export default function RecordFormClient({ restaurantId, restaurant }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const today = getLocalToday()
 
-  const [rating, setRating] = useState<number | null>(existingReview?.rating ?? null)
-  const [reasonKeys, setReasonKeys] = useState<string[]>(existingReview?.reason_keys ?? [])
-  const [labelKeys, setLabelKeys] = useState<string[]>(existingReview?.label_keys ?? [])
-  const [comment, setComment] = useState(existingReview?.comment ?? '')
-  const [visitDate, setVisitDate] = useState(existingReview?.visit_date ?? today)
+  // Idempotency key — fixed per form mount to prevent double-submission
+  const idempotencyKeyRef = useRef<string>(crypto.randomUUID())
+
+  const [rating, setRating] = useState<number | null>(null)
+  const [reasonKeys, setReasonKeys] = useState<string[]>([])
+  const [labelKeys, setLabelKeys] = useState<string[]>([])
+  const [comment, setComment] = useState('')
+  const [visitDate, setVisitDate] = useState(today)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
-  const [removeExistingImage, setRemoveExistingImage] = useState(false)
   const [imageCompressing, setImageCompressing] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const prevPolarityRef = useRef<'positive' | 'negative' | null>(
-    rating !== null ? (rating >= 3 ? 'positive' : 'negative') : null
-  )
+  const prevPolarityRef = useRef<'positive' | 'negative' | null>(null)
   const compressionTokenRef = useRef(0)
 
   function handleRatingChange(newRating: number) {
@@ -113,9 +101,6 @@ export default function RecordFormClient({ restaurantId, restaurant, existingRev
       if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
     }
   }, [imagePreviewUrl])
-
-  const displayedImageUrl =
-    imagePreviewUrl ?? (!removeExistingImage ? existingReview?.image_url ?? null : null)
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null
@@ -138,7 +123,6 @@ export default function RecordFormClient({ restaurantId, restaurant, existingRev
       if (compressionTokenRef.current !== token) return
       setImageFile(compressed)
       setImagePreviewUrl(URL.createObjectURL(compressed))
-      setRemoveExistingImage(false)
       setImageCompressing(false)
     }).catch((err: unknown) => {
       if (compressionTokenRef.current !== token) return
@@ -156,7 +140,6 @@ export default function RecordFormClient({ restaurantId, restaurant, existingRev
     if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
     setImageFile(null)
     setImagePreviewUrl(null)
-    setRemoveExistingImage(true)
     setError(null)
     setImageCompressing(false)
   }
@@ -164,12 +147,18 @@ export default function RecordFormClient({ restaurantId, restaurant, existingRev
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (rating === null) return
-    if (visitDate && visitDate > today) {
+    if (!visitDate) {
+      setError('訪問日を選択してください')
+      return
+    }
+    if (visitDate > today) {
       setError('未来の日付は選択できません')
       return
     }
     setSubmitting(true)
     setError(null)
+
+    let uploadedImagePath: string | null = null
 
     try {
       const {
@@ -177,103 +166,43 @@ export default function RecordFormClient({ restaurantId, restaurant, existingRev
       } = await supabase.auth.getUser()
       if (!user) throw new Error('Authentication is required')
 
-      const payload = {
-        rating,
-        comment: comment.trim() || null,
-        visit_date: visitDate || null,
+      // Upload image first so we can pass the path atomically to upsert_visit
+      if (imageFile) {
+        uploadedImagePath = buildVisitImagePath(user.id, imageFile)
+        const { error: uploadError } = await supabase.storage
+          .from(REVIEW_IMAGE_BUCKET)
+          .upload(uploadedImagePath, imageFile, { contentType: imageFile.type })
+        if (uploadError) throw uploadError
       }
 
-      if (existingReview) {
-        let nextImagePath = removeExistingImage ? null : existingReview.image_path
-        let uploadedImagePath: string | null = null
-
-        if (imageFile) {
-          uploadedImagePath = buildImagePath(user.id, existingReview.id, imageFile)
-          const { error: uploadError } = await supabase.storage
-            .from(REVIEW_IMAGE_BUCKET)
-            .upload(uploadedImagePath, imageFile, { contentType: imageFile.type })
-          if (uploadError) throw uploadError
-          nextImagePath = uploadedImagePath
-        }
-
-        const { error: updateError } = await supabase
-          .from('reviews')
-          .update({ ...payload, image_path: nextImagePath })
-          .eq('id', existingReview.id)
-        if (updateError) {
-          if (uploadedImagePath) {
-            await supabase.storage.from(REVIEW_IMAGE_BUCKET).remove([uploadedImagePath])
-          }
-          throw updateError
-        }
-
-        if (existingReview.image_path && existingReview.image_path !== nextImagePath) {
-          await supabase.storage.from(REVIEW_IMAGE_BUCKET).remove([existingReview.image_path])
-        }
-
-        const { error: signalsError } = await supabase.rpc('replace_review_learning_signals', {
-          p_review_id:   existingReview.id,
-          p_reason_keys: reasonKeys,
-          p_label_keys:  labelKeys,
-        })
-        if (signalsError) throw signalsError
-      } else {
-        const { data: insertedReview, error: insertError } = await supabase
-          .from('reviews')
-          .insert({
-            ...payload,
-            restaurant_id: restaurantId,
-            user_id: user.id,
-            group_id: null,
-            visibility: 'private',
-          })
-          .select('id')
-          .single()
-
-        if (insertError) {
-          if (insertError.code === '23505') {
-            window.location.reload()
-            return
-          }
-          throw insertError
-        }
-
-        if (imageFile) {
-          const imagePath = buildImagePath(user.id, insertedReview.id, imageFile)
-          const { error: uploadError } = await supabase.storage
-            .from(REVIEW_IMAGE_BUCKET)
-            .upload(imagePath, imageFile, { contentType: imageFile.type })
-
-          if (uploadError) {
-            await supabase.from('reviews').delete().eq('id', insertedReview.id)
-            throw uploadError
-          }
-
-          const { error: imageUpdateError } = await supabase
-            .from('reviews')
-            .update({ image_path: imagePath })
-            .eq('id', insertedReview.id)
-
-          if (imageUpdateError) {
-            await supabase.storage.from(REVIEW_IMAGE_BUCKET).remove([imagePath])
-            await supabase.from('reviews').delete().eq('id', insertedReview.id)
-            throw imageUpdateError
-          }
-        }
-
-        const { error: signalsError } = await supabase.rpc('replace_review_learning_signals', {
-          p_review_id:   insertedReview.id,
-          p_reason_keys: reasonKeys,
-          p_label_keys:  labelKeys,
-        })
-        if (signalsError) throw signalsError
+      type UpsertVisitResult = {
+        visit_id: string
+        review_id: string
+        is_representative: boolean
+        idempotent_replay?: boolean
       }
 
-      router.push(`/restaurants/${restaurantId}`)
+      const { data: rpcData, error: rpcError } = await supabase.rpc('upsert_visit', {
+        p_restaurant_id:          restaurantId,
+        p_rating:                 rating,
+        p_visit_date:             visitDate,
+        p_comment:                comment.trim() || null,
+        p_image_path:             uploadedImagePath,
+        p_reason_keys:            reasonKeys,
+        p_label_keys:             labelKeys,
+        p_client_idempotency_key: idempotencyKeyRef.current,
+      })
+
+      if (rpcError) {
+        // Don't delete uploadedImagePath on RPC error — the RPC may have succeeded with a lost response
+        throw rpcError
+      }
+
+      const result = rpcData as UpsertVisitResult
+      router.push(`/visits/${result.visit_id}`)
     } catch (err) {
       logError(err)
       setError('エラーが発生しました。時間をおいて再度お試しください')
-    } finally {
       setSubmitting(false)
     }
   }
@@ -401,10 +330,10 @@ export default function RecordFormClient({ restaurantId, restaurant, existingRev
         <div>
           <h2 className="mb-2 text-base font-black text-ink">写真</h2>
           <div className="flex gap-3">
-            {displayedImageUrl && (
+            {imagePreviewUrl && (
               <div className="relative h-[80px] w-[80px] shrink-0 overflow-hidden rounded-xl">
                 <Image
-                  src={displayedImageUrl}
+                  src={imagePreviewUrl}
                   alt="記録の写真"
                   width={80}
                   height={80}
@@ -445,9 +374,9 @@ export default function RecordFormClient({ restaurantId, restaurant, existingRev
         </div>
 
         {/* Visit date */}
-        <div className="flex items-center justify-between border-b border-edge py-3">
-          <span className="font-black text-ink">訪問日</span>
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-ink">
+        <div className="flex items-center justify-between overflow-hidden border-b border-edge py-3">
+          <span className="shrink-0 font-black text-ink">訪問日</span>
+          <label className="relative flex cursor-pointer items-center gap-2 text-sm text-ink">
             <span>{visitDate ? formatVisitDate(visitDate) : '未設定'}</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -455,7 +384,7 @@ export default function RecordFormClient({ restaurantId, restaurant, existingRev
               <line x1="8" y1="2" x2="8" y2="6" />
               <line x1="3" y1="10" x2="21" y2="10" />
             </svg>
-            <svg width="8" height="14" viewBox="0 0 8 14" fill="none" className="text-terra" aria-hidden="true">
+            <svg width="8" height="14" viewBox="0 0 8 14" fill="none" className="shrink-0 text-terra" aria-hidden="true">
               <path d="M1 1l6 6-6 6" stroke="#F97316" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             <input
@@ -463,7 +392,7 @@ export default function RecordFormClient({ restaurantId, restaurant, existingRev
               value={visitDate}
               max={today}
               onChange={(e) => setVisitDate(e.target.value)}
-              className="sr-only"
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
             />
           </label>
         </div>

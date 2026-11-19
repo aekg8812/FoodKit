@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getUserState } from '@/lib/auth/getUserState'
 import { logPageAuthRequest } from '@/lib/diagnostics/authRequests'
 import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
-import RecordFormClient, { type ExistingReview } from './RecordFormClient'
+import RecordFormClient from './RecordFormClient'
 
 type Restaurant = {
   id: string
@@ -72,58 +72,11 @@ export default async function RecordPage({ params }: RecordPageProps) {
   }
   if (!canRecord) redirect('/record')
 
-  const { data: existingReviewRow, error: existingReviewError } = await supabase
-    .from('reviews')
-    .select('id, rating, comment, visit_date, image_path')
-    .eq('restaurant_id', restaurantId)
-    .eq('user_id', user.id)
-    .limit(1)
-    .maybeSingle()
-
-  if (existingReviewError) {
-    throw new Error(`RecordPage: failed to load existing review: ${existingReviewError.message}`)
-  }
-
-  const imagePath = existingReviewRow?.image_path ?? null
-  let imageUrl: string | null = null
-
-  if (imagePath) {
-    const { data: signedData, error: signedError } = await supabase.storage
-      .from('review-images')
-      .createSignedUrls([imagePath], 60 * 60)
-
-    if (signedError) {
-      console.error('RecordPage: failed to sign review image', signedError)
-    } else {
-      const signed = signedData?.[0]
-      if (signed && !signed.error) {
-        imageUrl = signed.signedUrl
-      }
-    }
-  }
-
-  // Load existing learning signals for edit mode
-  let signalReasonKeys: string[] = []
-  let signalLabelKeys: string[] = []
-  if (existingReviewRow) {
-    const { data: signalsData } = await supabase.rpc('get_review_learning_signals', {
-      p_review_id: existingReviewRow.id,
-    })
-    const signals = signalsData as { reason_keys: string[]; label_keys: string[] } | null
-    signalReasonKeys = signals?.reason_keys ?? []
-    signalLabelKeys  = signals?.label_keys  ?? []
-  }
-
-  const existingReview: ExistingReview | null = existingReviewRow
-    ? { ...existingReviewRow, image_url: imageUrl, reason_keys: signalReasonKeys, label_keys: signalLabelKeys }
-    : null
-
   return (
     <main className="min-h-screen bg-canvas pb-24">
       <RecordFormClient
         restaurantId={restaurantId}
         restaurant={restaurantForForm}
-        existingReview={existingReview}
       />
       <BottomNav />
     </main>

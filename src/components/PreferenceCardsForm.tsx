@@ -4,6 +4,32 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import ErrorMessage from '@/components/ui/ErrorMessage'
+import {
+  Wallet,
+  Utensils,
+  Handshake,
+  MapPin,
+  Coffee,
+  PartyPopper,
+  Sparkles,
+  House,
+  Beef,
+  Zap,
+  Armchair,
+  Camera,
+  UserRound,
+  Users,
+  Heart,
+  UsersRound,
+  Compass,
+  MessageSquareText,
+  Check,
+  Tag,
+  Store,
+  UtensilsCrossed,
+  UserCheck,
+  type LucideIcon,
+} from 'lucide-react'
 
 export type PreferenceCard = {
   id: string
@@ -21,6 +47,128 @@ type Props = {
 }
 
 const MIN_CARDS = 5
+const MAX_CARDS = 10
+
+// Category definitions — front-end managed; no DB column needed
+const CATEGORIES: { label: string; keys: string[]; Icon: LucideIcon }[] = [
+  {
+    label: 'お店選びで重視すること',
+    keys: ['cost_conscious', 'taste_focused', 'good_service', 'easy_access'],
+    Icon: Tag,
+  },
+  {
+    label: 'お店の雰囲気',
+    keys: ['quiet_atmosphere', 'lively_atmosphere', 'stylish_space', 'casual_vibe'],
+    Icon: Store,
+  },
+  {
+    label: '食事のスタイル',
+    keys: ['hearty_meal', 'quick_service', 'long_stay_ok', 'photogenic_food'],
+    Icon: UtensilsCrossed,
+  },
+  {
+    label: '利用シーン・お店の選び方',
+    keys: ['solo_friendly', 'friends_friendly', 'date_friendly', 'large_group_ok', 'local_discovery', 'good_reputation'],
+    Icon: UserCheck,
+  },
+]
+
+// Card icon config — icon + category-tinted background
+type CardConfig = { Icon: LucideIcon; bg: string; iconColor: string }
+
+const CARD_CONFIG: Record<string, CardConfig> = {
+  // Category 1: お店選びで重視すること — warm amber
+  cost_conscious:    { Icon: Wallet,             bg: 'bg-amber-50',   iconColor: 'text-amber-600' },
+  taste_focused:     { Icon: Utensils,           bg: 'bg-amber-50',   iconColor: 'text-amber-600' },
+  good_service:      { Icon: Handshake,          bg: 'bg-amber-50',   iconColor: 'text-amber-600' },
+  easy_access:       { Icon: MapPin,             bg: 'bg-amber-50',   iconColor: 'text-amber-600' },
+  // Category 2: お店の雰囲気 — soft sage/green
+  quiet_atmosphere:  { Icon: Coffee,             bg: 'bg-green-50',   iconColor: 'text-green-700' },
+  lively_atmosphere: { Icon: PartyPopper,        bg: 'bg-green-50',   iconColor: 'text-green-700' },
+  stylish_space:     { Icon: Sparkles,           bg: 'bg-green-50',   iconColor: 'text-green-700' },
+  casual_vibe:       { Icon: House,              bg: 'bg-green-50',   iconColor: 'text-green-700' },
+  // Category 3: 食事のスタイル — soft rose/peach
+  hearty_meal:       { Icon: Beef,               bg: 'bg-rose-50',    iconColor: 'text-rose-500' },
+  quick_service:     { Icon: Zap,                bg: 'bg-rose-50',    iconColor: 'text-rose-500' },
+  long_stay_ok:      { Icon: Armchair,           bg: 'bg-rose-50',    iconColor: 'text-rose-500' },
+  photogenic_food:   { Icon: Camera,             bg: 'bg-rose-50',    iconColor: 'text-rose-500' },
+  // Category 4: 利用シーン — light sky/blue
+  solo_friendly:     { Icon: UserRound,          bg: 'bg-sky-50',     iconColor: 'text-sky-600' },
+  friends_friendly:  { Icon: Users,              bg: 'bg-sky-50',     iconColor: 'text-sky-600' },
+  date_friendly:     { Icon: Heart,              bg: 'bg-sky-50',     iconColor: 'text-sky-600' },
+  large_group_ok:    { Icon: UsersRound,         bg: 'bg-sky-50',     iconColor: 'text-sky-600' },
+  local_discovery:   { Icon: Compass,            bg: 'bg-sky-50',     iconColor: 'text-sky-600' },
+  good_reputation:   { Icon: MessageSquareText,  bg: 'bg-sky-50',     iconColor: 'text-sky-600' },
+}
+
+const DEFAULT_CONFIG: CardConfig = { Icon: Utensils, bg: 'bg-stone-50', iconColor: 'text-stone-500' }
+
+function CardItem({
+  card,
+  isSelected,
+  onToggle,
+}: {
+  card: PreferenceCard
+  isSelected: boolean
+  onToggle: (key: string) => void
+}) {
+  const { Icon, bg, iconColor } = CARD_CONFIG[card.key] ?? DEFAULT_CONFIG
+
+  return (
+    <button
+      type="button"
+      onClick={() => onToggle(card.key)}
+      aria-pressed={isSelected}
+      className={[
+        'relative flex min-h-[112px] flex-col rounded-2xl bg-surface p-3 text-left transition-all duration-150 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terra',
+        isSelected
+          ? 'border-2 border-terra shadow-sm'
+          : 'border border-edge',
+      ].join(' ')}
+    >
+      {/* Top row: icon bubble (left) + check indicator (right) */}
+      <div className="flex w-full items-start justify-between">
+        {/* Icon in rounded background */}
+        <span
+          className={[
+            'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl',
+            isSelected ? 'bg-terra/10' : bg,
+          ].join(' ')}
+          aria-hidden="true"
+        >
+          <Icon
+            size={18}
+            strokeWidth={1.75}
+            className={isSelected ? 'text-terra' : iconColor}
+          />
+        </span>
+
+        {/* Check indicator */}
+        <span
+          className={[
+            'flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-all duration-150',
+            isSelected
+              ? 'bg-terra'
+              : 'border-2 border-edge bg-transparent',
+          ].join(' ')}
+          aria-hidden="true"
+        >
+          {isSelected && (
+            <Check size={11} strokeWidth={3} className="text-white" />
+          )}
+        </span>
+      </div>
+
+      {/* Text area */}
+      <div className="mt-2 flex flex-1 flex-col justify-end">
+        <p className="text-sm font-bold leading-snug text-ink">{card.label}</p>
+        {card.description && (
+          <p className="mt-1 text-[11px] leading-snug text-ink-sub">{card.description}</p>
+        )}
+      </div>
+    </button>
+  )
+}
 
 export default function PreferenceCardsForm({ cards, initialKeys, mode }: Props) {
   const router = useRouter()
@@ -29,24 +177,32 @@ export default function PreferenceCardsForm({ cards, initialKeys, mode }: Props)
   const [selected, setSelected] = useState<Set<string>>(new Set(initialKeys))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showMaxAlert, setShowMaxAlert] = useState(false)
 
   function toggle(key: string) {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      if (next.has(key)) {
-        next.delete(key)
-      } else {
-        next.add(key)
-      }
-      return next
-    })
+    if (selected.has(key)) {
+      const next = new Set(selected)
+      next.delete(key)
+      setSelected(next)
+      setShowMaxAlert(false)
+    } else if (selected.size >= MAX_CARDS) {
+      setShowMaxAlert(true)
+    } else {
+      const next = new Set(selected)
+      next.add(key)
+      setSelected(next)
+      setShowMaxAlert(false)
+    }
   }
 
   const count = selected.size
   const canSave = count >= MIN_CARDS
+  const remaining = Math.max(0, MIN_CARDS - count)
+  const progressPct = Math.min(100, (count / MIN_CARDS) * 100)
+  const atMax = count >= MAX_CARDS
 
   async function handleSave() {
-    if (!canSave) return
+    if (!canSave || loading) return
     setLoading(true)
     setError(null)
 
@@ -64,214 +220,141 @@ export default function PreferenceCardsForm({ cards, initialKeys, mode }: Props)
     if (mode === 'initial') {
       router.push('/home')
     } else {
-      router.push('/mypage/food-preferences')
+      router.push('/mypage')
     }
   }
 
+  const cardByKey = Object.fromEntries(cards.map((c) => [c.key, c]))
+  const categorizedKeys = new Set(CATEGORIES.flatMap((cat) => cat.keys))
+  const uncategorized = cards.filter((c) => !categorizedKeys.has(c.key))
+
+  // Sticky bar: in edit mode sits above BottomNav (h-16 = 64px)
+  const stickyBarClass =
+    mode === 'edit'
+      ? 'fixed inset-x-0 bottom-16 z-20 border-t border-edge bg-canvas/95 backdrop-blur-sm'
+      : 'fixed inset-x-0 bottom-0 z-20 border-t border-edge bg-canvas/95 backdrop-blur-sm'
+
   return (
-    <main className="min-h-screen bg-canvas pb-32">
-      {/* Header */}
-      {mode === 'initial' ? (
-        <>
-          <div className="flex items-center justify-between px-5 pt-14 pb-2">
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="inline-flex h-10 w-10 items-center justify-center text-ink"
-              aria-label="戻る"
-            >
-              <svg width="10" height="18" viewBox="0 0 10 18" fill="none" aria-hidden="true">
-                <path d="M9 1 L1 9 L9 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-            <span className="text-sm font-medium text-ink">プロフィール設定　2 / 2</span>
-            <div className="w-10" />
-          </div>
-          {/* Progress bar */}
-          <div className="h-[3px] w-full bg-terra" />
-        </>
-      ) : (
-        <div className="flex items-center justify-between px-5 pt-14 pb-4">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="inline-flex h-10 w-10 items-center justify-center text-ink"
-            aria-label="戻る"
-          >
-            <svg width="10" height="18" viewBox="0 0 10 18" fill="none" aria-hidden="true">
-              <path d="M9 1 L1 9 L9 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
-          <h1 className="text-base font-bold text-ink">好みを編集</h1>
-          <div className="w-10" />
+    <div className="pb-44">
+      {/* Title + subtitle — initial mode only */}
+      {mode === 'initial' && (
+        <div className="px-5 pt-5 pb-4">
+          <h1 className="text-[26px] font-black leading-tight text-ink">
+            あなたの食の好みを
+            <br />
+            教えてください
+          </h1>
+          <p className="mt-2 text-sm leading-snug text-ink-sub">
+            好きなものや、店選びで大切にしたいことを選ぼう。
+            <br />
+            あとから変更できます。
+          </p>
         </div>
       )}
 
-      {/* Headline + subtitle */}
-      <div className="px-5 pt-5 pb-3">
-        <div className="flex items-start justify-between gap-2">
-          <h1 className="text-[26px] font-black leading-tight text-ink">
-            {mode === 'initial' ? (
-              <>
-                あなたの食の好みを
-                <br />
-                教えてください
-              </>
-            ) : (
-              'あなたの食の好みを選んでください'
-            )}
-          </h1>
-          {/* Counter chip — inline right in edit mode */}
-          {mode === 'edit' && count > 0 && (
-            <div className="mt-1 shrink-0 inline-flex items-center gap-1 rounded-full bg-terra/10 px-2.5 py-1">
-              <svg
-                width="11"
-                height="11"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#F97316"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-              <span className="text-xs font-bold text-terra">{count}個選択中</span>
-            </div>
-          )}
-        </div>
-        <p className="mt-2 text-sm leading-snug text-ink-sub">
-          気になるカードを５つ以上選んでください。
-          <br />
-          あとからいつでも変更できます。
-        </p>
+      {/* Category sections */}
+      <div className="space-y-6 px-4">
+        {CATEGORIES.map((cat) => {
+          const catCards = cat.keys.map((k) => cardByKey[k]).filter((c): c is PreferenceCard => !!c)
+          if (catCards.length === 0) return null
+          const CatIcon = cat.Icon
 
-        {/* Counter chip below subtitle in initial mode */}
-        {mode === 'initial' && count > 0 && (
-          <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-terra/10 px-3 py-1.5">
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#F97316"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-            <span className="text-xs font-bold text-terra">{count}個選択しました</span>
-          </div>
+          return (
+            <section key={cat.label}>
+              <div className="mb-3 flex items-center gap-2 text-terra">
+                <CatIcon size={15} strokeWidth={2} aria-hidden="true" />
+                <h2 className="text-sm font-bold">{cat.label}</h2>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {catCards.map((card) => (
+                  <CardItem
+                    key={card.key}
+                    card={card}
+                    isSelected={selected.has(card.key)}
+                    onToggle={toggle}
+                  />
+                ))}
+              </div>
+            </section>
+          )
+        })}
+
+        {/* Fallback section for cards added after this category list was written */}
+        {uncategorized.length > 0 && (
+          <section>
+            <div className="mb-3 flex items-center gap-2 text-terra">
+              <Tag size={15} strokeWidth={2} aria-hidden="true" />
+              <h2 className="text-sm font-bold">その他</h2>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {uncategorized.map((card) => (
+                <CardItem
+                  key={card.key}
+                  card={card}
+                  isSelected={selected.has(card.key)}
+                  onToggle={toggle}
+                />
+              ))}
+            </div>
+          </section>
         )}
       </div>
 
-      {/* Card grid — image-top + text-below layout */}
-      <div className="px-5">
-        <div className="grid grid-cols-2 gap-3">
-          {cards.map((card) => {
-            const isSelected = selected.has(card.key)
-            return (
-              <button
-                key={card.key}
-                type="button"
-                onClick={() => toggle(card.key)}
-                aria-pressed={isSelected}
-                className={[
-                  'relative overflow-hidden rounded-2xl bg-surface text-left transition-all duration-150 active:scale-[0.97]',
-                  isSelected ? 'border-2 border-terra' : 'border border-edge',
-                ].join(' ')}
-              >
-                {/* Food photo — top half */}
-                <div className="relative h-28 w-full overflow-hidden">
-                  {card.image_path ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={card.image_path}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="h-full w-full bg-edge" />
-                  )}
-
-                  {/* Checkmark or circle indicator — top-right of photo */}
-                  <span
-                    className={[
-                      'absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full',
-                      isSelected ? 'bg-terra' : 'border-2 border-white/80 bg-black/20',
-                    ].join(' ')}
-                    aria-hidden="true"
-                  >
-                    {isSelected && (
-                      <svg
-                        width="11"
-                        height="11"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="white"
-                        strokeWidth="3.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    )}
-                  </span>
-                </div>
-
-                {/* Text section — below photo */}
-                <div className="p-2.5">
-                  <p className="text-sm font-bold leading-snug text-ink">{card.label}</p>
-                  {card.description && (
-                    <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-ink-sub">
-                      {card.description}
-                    </p>
-                  )}
-                </div>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
       {error && (
-        <div className="mt-6 px-5">
+        <div className="mt-6 px-4">
           <ErrorMessage message={error} />
         </div>
       )}
 
-      {/* Sticky CTA */}
-      <div className="fixed inset-x-0 bottom-0 bg-canvas/95 px-5 pb-8 pt-4 backdrop-blur-sm">
-        <div className="mx-auto w-full max-w-sm">
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={!canSave || loading}
-            className="flex h-[52px] w-full items-center justify-center gap-1 rounded-xl bg-terra text-base font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {loading ? (
-              '保存中...'
-            ) : mode === 'initial' ? (
-              'FoodKitをはじめる'
-            ) : (
-              <>
-                変更を保存
-                <svg width="8" height="14" viewBox="0 0 8 14" fill="none" aria-hidden="true">
-                  <path d="M1 1l6 6-6 6" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </>
-            )}
-          </button>
-          {!canSave && (
-            <p className="mt-2 text-center text-xs text-ink-sub">
-              あと{MIN_CARDS - count}個選んでください
+      {/* Sticky bottom bar */}
+      <div className={stickyBarClass}>
+        <div
+          className="px-4 pt-3"
+          style={{
+            paddingBottom:
+              mode === 'initial' ? 'max(0.75rem, env(safe-area-inset-bottom))' : '0.75rem',
+          }}
+        >
+          {/* Max-reached alert */}
+          {(atMax || showMaxAlert) && (
+            <p className="mb-2 rounded-lg bg-amber-50 px-3 py-1.5 text-center text-xs font-medium text-amber-700">
+              選択できるのは最大{MAX_CARDS}枚です。変更する場合は選択を解除してください。
             </p>
           )}
+
+          {/* Row 1: status text + save button */}
+          <div className="flex items-center gap-3">
+            <p className="flex-1 text-sm font-medium leading-tight text-ink-sub">
+              {canSave ? `${count}枚選択中` : `あと${remaining}枚選ぶと保存できます`}
+            </p>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!canSave || loading}
+              className="h-11 shrink-0 rounded-xl bg-terra px-5 text-sm font-bold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {loading
+                ? '保存中...'
+                : mode === 'initial'
+                  ? 'FoodKitをはじめる'
+                  : '変更を保存'}
+            </button>
+          </div>
+
+          {/* Row 2: progress bar + counter */}
+          <div className="mt-2 flex items-center gap-2">
+            <div className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-edge">
+              <div
+                className="absolute inset-y-0 left-0 rounded-full bg-terra transition-all duration-300"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+            <span className="shrink-0 text-xs text-ink-sub">
+              {count} / {count >= MIN_CARDS ? MAX_CARDS : MIN_CARDS}枚
+            </span>
+          </div>
         </div>
       </div>
-    </main>
+    </div>
   )
 }

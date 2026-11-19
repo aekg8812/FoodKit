@@ -9,14 +9,23 @@ import { createClient } from '@/lib/supabase/server'
 import { resolveRestaurantDisplay } from '@/lib/restaurants/display'
 import { RATING_BG, RATING_TEXT, RATING_BORDER } from '@/lib/rating/colors'
 
-type ReviewRow = {
+type VisitRow = {
   id: string
-  rating: number
-  comment: string | null
+  restaurant_id: string
   visit_date: string | null
-  created_at: string
+  rating: number
   image_path: string | null
-  restaurants: { id: string; name: string | null; source: string; external_place_id: string | null; genre: string | null; area: string | null; main_image_path: string | null } | null
+  comment: string | null
+  created_at: string
+  restaurants: {
+    id: string
+    name: string | null
+    source: string
+    external_place_id: string | null
+    genre: string | null
+    area: string | null
+    main_image_path: string | null
+  } | null
 }
 
 type UserProfile = {
@@ -24,6 +33,13 @@ type UserProfile = {
   username: string | null
   avatar_path: string | null
   updated_at: string | null
+}
+
+type RestaurantGroup = {
+  restaurantId: string
+  restaurant: VisitRow['restaurants']
+  visitCount: number
+  repVisit: VisitRow  // first occurrence = representative (sorted by visit_date DESC)
 }
 
 type PageProps = {
@@ -46,15 +62,14 @@ function parseRating(raw: string | string[] | undefined): RatingFilter {
 
 const RATING_CHIP: Record<number, { label: string; bg: string; text: string; border: string }> = {
   4: { label: '常連になりたい', bg: RATING_BG[4], text: RATING_TEXT[4], border: RATING_BORDER[4] },
-  3: { label: 'また行きたい', bg: RATING_BG[3], text: RATING_TEXT[3], border: RATING_BORDER[3] },
-  2: { label: '一度で十分', bg: RATING_BG[2], text: RATING_TEXT[2], border: RATING_BORDER[2] },
+  3: { label: 'また行きたい',   bg: RATING_BG[3], text: RATING_TEXT[3], border: RATING_BORDER[3] },
+  2: { label: '一度で十分',     bg: RATING_BG[2], text: RATING_TEXT[2], border: RATING_BORDER[2] },
   1: { label: '二度と行かない', bg: RATING_BG[1], text: RATING_TEXT[1], border: RATING_BORDER[1] },
 }
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr)
-  const days = ['日', '月', '火', '水', '木', '金', '土']
-  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 (${days[d.getDay()]})`
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`
 }
 
 export default async function MyRecordsPage({ searchParams }: PageProps) {
@@ -72,7 +87,6 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
   const state = await getUserState(supabase, user)
   if (state === 'no_onboarding') redirect('/onboarding')
 
-  // Fetch own profile (can read own users row directly)
   const { data: profileData } = await supabase
     .from('users')
     .select('name, username, avatar_path, updated_at')
@@ -90,76 +104,85 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
 
   const initial = Array.from((profile?.name ?? profile?.username ?? '?').trim())[0] ?? '?'
 
-  let query = supabase
-    .from('reviews')
-    .select('id, rating, comment, visit_date, created_at, image_path, restaurants(id, name, source, external_place_id, genre, area, main_image_path)')
+  // Load all visits ordered by representative sort (newest first per restaurant = first per group)
+  const { data: visitsData, error: visitsError } = await supabase
+    .from('restaurant_visits')
+    .select('id, restaurant_id, visit_date, rating, image_path, comment, created_at, restaurants(id, name, source, external_place_id, genre, area, main_image_path)')
     .eq('user_id', user.id)
+    .order('visit_date', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
 
-  if (ratingFilter !== 'all') {
-    query = query.eq('rating', ratingFilter)
+  if (visitsError) {
+    throw new Error(`MyRecordsPage: failed to load visits: ${visitsError.message}`)
   }
 
-  const ascending = sort === 'oldest'
-  query = query
-    .order('created_at', { ascending })
-    .order('id', { ascending })
+  const allVisits = (visitsData ?? []) as unknown as VisitRow[]
 
-  const { data, error } = await query
-
-  if (error) {
-    throw new Error(`MyRecordsPage: failed to load reviews: ${error.message}`)
-  }
-
-  const reviews = (data ?? []) as unknown as ReviewRow[]
-
-  // Signed URLs for review images
-  const imagePaths = [
-    ...new Set(reviews.map((r) => r.image_path).filter((p): p is string => Boolean(p))),
-  ]
-  const signedImagesResult = imagePaths.length
-    ? await supabase.storage.from('review-images').createSignedUrls(imagePaths, 60 * 60)
-    : { data: [], error: null }
-
-  const signedImageUrls = new Map<string, string | null>()
-  for (const s of signedImagesResult.data ?? []) {
-    if (s.path) signedImageUrls.set(s.path, s.signedUrl)
-  }
-
-  // Signed URLs for restaurant main images (fallback when review has no image)
-  const restaurantImagePaths = [
-    ...new Set(
-      reviews
-        .map((r) => r.restaurants?.main_image_path)
-        .filter((p): p is string => Boolean(p)),
-    ),
-  ]
-  const restaurantSignedUrls = new Map<string, string>()
-  if (restaurantImagePaths.length > 0) {
-    const { data: rImgData } = await supabase.storage
-      .from('restaurant-images')
-      .createSignedUrls(restaurantImagePaths, 60 * 60)
-    for (const s of rImgData ?? []) {
-      if (s.path && s.signedUrl && !s.error) restaurantSignedUrls.set(s.path, s.signedUrl)
+  // Group by restaurant — first occurrence per restaurant = representative visit
+  const groupMap = new Map<string, RestaurantGroup>()
+  for (const visit of allVisits) {
+    const existing = groupMap.get(visit.restaurant_id)
+    if (!existing) {
+      groupMap.set(visit.restaurant_id, {
+        restaurantId: visit.restaurant_id,
+        restaurant: visit.restaurants,
+        visitCount: 1,
+        repVisit: visit,
+      })
+    } else {
+      existing.visitCount++
     }
   }
 
-  const { count: totalCount } = await supabase
-    .from('reviews')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', user.id)
+  const totalRestaurants = groupMap.size
+  const totalVisits = allVisits.length
 
-  const hasAnyReviews = (totalCount ?? 0) > 0
+  // Apply rating filter (by representative visit's rating)
+  let groups = [...groupMap.values()]
+  if (ratingFilter !== 'all') {
+    groups = groups.filter(g => g.repVisit.rating === ratingFilter)
+  }
+
+  // Apply sort
+  if (sort === 'oldest') {
+    groups.reverse()  // already sorted newest→oldest; reverse = oldest→newest
+  }
+
+  // Collect image paths for signed URLs
+  const visitImagePaths = [...new Set(
+    groups.map(g => g.repVisit.image_path).filter((p): p is string => Boolean(p))
+  )]
+  const restaurantImagePaths = [...new Set(
+    groups.map(g => g.restaurant?.main_image_path).filter((p): p is string => Boolean(p))
+  )]
+
+  const signedVisitUrls = new Map<string, string | null>()
+  if (visitImagePaths.length > 0) {
+    const { data } = await supabase.storage.from('review-images').createSignedUrls(visitImagePaths, 60 * 60)
+    for (const s of data ?? []) {
+      if (s.path) signedVisitUrls.set(s.path, s.signedUrl)
+    }
+  }
+
+  const signedRestaurantUrls = new Map<string, string>()
+  if (restaurantImagePaths.length > 0) {
+    const { data } = await supabase.storage.from('restaurant-images').createSignedUrls(restaurantImagePaths, 60 * 60)
+    for (const s of data ?? []) {
+      if (s.path && s.signedUrl && !s.error) signedRestaurantUrls.set(s.path, s.signedUrl)
+    }
+  }
 
   // Resolve display names for Google-sourced restaurants
   const restaurantDisplayNames = new Map<string, string>()
   await Promise.all(
-    reviews
-      .map(r => r.restaurants)
+    groups
+      .map(g => g.restaurant)
       .filter((r): r is NonNullable<typeof r> => r !== null && r.source === 'google_place' && r.external_place_id !== null)
       .map(async (r) => {
         const d = await resolveRestaurantDisplay(r)
         restaurantDisplayNames.set(r.id, d.name)
-      }),
+      })
   )
 
   function sortHref(s: SortOrder) {
@@ -176,7 +199,7 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
     return `/mypage/records?${params.toString()}`
   }
 
-  const displayName = profile?.name ?? profile?.username ?? 'あなた'
+  const hasAnyVisits = totalVisits > 0
 
   return (
     <main className="min-h-screen bg-canvas pb-24">
@@ -195,10 +218,10 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
           {avatarUrl ? (
             <Image
               src={avatarUrl}
-              alt={displayName}
+              alt={profile?.name ?? profile?.username ?? 'あなた'}
               width={52}
               height={52}
-              className="h-13 w-13 rounded-full object-cover"
+              className="h-[52px] w-[52px] rounded-full object-cover"
               unoptimized
             />
           ) : (
@@ -213,7 +236,10 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
             )}
           </div>
           <p className="shrink-0 text-sm text-ink-sub">
-            <span className="text-xl font-black text-ink">{totalCount ?? 0}</span>件の記録
+            <span className="text-xl font-black text-ink">{totalRestaurants}</span>店舗
+            {totalVisits > totalRestaurants && (
+              <span className="ml-1 text-xs">（{totalVisits}回来店）</span>
+            )}
           </p>
         </div>
 
@@ -233,7 +259,7 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
           ))}
         </div>
 
-        {/* Rating filter chips — horizontal scroll */}
+        {/* Rating filter chips */}
         <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <Link
             href={ratingHref('all')}
@@ -267,9 +293,9 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
         </div>
 
         {/* Empty state */}
-        {reviews.length === 0 && (
+        {groups.length === 0 && (
           <div className="rounded-2xl border border-edge bg-surface px-6 py-10 text-center">
-            {hasAnyReviews && ratingFilter !== 'all' ? (
+            {hasAnyVisits && ratingFilter !== 'all' ? (
               <>
                 <p className="text-sm text-ink-sub">条件に合う記録がありません</p>
                 <Link
@@ -294,36 +320,40 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
           </div>
         )}
 
-        {/* Records list */}
-        {reviews.length > 0 && (
+        {/* Restaurant groups list */}
+        {groups.length > 0 && (
           <div className="divide-y divide-edge overflow-hidden rounded-2xl bg-surface">
-            {reviews.map((review) => {
-              const reviewImgUrl = review.image_path
-                ? (signedImageUrls.get(review.image_path) ?? null)
+            {groups.map((group) => {
+              const repVisit = group.repVisit
+              const visitImgUrl = repVisit.image_path
+                ? (signedVisitUrls.get(repVisit.image_path) ?? null)
                 : null
-              const restaurantImgUrl = review.restaurants?.main_image_path
-                ? (restaurantSignedUrls.get(review.restaurants.main_image_path) ?? null)
+              const restaurantImgUrl = group.restaurant?.main_image_path
+                ? (signedRestaurantUrls.get(group.restaurant.main_image_path) ?? null)
                 : null
-              const imgUrl = reviewImgUrl ?? restaurantImgUrl
-              const chip = RATING_CHIP[review.rating]
-              const dateStr = review.visit_date
-                ? formatDate(review.visit_date)
-                : formatDate(review.created_at)
+              const imgUrl = visitImgUrl ?? restaurantImgUrl
+              const chip = RATING_CHIP[repVisit.rating]
+              const dateStr = repVisit.visit_date
+                ? formatDate(repVisit.visit_date)
+                : formatDate(repVisit.created_at)
+              const displayName = group.restaurant
+                ? (restaurantDisplayNames.get(group.restaurant.id) ?? group.restaurant.name ?? '不明な店舗')
+                : '不明な店舗'
 
               return (
                 <Link
-                  key={review.id}
-                  href={`/records/${review.id}`}
-                  className="flex items-start gap-3 p-4 hover:bg-canvas"
+                  key={group.restaurantId}
+                  href={`/mypage/records/${group.restaurantId}`}
+                  className="relative flex items-start gap-3 p-4 hover:bg-canvas"
                 >
                   {/* Thumbnail */}
                   {imgUrl ? (
                     <div className="relative h-[80px] w-[80px] shrink-0 overflow-hidden rounded-xl">
                       <Image
                         src={imgUrl}
-                        alt={review.restaurants ? (restaurantDisplayNames.get(review.restaurants.id) ?? review.restaurants.name ?? '') : ''}
+                        alt={displayName}
                         fill
-                        sizes="70px"
+                        sizes="80px"
                         className="object-cover"
                         unoptimized
                       />
@@ -342,25 +372,29 @@ export default async function MyRecordsPage({ searchParams }: PageProps) {
 
                   {/* Info */}
                   <div className="min-w-0 flex-1">
-                    <p className="font-bold text-ink">
-                      {review.restaurants
-                        ? (restaurantDisplayNames.get(review.restaurants.id) ?? review.restaurants.name ?? '不明な店舗')
-                        : '不明な店舗'}
-                    </p>
-                    {(review.restaurants?.genre || review.restaurants?.area) && (
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="min-w-0 font-bold text-ink">{displayName}</p>
+                      {/* Visit count badge */}
+                      {group.visitCount > 1 && (
+                        <span className="shrink-0 rounded-full bg-terra/10 px-2 py-0.5 text-xs font-bold text-terra">
+                          {group.visitCount}回
+                        </span>
+                      )}
+                    </div>
+                    {(group.restaurant?.genre || group.restaurant?.area) && (
                       <p className="text-xs text-ink-sub">
-                        {[review.restaurants.genre, review.restaurants.area].filter(Boolean).join('・')}
+                        {[group.restaurant.genre, group.restaurant.area].filter(Boolean).join('・')}
                       </p>
                     )}
-                    <div className="mt-1.5 flex items-center gap-2">
+                    <div className="mt-1.5 flex items-center gap-2 flex-wrap">
                       <span className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${chip.bg} ${chip.text} ${chip.border}`}>
                         {chip.label}
                       </span>
                       <span className="text-xs text-ink-sub">{dateStr}</span>
                     </div>
-                    {review.comment && (
+                    {repVisit.comment && (
                       <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-ink-sub">
-                        {review.comment}
+                        {repVisit.comment}
                       </p>
                     )}
                   </div>
